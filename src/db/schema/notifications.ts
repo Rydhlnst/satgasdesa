@@ -1,0 +1,23 @@
+import { index, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { user } from "./auth";
+
+export const notification = mysqlTable("notification", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  recipientUserId: varchar("recipient_user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 64 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  body: text("body").notNull(),
+  relatedEntityType: varchar("related_entity_type", { length: 64 }),
+  relatedEntityId: varchar("related_entity_id", { length: 36 }),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [index("notification_recipient_read_created_idx").on(table.recipientUserId, table.readAt, table.createdAt)]);
+
+export const notificationDispatch = mysqlTable("notification_dispatch", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  ruleKey: varchar("rule_key", { length: 64 }).notNull(),
+  targetKey: varchar("target_key", { length: 128 }).notNull(),
+  recipientUserId: varchar("recipient_user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
+  notificationId: varchar("notification_id", { length: 36 }).notNull().references(() => notification.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull(),
+}, (table) => [uniqueIndex("notification_dispatch_rule_target_recipient_unique").on(table.ruleKey, table.targetKey, table.recipientUserId)]);

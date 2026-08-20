@@ -1,0 +1,278 @@
+import { and, count, desc, eq, inArray, like, or, sum } from "drizzle-orm";
+import { z } from "zod";
+
+import { getDb } from "@/src/db";
+import { auditLog } from "@/src/db/schema/audit";
+import { duePayment } from "@/src/db/schema/dues";
+import { financialTransaction } from "@/src/db/schema/finance";
+import { realizationRequest } from "@/src/db/schema/budgets";
+import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
+import { requirePermission } from "@/src/lib/permissions/authorize";
+import { PERMISSIONS } from "@/src/lib/permissions/constants";
+
+import { approveFinancialTransactionSchema, createFinancialTransactionSchema, financialTransactionFiltersSchema, reverseFinancialTransactionSchema } from "./schema";
+
+function parseInput<T>(result: { success: boolean; data?: T }): T {
+  if (!result.success || !result.data) throw new Error("Please check the financial transaction details and try again.");
+  return result.data;
+}
+
+function optionalValue(value?: string): string | null {
+  return value?.trim() ? value.trim() : null;
+}
+
+function numericTotal(value: string | number | null | undefined): number {
+  return value == null ? 0 : Number(value);
+}
+
+function createTransactionCode(): string {
+  return `TX-${crypto.randomUUID().replaceAll("-", "").slice(0, 20).toUpperCase()}`;
+}
+
+function idempotentTransactionCode(idempotencyKey: string): string {
+  return `TX-${idempotencyKey.replaceAll("-", "").toUpperCase()}`;
+}
+
+function sameTransactionPayload(current: typeof financialTransaction.$inferSelect, values: z.infer<typeof createFinancialTransactionSchema>): boolean {
+  return current.transactionType === values.transactionType
+    && current.amount === values.amount
+    && current.description === values.description
+    && current.relatedEntityType === optionalValue(values.relatedEntityType)
+    && current.relatedEntityId === (values.relatedEntityId ?? null)
+    && current.evidenceKey === optionalValue(values.evidenceKey);
+}
+
+type TransactionContext = Pick<ReturnType<typeof getDb>, "insert" | "update">;
+
+export async function reverseFinancialTransactionRecord(tx: TransactionContext, current: typeof financialTransaction.$inferSelect, actorUserId: string, reason: string) {
+  if (current.status !== "SAH") throw new Error("Only approved financial transactions can be reversed.");
+  const reversalId = crypto.randomUUID();
+  const now = new Date();
+  const reversalType = current.transactionType === "CASH_IN" ? "CASH_OUT" : "CASH_IN";
+  const [updateResult] = await tx.update(financialTransaction).set({ status: "REVERSED", updatedAt: now }).where(and(eq(financialTransaction.id, current.id), eq(financialTransaction.status, "SAH")));
+  if (updateResult.affectedRows !== 1) throw new Error("Financial transaction was already processed.");
+  await tx.insert(financialTransaction).values({
+    id: reversalId,
+    transactionCode: createTransactionCode(),
+    transactionAt: now,
+    transactionType: reversalType,
+    amount: current.amount,
+    description: `Reversal of ${current.transactionCode}: ${reason}`,
+    relatedEntityType: "FINANCIAL_TRANSACTION",
+    relatedEntityId: current.id,
+    evidenceKey: null,
+    status: "SAH",
+    createdBy: actorUserId,
+    approvedBy: actorUserId,
+    reversedTransactionId: current.id,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await tx.insert(auditLog).values(createAuditLogValues({ actorUserId, action: AUDIT_ACTIONS.REVERSE, entityType: "FINANCIAL_TRANSACTION", entityId: current.id, oldValues: { status: "SAH" }, newValues: { status: "REVERSED", reversalId, reason } }));
+  return reversalId;
+}
+
+export async function getFinancialTransactions(status?: "DRAFT" | "SAH" | "REVERSED") {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const database = getDb();
+  const query = database.select().from(financialTransaction);
+  return status
+    ? query.where(eq(financialTransaction.status, status)).orderBy(desc(financialTransaction.transactionAt)).limit(100)
+    : query.orderBy(desc(financialTransaction.transactionAt)).limit(100);
+}
+
+export async function getFinancialTransaction(id: string) {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const validId = z.string().uuid("Invalid transaction ID.").parse(id);
+  const [item] = await getDb().select().from(financialTransaction).where(eq(financialTransaction.id, validId)).limit(1);
+  return item ?? null;
+}
+
+export async function getFinancialTransactionsPage(input?: unknown) {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const values = financialTransactionFiltersSchema.parse(input ?? {});
+  const conditions = [
+    values.status ? eq(financialTransaction.status, values.status) : undefined,
+    values.transactionType ? eq(financialTransaction.transactionType, values.transactionType) : undefined,
+    values.relatedEntityType ? eq(financialTransaction.relatedEntityType, values.relatedEntityType) : undefined,
+    values.query ? or(
+      like(financialTransaction.transactionCode, `%${values.query}%`),
+      like(financialTransaction.description, `%${values.query}%`),
+    ) : undefined,
+  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+  const where = conditions.length ? and(...conditions) : undefined;
+  const database = getDb();
+  const [items, [{ total }]] = await Promise.all([
+    database.select().from(financialTransaction).where(where).orderBy(desc(financialTransaction.transactionAt)).limit(values.pageSize).offset((values.page - 1) * values.pageSize),
+    database.select({ total: count() }).from(financialTransaction).where(where),
+  ]);
+  return { items, page: values.page, pageSize: values.pageSize, total: Number(total), totalPages: Math.ceil(Number(total) / values.pageSize) };
+}
+
+export async function getFinanceSummary() {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const database = getDb();
+  const [transactionGroups, [duePaymentTotals], [duePaymentTransactionTotals], [realizationTotals], [realizationTransactionTotals]] = await Promise.all([
+    database
+      .select({ status: financialTransaction.status, transactionType: financialTransaction.transactionType, total: sum(financialTransaction.amount), totalCount: count() })
+      .from(financialTransaction)
+      .groupBy(financialTransaction.status, financialTransaction.transactionType),
+    database.select({ total: sum(duePayment.amount) }).from(duePayment),
+    database
+      .select({ total: sum(financialTransaction.amount) })
+      .from(financialTransaction)
+      .where(and(eq(financialTransaction.status, "SAH"), eq(financialTransaction.transactionType, "CASH_IN"), eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"))),
+    database.select({ total: sum(realizationRequest.requestedAmount) }).from(realizationRequest).where(eq(realizationRequest.status, "SAH")),
+    database
+      .select({ total: sum(financialTransaction.amount) })
+      .from(financialTransaction)
+      .where(and(eq(financialTransaction.status, "SAH"), eq(financialTransaction.transactionType, "CASH_OUT"), eq(financialTransaction.relatedEntityType, "REALIZATION"))),
+  ]);
+
+  let cashIn = 0;
+  let cashOut = 0;
+  let transactionCount = 0;
+  let draftCount = 0;
+  let approvedCount = 0;
+  let reversedCount = 0;
+  for (const group of transactionGroups) {
+    const total = numericTotal(group.total);
+    const groupCount = Number(group.totalCount);
+    transactionCount += groupCount;
+    if (group.status === "DRAFT") draftCount += groupCount;
+    if (group.status === "SAH") approvedCount += groupCount;
+    if (group.status === "REVERSED") reversedCount += groupCount;
+    if (group.status === "SAH" || group.status === "REVERSED") {
+      if (group.transactionType === "CASH_IN") cashIn += total;
+      if (group.transactionType === "CASH_OUT") cashOut += total;
+    }
+  }
+
+  const duePaymentTotal = numericTotal(duePaymentTotals?.total);
+  const duePaymentTransactionTotal = numericTotal(duePaymentTransactionTotals?.total);
+  const realizationTotal = numericTotal(realizationTotals?.total);
+  const realizationTransactionTotal = numericTotal(realizationTransactionTotals?.total);
+  return {
+    cashIn,
+    cashOut,
+    cashBalance: cashIn - cashOut,
+    transactionCount,
+    draftCount,
+    approvedCount,
+    reversedCount,
+    reconciliation: {
+      duePaymentTotal,
+      duePaymentTransactionTotal,
+      realizationTotal,
+      realizationTransactionTotal,
+      duePaymentDifference: duePaymentTotal - duePaymentTransactionTotal,
+      realizationDifference: realizationTotal - realizationTransactionTotal,
+      reconciled: duePaymentTotal === duePaymentTransactionTotal && realizationTotal === realizationTransactionTotal,
+    },
+  };
+}
+
+export async function getCashBalance() {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const database = getDb();
+  const [[cashIn], [cashOut]] = await Promise.all([
+    database.select({ total: sum(financialTransaction.amount) }).from(financialTransaction).where(and(inArray(financialTransaction.status, ["SAH", "REVERSED"]), eq(financialTransaction.transactionType, "CASH_IN"))),
+    database.select({ total: sum(financialTransaction.amount) }).from(financialTransaction).where(and(inArray(financialTransaction.status, ["SAH", "REVERSED"]), eq(financialTransaction.transactionType, "CASH_OUT"))),
+  ]);
+
+  return numericTotal(cashIn?.total) - numericTotal(cashOut?.total);
+}
+
+export async function createFinancialTransaction(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.FINANCE_CREATE);
+  const values = parseInput(createFinancialTransactionSchema.safeParse(input));
+  const transactionCode = idempotentTransactionCode(values.idempotencyKey);
+  const id = crypto.randomUUID();
+  const now = new Date();
+  await getDb().transaction(async (tx) => {
+    const [existing] = await tx.select().from(financialTransaction).where(eq(financialTransaction.transactionCode, transactionCode)).limit(1);
+    if (existing) {
+      if (!sameTransactionPayload(existing, values)) throw new Error("This idempotency key was already used for different transaction data.");
+      return;
+    }
+    await tx.insert(financialTransaction).values({
+      id,
+      transactionCode,
+      transactionAt: values.transactionAt ?? now,
+      transactionType: values.transactionType,
+      amount: values.amount,
+      description: values.description,
+      relatedEntityType: optionalValue(values.relatedEntityType),
+      relatedEntityId: values.relatedEntityId ?? null,
+      evidenceKey: optionalValue(values.evidenceKey),
+      status: "DRAFT",
+      createdBy: session.user.id,
+      approvedBy: null,
+      reversedTransactionId: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await tx.insert(auditLog).values(
+      createAuditLogValues({
+        actorUserId: session.user.id,
+        action: AUDIT_ACTIONS.CREATE,
+        entityType: "FINANCIAL_TRANSACTION",
+        entityId: id,
+        newValues: { type: values.transactionType, amount: values.amount, status: "DRAFT" },
+      }),
+    );
+  });
+  const [existing] = await getDb().select({ id: financialTransaction.id, status: financialTransaction.status }).from(financialTransaction).where(eq(financialTransaction.transactionCode, transactionCode)).limit(1);
+  return { id: existing?.id ?? id, status: existing?.status ?? "DRAFT", duplicate: existing?.id !== id };
+}
+
+export async function approveFinancialTransaction(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.FINANCE_APPROVE);
+  const values = parseInput(approveFinancialTransactionSchema.safeParse(input));
+  const database = getDb();
+  const [current] = await database
+    .select()
+    .from(financialTransaction)
+    .where(eq(financialTransaction.id, values.id))
+    .limit(1);
+  if (!current) throw new Error("Financial transaction was not found.");
+  if (current.status !== "DRAFT") throw new Error("Only draft financial transactions can be approved.");
+
+  await database.transaction(async (tx) => {
+    const [updateResult] = await tx
+      .update(financialTransaction)
+      .set({ status: "SAH", approvedBy: session.user.id, updatedAt: new Date() })
+      .where(and(eq(financialTransaction.id, current.id), eq(financialTransaction.status, "DRAFT")));
+    if (updateResult.affectedRows !== 1) throw new Error("Financial transaction was already processed.");
+    await tx.insert(auditLog).values(
+      createAuditLogValues({
+        actorUserId: session.user.id,
+        action: AUDIT_ACTIONS.APPROVE,
+        entityType: "FINANCIAL_TRANSACTION",
+        entityId: current.id,
+        oldValues: { status: "DRAFT" },
+        newValues: { status: "SAH" },
+      }),
+    );
+  });
+  return { id: current.id, status: "SAH" };
+}
+
+export async function reverseFinancialTransaction(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.FINANCE_APPROVE);
+  const values = parseInput(reverseFinancialTransactionSchema.safeParse(input));
+  const database = getDb();
+  const [current] = await database
+    .select()
+    .from(financialTransaction)
+    .where(eq(financialTransaction.id, values.id))
+    .limit(1);
+  if (!current) throw new Error("Financial transaction was not found.");
+  if (current.status !== "SAH") throw new Error("Only approved financial transactions can be reversed.");
+
+  let reversalId = "";
+  await database.transaction(async (tx) => {
+    reversalId = await reverseFinancialTransactionRecord(tx, current, session.user.id, values.reason);
+  });
+  return { id: reversalId, reversedTransactionId: current.id };
+}

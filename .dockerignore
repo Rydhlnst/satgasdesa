@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.pnpm-local
+.env*
+!.env.example
+*.log
+docs
+README.md
+SATGAS_DESA_SEJOLI_TECHNICAL_PROJECT_SPEC_V1.md
