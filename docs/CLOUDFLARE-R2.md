@@ -26,7 +26,7 @@ Because inspection photos upload from the browser to a presigned URL, add this p
   {
     "AllowedOrigins": [
       "http://localhost:3000",
-      "https://your-production-domain.example"
+      "https://satgas.beres.io"
     ],
     "AllowedMethods": ["PUT", "GET"],
     "AllowedHeaders": ["Content-Type"],
