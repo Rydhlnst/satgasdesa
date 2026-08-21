@@ -2,7 +2,13 @@
 
 ## Recommended setup
 
-Use this repository's `docker-compose.yml` as a Docker Compose resource in Coolify. Expose only the `app` service through the Coolify domain. Keep the `mysql` service on the private Compose network and do not publish port 3306.
+Use this repository's `docker-compose.yml` as a Docker Compose resource in Coolify. Expose only the `app` service through the Coolify domain on internal port `3000`. The production Compose file uses `expose` instead of publishing a host port, so it will not conflict with another service already using port 3000. Keep the `mysql` service on the private Compose network and do not publish port 3306.
+
+For Docker Desktop local access, use the local override so the app is available at `http://localhost:3000`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+```
 
 The app container automatically:
 
