@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, desc, eq, like, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -101,6 +101,8 @@ export async function getBlockDetails(id: string) {
 export async function createBlock(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.BLOCK_CREATE);
   const values = parseBlockForm(formData);
+  const [duplicate] = await getDb().select({ id: block.id }).from(block).where(eq(block.code, values.code)).limit(1);
+  if (duplicate) throw new Error("A block with this code already exists.");
   const id = crypto.randomUUID();
   const now = new Date();
 
@@ -122,6 +124,8 @@ export async function updateBlock(formData: FormData) {
   const values = parseBlockForm(formData);
   const [existing] = await getDb().select().from(block).where(eq(block.id, id)).limit(1);
   if (!existing) throw new Error("Block was not found.");
+  const [duplicate] = await getDb().select({ id: block.id }).from(block).where(and(eq(block.code, values.code), ne(block.id, id))).limit(1);
+  if (duplicate) throw new Error("A block with this code already exists.");
 
   const oldValues = { code: existing.code, name: existing.name, status: existing.status };
   const newValues = { code: values.code, name: values.name, status: values.status };

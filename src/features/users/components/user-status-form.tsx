@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionForm } from "@/components/shared/action-form";
 import { Button } from "@/components/ui/button";
 import { updateUserStatus } from "@/src/features/users/actions";
 
@@ -14,9 +15,9 @@ export function UserStatusForm({ userId, userName, status }: UserStatusFormProps
   const isDeactivation = nextStatus === "INACTIVE";
 
   return (
-    <form
+    <ActionForm
       action={updateUserStatus}
-      onSubmit={(event) => {
+      onBeforeSubmit={(event) => {
         if (isDeactivation && !window.confirm(`Deactivate ${userName}?`)) event.preventDefault();
       }}
     >
@@ -25,6 +26,6 @@ export function UserStatusForm({ userId, userName, status }: UserStatusFormProps
       <Button type="submit" size="xs" variant="ghost">
         {isDeactivation ? "Deactivate" : "Activate"}
       </Button>
-    </form>
+    </ActionForm>
   );
 }

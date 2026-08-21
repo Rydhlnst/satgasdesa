@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormErrorToast } from "@/components/shared/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,7 +62,8 @@ export function ForgotPasswordForm() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <FormErrorToast error={error} />
+      <form className="space-y-6" noValidate onSubmit={handleSubmit}>
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" autoComplete="email" required />

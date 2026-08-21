@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActionForm } from "@/components/shared/action-form";
 import { PageContainer } from "@/components/app-shell/page-container";
 import { PageHeader } from "@/components/shared/page-header";
 import { CreateUserForm } from "@/src/features/users/components/create-user-form";
@@ -62,7 +63,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/dashboard/
                     <p className="mt-1 text-xs text-muted-foreground">{item.email}</p>
                   </td>
                   <td className="px-5 py-5">
-                    <form action={assignUserRole} className="flex items-center gap-2">
+                    <ActionForm action={assignUserRole} className="flex items-center gap-2">
                       <input type="hidden" name="userId" value={item.id} />
                       <select
                         name="roleId"
@@ -82,7 +83,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/dashboard/
                       <Button type="submit" size="xs" variant="outline">
                         Save
                       </Button>
-                    </form>
+                    </ActionForm>
                   </td>
                 <td className="px-5 py-5">
                     <div className="space-y-2"><Badge variant={item.status === "ACTIVE" ? "default" : "destructive"}>{item.status}</Badge><p className="text-xs text-muted-foreground">{item.emailVerified ? "Email verified" : "Email unverified"}</p></div>

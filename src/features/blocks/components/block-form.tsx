@@ -1,15 +1,14 @@
 import type { ComponentProps } from "react";
 
+import { ActionForm, type FormServerAction } from "@/components/shared/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { BLOCK_STATUSES } from "../schema";
 
-type BlockFormAction = (formData: FormData) => Promise<void>;
-
 type BlockFormProps = {
-  action: BlockFormAction;
+  action: FormServerAction;
   submitLabel: string;
   initial?: Partial<Record<string, string | number | null>>;
 };
@@ -29,7 +28,7 @@ function valueOf(initial: BlockFormProps["initial"], key: string): string | numb
 
 export function BlockForm({ action, submitLabel, initial = {} }: BlockFormProps) {
   return (
-    <form action={action} className="space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+    <ActionForm action={action} className="space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm">
       {initial.id ? <input type="hidden" name="id" value={String(initial.id)} /> : null}
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Block record</p>
@@ -89,7 +88,7 @@ export function BlockForm({ action, submitLabel, initial = {} }: BlockFormProps)
       </div>
 
       <Button type="submit">{submitLabel}</Button>
-    </form>
+    </ActionForm>
   );
 }
 

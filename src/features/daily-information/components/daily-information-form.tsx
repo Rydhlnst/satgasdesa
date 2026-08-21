@@ -4,6 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 
 import { createDailyInformationAction } from "@/app/dashboard/information/_actions";
+import { FormErrorToast, showActionError } from "@/components/shared/action-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -35,12 +36,12 @@ export function DailyInformationForm({ blocks }: DailyInformationFormProps) {
     onSubmit: async ({ value }) => {
       const formData = new FormData();
       Object.entries(value).forEach(([key, item]) => formData.set(key, item));
-      await createDailyInformationAction(formData);
+      try { await createDailyInformationAction(formData); } catch (error) { showActionError(error); throw error; }
     },
   });
 
   return <Card className="shadow-sm"><CardHeader><CardTitle className="font-heading text-xl">Informasi lapangan baru</CardTitle><p className="text-sm text-muted-foreground">Catat keluhan, insiden, pemberitahuan, atau calon pengelola secara terstruktur.</p></CardHeader><CardContent><form className="space-y-6" noValidate onSubmit={(event) => { event.preventDefault(); event.stopPropagation(); void form.handleSubmit(); }}>
-    <form.Subscribe selector={(state) => state.errors}>{(errors) => errors.length ? <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{String(errors[0])}</p> : null}</form.Subscribe>
+    <form.Subscribe selector={(state) => state.errors}>{(errors) => <>{errors.length ? <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{String(errors[0])}</p> : null}<FormErrorToast error={errors[0]} /></>}</form.Subscribe>
     <div className="grid gap-5 sm:grid-cols-2">
       <form.Field name="category">{(field) => <div className="space-y-2"><Label htmlFor={field.name}>Kategori</Label><NativeSelect aria-invalid={field.state.meta.errors.length > 0} id={field.name} name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)}><NativeSelectOption disabled value="">Pilih kategori</NativeSelectOption>{DAILY_INFORMATION_CATEGORIES.map((item) => <NativeSelectOption key={item} value={item}>{item.replaceAll("_", " ")}</NativeSelectOption>)}</NativeSelect><FieldError errors={field.state.meta.errors} /></div>}</form.Field>
       <form.Field name="priority">{(field) => <div className="space-y-2"><Label htmlFor={field.name}>Prioritas</Label><NativeSelect id={field.name} name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(event) => field.handleChange(event.target.value)}>{DAILY_INFORMATION_PRIORITIES.map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}</NativeSelect><FieldError errors={field.state.meta.errors} /></div>}</form.Field>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { getDailyInformationAttachmentDownloadAction } from "@/app/dashboard/information/_actions";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,9 @@ export function AttachmentList({ id, attachments }: { id: string; attachments: A
       const result = await getDailyInformationAttachmentDownloadAction({ id, storageKey });
       setUrls((current) => ({ ...current, [storageKey]: result.downloadUrl }));
     } catch (attachmentError) {
-      setError(attachmentError instanceof Error ? attachmentError.message : "Unable to load the attachment.");
+      const message = attachmentError instanceof Error ? attachmentError.message : "Unable to load the attachment.";
+      setError(message);
+      toast.error(message);
     } finally {
       setPending(null);
     }

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FilePlus2, FileText, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -48,7 +49,9 @@ export function EvidenceUploader({ kind, entityId, disabled }: EvidenceUploaderP
       setPreview(null);
       router.refresh();
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Evidence upload failed.");
+      const message = uploadError instanceof Error ? uploadError.message : "Evidence upload failed.";
+      setError(message);
+      toast.error(message);
     } finally { setPending(false); if (inputRef.current) inputRef.current.value = ""; }
   }
 

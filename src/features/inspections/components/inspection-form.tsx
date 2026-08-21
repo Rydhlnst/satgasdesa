@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, LocateFixed, MapPin, Save, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 import { createInspectionAction, createInspectionUploadAction } from "@/app/dashboard/inspections/_actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -48,6 +49,11 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const [step, setStep] = useState(0);
 
+  function reportError(message: string) {
+    setError(message);
+    toast.error(message);
+  }
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       const draft = loadInspectionDraft(DRAFT_ID);
@@ -61,7 +67,7 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
       void loadInspectionPhotoDrafts(DRAFT_ID).then((storedPhotos) => {
         const restoredPhotos = storedPhotos.map((photo) => { const file = new File([photo.blob], photo.originalName, { type: photo.contentType }); return { file, preview: URL.createObjectURL(file), originalName: photo.originalName, originalSize: photo.originalSize }; });
         if (restoredPhotos.length) setPhotos(restoredPhotos);
-      }).catch(() => setError("Foto draf lokal tidak dapat dipulihkan."));
+      }).catch(() => reportError("Foto draf lokal tidak dapat dipulihkan."));
       setDraftReady(true);
     }, 0);
     return () => window.clearTimeout(timeout);
@@ -91,18 +97,18 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
   function discardDraft() { deleteInspectionDraft(DRAFT_ID); void deleteInspectionPhotoDrafts(DRAFT_ID); setDraftReady(false); setFields(EMPTY_FIELDS); setGps(null); setPhotos([]); setDraftState("none"); setSyncState("local"); setError(null); }
 
   function captureLocation() {
-    if (!navigator.geolocation) { setGpsState("error"); setError("Peramban ini tidak mendukung lokasi."); return; }
+    if (!navigator.geolocation) { setGpsState("error"); reportError("Peramban ini tidak mendukung lokasi."); return; }
     setGpsState("loading"); setError(null);
-    navigator.geolocation.getCurrentPosition((position) => { setGps({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: new Date().toISOString() }); setGpsState("idle"); setDraftReady(true); }, (positionError) => { setGpsState("error"); setError(positionError.code === positionError.PERMISSION_DENIED ? "Izin lokasi ditolak. Aktifkan izin lokasi lalu coba lagi." : "Lokasi belum dapat diambil. Coba lagi di area terbuka." ); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    navigator.geolocation.getCurrentPosition((position) => { setGps({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: new Date().toISOString() }); setGpsState("idle"); setDraftReady(true); }, (positionError) => { setGpsState("error"); reportError(positionError.code === positionError.PERMISSION_DENIED ? "Izin lokasi ditolak. Aktifkan izin lokasi lalu coba lagi." : "Lokasi belum dapat diambil. Coba lagi di area terbuka." ); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   }
 
   async function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []); const next = [...photos]; setError(null); setIsOptimizing(true);
     for (const file of selected) {
       if (next.length >= 3) break;
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Foto harus berformat JPG, PNG, atau WEBP."); continue; }
-      if (file.size > 10 * 1024 * 1024) { setError("Ukuran setiap foto maksimal 10 MB."); continue; }
-      try { const optimized = await compressImage(file); next.push({ file: optimized.file, preview: URL.createObjectURL(optimized.file), originalName: file.name, originalSize: optimized.originalSize }); } catch (compressionError) { setError(compressionError instanceof Error ? compressionError.message : "Foto tidak dapat dioptimalkan."); }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { reportError("Foto harus berformat JPG, PNG, atau WEBP."); continue; }
+      if (file.size > 10 * 1024 * 1024) { reportError("Ukuran setiap foto maksimal 10 MB."); continue; }
+      try { const optimized = await compressImage(file); next.push({ file: optimized.file, preview: URL.createObjectURL(optimized.file), originalName: file.name, originalSize: optimized.originalSize }); } catch (compressionError) { reportError(compressionError instanceof Error ? compressionError.message : "Foto tidak dapat dioptimalkan."); }
     }
     setPhotos(next); setIsOptimizing(false); event.target.value = ""; void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(next));
   }
@@ -111,14 +117,14 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
 
   async function handleSubmit(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault(); setError(null);
-    if (!fields.blockId) { setStep(0); setError("Pilih blok sebelum mengirim inspeksi."); return; }
-    if (!gps) { setStep(0); setError("Ambil lokasi sebelum mengirim inspeksi."); return; }
+    if (!fields.blockId) { setStep(0); reportError("Pilih blok sebelum mengirim inspeksi."); return; }
+    if (!gps) { setStep(0); reportError("Ambil lokasi sebelum mengirim inspeksi."); return; }
     if (!navigator.onLine) {
       saveInspectionDraft(DRAFT_ID, { ...fields, gps }, "unsynced");
       void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(photos));
       setSyncState("unsynced");
       setDraftState("saved");
-      setError("Perangkat sedang offline. Inspeksi disimpan sebagai draf belum tersinkron dan dapat dikirim ulang saat koneksi kembali.");
+      reportError("Perangkat sedang offline. Inspeksi disimpan sebagai draf belum tersinkron dan dapat dikirim ulang saat koneksi kembali.");
       return;
     }
     const inspectionId = crypto.randomUUID(); setIsPending(true); setSyncState("submitting"); updateInspectionDraftStatus(DRAFT_ID, "submitting");
@@ -127,7 +133,7 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
       for (const [index, photo] of photos.entries()) { setProgress(`Mengunggah foto ${index + 1} dari ${photos.length}…`); const upload = await createInspectionUploadAction({ inspectionId, contentType: photo.file.type, size: photo.file.size, originalName: photo.file.name }); const response = await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": photo.file.type }, body: photo.file }); if (!response.ok) throw new Error("Foto tidak dapat diunggah."); uploadedPhotos.push({ storageKey: upload.key, contentType: photo.file.type, size: photo.file.size, originalName: photo.file.name, capturedAt: new Date() }); }
       setProgress("Menyimpan inspeksi…"); const result = await createInspectionAction({ id: inspectionId, blockId: fields.blockId, inspectedAt: fields.inspectedAt ? new Date(fields.inspectedAt) : undefined, latitude: gps.latitude, longitude: gps.longitude, gpsAccuracy: gps.accuracy, gpsCapturedAt: new Date(gps.capturedAt), excavatorCount: Number(fields.excavatorCount), workerCount: Number(fields.workerCount), condition: fields.condition, findings: fields.findings.trim() || undefined, notes: fields.notes.trim() || undefined, photos: uploadedPhotos });
       deleteInspectionDraft(DRAFT_ID); await deleteInspectionPhotoDrafts(DRAFT_ID); setSyncState("local"); router.push(`/dashboard/inspections/${result.id}`);
-    } catch (submissionError) { saveInspectionDraft(DRAFT_ID, { ...fields, gps }, "failed"); void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(photos)); setSyncState("failed"); setDraftState("saved"); setError(submissionError instanceof Error ? submissionError.message : "Inspeksi tidak dapat disimpan. Coba lagi."); } finally { setIsPending(false); setProgress(null); }
+    } catch (submissionError) { saveInspectionDraft(DRAFT_ID, { ...fields, gps }, "failed"); void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(photos)); setSyncState("failed"); setDraftState("saved"); reportError(submissionError instanceof Error ? submissionError.message : "Inspeksi tidak dapat disimpan. Coba lagi."); } finally { setIsPending(false); setProgress(null); }
   }
 
   const statusLabel = syncState === "unsynced" ? "Belum tersinkron" : syncState === "submitting" ? "Mengirim" : syncState === "failed" ? "Pengiriman gagal" : draftState === "loaded" ? "Draf lokal dipulihkan" : draftState === "saved" ? "Draf lokal" : "Belum terkirim";

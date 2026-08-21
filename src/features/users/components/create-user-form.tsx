@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { FormErrorToast } from "@/components/shared/action-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,12 +19,13 @@ export function CreateUserForm({ roles }: CreateUserFormProps) {
   const [state, formAction, isPending] = useActionState(createInvitedUser, initialState);
 
   return (
-    <form action={formAction} className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
+    <form action={formAction} className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm" noValidate>
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Invite user</p>
         <p className="mt-1 text-sm text-muted-foreground">The user receives a secure password setup link by email.</p>
       </div>
       {state.error ? <Alert variant="destructive"><AlertDescription>{state.error}</AlertDescription></Alert> : null}
+      <FormErrorToast error={state.error} />
       {state.success ? <Alert><AlertDescription>{state.success}</AlertDescription></Alert> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2"><Label htmlFor="new-user-name">Name</Label><Input id="new-user-name" name="name" required maxLength={255} /></div>

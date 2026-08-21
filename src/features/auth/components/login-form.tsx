@@ -7,6 +7,7 @@ import { z } from "zod";
 import { LockKeyhole, Mail } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormErrorToast } from "@/components/shared/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,12 +55,13 @@ export function LoginForm() {
   }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form className="space-y-5" noValidate onSubmit={handleSubmit}>
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      <FormErrorToast error={error} />
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <div className="relative">

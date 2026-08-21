@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FormErrorToast } from "@/components/shared/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,12 +80,13 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   }
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
+    <form className="space-y-6" noValidate onSubmit={handleSubmit}>
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      <FormErrorToast error={error} />
       <div className="space-y-2">
         <Label htmlFor="password">New password</Label>
         <Input id="password" name="password" type="password" autoComplete="new-password" required />
