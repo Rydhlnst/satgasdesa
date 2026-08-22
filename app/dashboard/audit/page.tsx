@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+
 import { PageContainer } from "@/components/app-shell/page-container";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -9,9 +10,13 @@ import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 
 export const dynamic = "force-dynamic";
+
 type Props = { searchParams: Promise<{ query?: string; action?: string; entityType?: string }> };
 
-function formatAuditValue(value: unknown): string { if (value == null) return "Tidak ada metadata"; return typeof value === "string" ? value : JSON.stringify(value, null, 2); }
+function formatAuditValue(value: unknown): string {
+  if (value == null) return "Tidak ada metadata";
+  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
 
 export default async function AuditPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -19,5 +24,34 @@ export default async function AuditPage({ searchParams }: Props) {
   const actions = Object.values(AUDIT_ACTIONS);
   const action = actions.includes(params.action as (typeof actions)[number]) ? params.action : undefined;
   const result = await getAuditLogs({ query: params.query?.trim() || undefined, action, entityType: params.entityType?.trim() || undefined });
-  return <PageContainer><div className="space-y-8"><PageHeader breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Audit log" }]} description="Immutable domain activity recorded by the backend services and workflow transitions." eyebrow="Governance" title="Audit log" /><form className="grid gap-3 border-y border-border py-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]" method="get"><input className="h-10 border-b border-input bg-transparent text-sm" defaultValue={params.query ?? ""} name="query" placeholder="Search actor, entity, or ID" /><select className="h-10 border-b border-input bg-transparent text-sm" defaultValue={action ?? ""} name="action"><option value="">All actions</option>{actions.map((item) => <option key={item}>{item}</option>)}</select><input className="h-10 border-b border-input bg-transparent text-sm" defaultValue={params.entityType ?? ""} name="entityType" placeholder="Entity type" /><Button type="submit" variant="outline">Filter</Button></form>{result.pagination.total === 0 ? <section className="rounded-xl border border-border bg-card"><EmptyState description="Recorded changes will appear here." icon={History} title="No audit events" /></section> : <section className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm"><table className="w-full min-w-[1000px] text-left text-sm"><thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-[0.16em] text-muted-foreground"><tr><th className="px-5 py-4">When</th><th className="px-5 py-4">Actor</th><th className="px-5 py-4">Action</th><th className="px-5 py-4">Entity</th><th className="px-5 py-4">Change</th></tr></thead><tbody className="divide-y divide-border">{result.rows.map((row) => <tr key={row.id}><td className="whitespace-nowrap px-5 py-5 text-xs text-muted-foreground">{row.createdAt.toLocaleString("en-GB")}</td><td className="px-5 py-5"><p className="font-medium">{row.actorName ?? "System"}</p><p className="mt-1 text-xs text-muted-foreground">{row.actorEmail ?? row.actorUserId}</p></td><td className="px-5 py-5">{row.action}</td><td className="px-5 py-5"><p className="font-medium">{row.entityType}</p><p className="mt-1 text-xs text-muted-foreground">{row.entityId}</p></td><td className="max-w-md px-5 py-5"><pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{formatAuditValue(row.newValues ?? row.metadata)}</pre></td></tr>)}</tbody></table></section>}</div></PageContainer>;
+
+  return (
+    <PageContainer>
+      <div className="space-y-8">
+        <PageHeader breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Audit log" }]} description="Immutable domain activity recorded by the backend services and workflow transitions." eyebrow="Governance" title="Audit log" />
+        <form className="grid gap-3 border-y border-border py-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]" method="get">
+          <input className="h-10 border-b border-input bg-transparent text-sm" defaultValue={params.query ?? ""} name="query" placeholder="Search actor, entity, or ID" />
+          <select className="h-10 border-b border-input bg-transparent text-sm" defaultValue={action ?? ""} name="action"><option value="">All actions</option>{actions.map((item) => <option key={item}>{item}</option>)}</select>
+          <input className="h-10 border-b border-input bg-transparent text-sm" defaultValue={params.entityType ?? ""} name="entityType" placeholder="Entity type" />
+          <Button type="submit" variant="outline">Filter</Button>
+        </form>
+
+        {result.pagination.total === 0 ? <section className="rounded-xl border border-border bg-card"><EmptyState description="Perubahan yang tercatat akan muncul di sini." icon={History} title="Belum ada aktivitas audit" /></section> : null}
+
+        {result.pagination.total > 0 ? (
+          <>
+            <section className="hidden overflow-x-auto rounded-xl border border-border bg-card shadow-sm md:block">
+              <table className="w-full min-w-[1000px] text-left text-sm">
+                <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-[0.16em] text-muted-foreground"><tr><th className="px-5 py-4">When</th><th className="px-5 py-4">Actor</th><th className="px-5 py-4">Action</th><th className="px-5 py-4">Entity</th><th className="px-5 py-4">Change</th></tr></thead>
+                <tbody className="divide-y divide-border">{result.rows.map((row) => <tr key={row.id}><td className="whitespace-nowrap px-5 py-5 text-xs text-muted-foreground">{row.createdAt.toLocaleString("en-GB")}</td><td className="px-5 py-5"><p className="font-medium">{row.actorName ?? "System"}</p><p className="mt-1 text-xs text-muted-foreground">{row.actorEmail ?? row.actorUserId}</p></td><td className="px-5 py-5">{row.action}</td><td className="px-5 py-5"><p className="font-medium">{row.entityType}</p><p className="mt-1 text-xs text-muted-foreground">{row.entityId}</p></td><td className="max-w-md px-5 py-5"><pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{formatAuditValue(row.newValues ?? row.metadata)}</pre></td></tr>)}</tbody>
+              </table>
+            </section>
+            <section className="space-y-3 md:hidden">
+              {result.rows.map((row) => <article className="rounded-xl border border-border bg-card p-4 shadow-sm" key={row.id}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-foreground">{row.entityType}</p><p className="mt-1 truncate text-[11px] text-muted-foreground">{row.entityId}</p></div><span className="shrink-0 rounded-full bg-muted px-2 py-1 text-[10px] font-semibold">{row.action}</span></div><dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-muted-foreground">When</dt><dd className="mt-1">{row.createdAt.toLocaleString("en-GB")}</dd></div><div><dt className="text-muted-foreground">Actor</dt><dd className="mt-1 truncate">{row.actorName ?? "System"}</dd></div></dl><pre className="mt-4 max-h-28 overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-muted/40 p-3 text-[10px] leading-relaxed text-muted-foreground">{formatAuditValue(row.newValues ?? row.metadata)}</pre></article>)}
+            </section>
+          </>
+        ) : null}
+      </div>
+    </PageContainer>
+  );
 }

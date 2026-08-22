@@ -129,4 +129,43 @@
   html {
     @apply font-sans;
   }
+
+  html,
+  body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar,
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
+  :where(.overflow-auto, .overflow-x-auto, .overflow-y-auto) {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  :where(.overflow-auto, .overflow-x-auto, .overflow-y-auto)::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+  }
 }

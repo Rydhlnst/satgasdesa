@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, LocateFixed, MapPin, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -46,7 +46,18 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
   const [draftReady, setDraftReady] = useState(false);
   const [draftState, setDraftState] = useState<"none" | "saved" | "loaded">("none");
   const [syncState, setSyncState] = useState<"local" | "unsynced" | "submitting" | "failed">("local");
-  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
+  const isOnline = useSyncExternalStore(
+    (onChange) => {
+      window.addEventListener("online", onChange);
+      window.addEventListener("offline", onChange);
+      return () => {
+        window.removeEventListener("online", onChange);
+        window.removeEventListener("offline", onChange);
+      };
+    },
+    () => navigator.onLine,
+    () => true,
+  );
   const [step, setStep] = useState(0);
 
   function reportError(message: string) {
@@ -73,17 +84,6 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
     return () => window.clearTimeout(timeout);
   }, []);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
   useEffect(() => { photosRef.current = photos; }, [photos]);
   useEffect(() => () => photosRef.current.forEach((photo) => URL.revokeObjectURL(photo.preview)), []);
   useEffect(() => {
@@ -93,13 +93,13 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
   }, [draftReady, fields, gps, isPending, syncState]);
 
   function updateField(name: keyof FormFields, value: string) { setFields((current) => ({ ...current, [name]: value })); setDraftReady(true); }
-  function saveDraftNow() { const saved = saveInspectionDraft(DRAFT_ID, { ...fields, gps }, syncState === "unsynced" || syncState === "failed" ? syncState : "local"); setDraftState(saved ? "saved" : "none"); void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(photos)); }
-  function discardDraft() { deleteInspectionDraft(DRAFT_ID); void deleteInspectionPhotoDrafts(DRAFT_ID); setDraftReady(false); setFields(EMPTY_FIELDS); setGps(null); setPhotos([]); setDraftState("none"); setSyncState("local"); setError(null); }
+  function saveDraftNow() { const saved = saveInspectionDraft(DRAFT_ID, { ...fields, gps }, syncState === "unsynced" || syncState === "failed" ? syncState : "local"); setDraftState(saved ? "saved" : "none"); void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(photos)); toast.success(saved ? "Draf inspeksi disimpan di perangkat ini." : "Draf inspeksi belum dapat disimpan."); }
+  function discardDraft() { deleteInspectionDraft(DRAFT_ID); void deleteInspectionPhotoDrafts(DRAFT_ID); setDraftReady(false); setFields(EMPTY_FIELDS); setGps(null); setPhotos([]); setDraftState("none"); setSyncState("local"); setError(null); toast.success("Draf inspeksi dihapus."); }
 
   function captureLocation() {
     if (!navigator.geolocation) { setGpsState("error"); reportError("Peramban ini tidak mendukung lokasi."); return; }
     setGpsState("loading"); setError(null);
-    navigator.geolocation.getCurrentPosition((position) => { setGps({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: new Date().toISOString() }); setGpsState("idle"); setDraftReady(true); }, (positionError) => { setGpsState("error"); reportError(positionError.code === positionError.PERMISSION_DENIED ? "Izin lokasi ditolak. Aktifkan izin lokasi lalu coba lagi." : "Lokasi belum dapat diambil. Coba lagi di area terbuka." ); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    navigator.geolocation.getCurrentPosition((position) => { setGps({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, capturedAt: new Date().toISOString() }); setGpsState("idle"); setDraftReady(true); toast.success("Lokasi berhasil diambil."); }, (positionError) => { setGpsState("error"); reportError(positionError.code === positionError.PERMISSION_DENIED ? "Izin lokasi ditolak. Aktifkan izin lokasi lalu coba lagi." : "Lokasi belum dapat diambil. Coba lagi di area terbuka." ); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   }
 
   async function selectPhotos(event: ChangeEvent<HTMLInputElement>) {
@@ -110,7 +110,7 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
       if (file.size > 10 * 1024 * 1024) { reportError("Ukuran setiap foto maksimal 10 MB."); continue; }
       try { const optimized = await compressImage(file); next.push({ file: optimized.file, preview: URL.createObjectURL(optimized.file), originalName: file.name, originalSize: optimized.originalSize }); } catch (compressionError) { reportError(compressionError instanceof Error ? compressionError.message : "Foto tidak dapat dioptimalkan."); }
     }
-    setPhotos(next); setIsOptimizing(false); event.target.value = ""; void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(next));
+    setPhotos(next); setIsOptimizing(false); event.target.value = ""; void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(next)); if (next.length > photos.length) toast.success(`${next.length - photos.length} foto siap dikirim.`);
   }
 
   function removePhoto(index: number) { setPhotos((current) => { const removed = current[index]; if (removed) URL.revokeObjectURL(removed.preview); const next = current.filter((_, photoIndex) => photoIndex !== index); void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(next)); return next; }); }
@@ -132,11 +132,11 @@ export function InspectionForm({ blocks }: InspectionFormProps) {
       const uploadedPhotos = [];
       for (const [index, photo] of photos.entries()) { setProgress(`Mengunggah foto ${index + 1} dari ${photos.length}…`); const upload = await createInspectionUploadAction({ inspectionId, contentType: photo.file.type, size: photo.file.size, originalName: photo.file.name }); const response = await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": photo.file.type }, body: photo.file }); if (!response.ok) throw new Error("Foto tidak dapat diunggah."); uploadedPhotos.push({ storageKey: upload.key, contentType: photo.file.type, size: photo.file.size, originalName: photo.file.name, capturedAt: new Date() }); }
       setProgress("Menyimpan inspeksi…"); const result = await createInspectionAction({ id: inspectionId, blockId: fields.blockId, inspectedAt: fields.inspectedAt ? new Date(fields.inspectedAt) : undefined, latitude: gps.latitude, longitude: gps.longitude, gpsAccuracy: gps.accuracy, gpsCapturedAt: new Date(gps.capturedAt), excavatorCount: Number(fields.excavatorCount), workerCount: Number(fields.workerCount), condition: fields.condition, findings: fields.findings.trim() || undefined, notes: fields.notes.trim() || undefined, photos: uploadedPhotos });
-      deleteInspectionDraft(DRAFT_ID); await deleteInspectionPhotoDrafts(DRAFT_ID); setSyncState("local"); router.push(`/dashboard/inspections/${result.id}`);
+      deleteInspectionDraft(DRAFT_ID); await deleteInspectionPhotoDrafts(DRAFT_ID); setSyncState("local"); toast.success("Inspeksi berhasil dikirim."); router.push(`/dashboard/inspections/${result.id}`);
     } catch (submissionError) { saveInspectionDraft(DRAFT_ID, { ...fields, gps }, "failed"); void saveInspectionPhotoDrafts(DRAFT_ID, photoRecords(photos)); setSyncState("failed"); setDraftState("saved"); reportError(submissionError instanceof Error ? submissionError.message : "Inspeksi tidak dapat disimpan. Coba lagi."); } finally { setIsPending(false); setProgress(null); }
   }
 
-  const statusLabel = syncState === "unsynced" ? "Belum tersinkron" : syncState === "submitting" ? "Mengirim" : syncState === "failed" ? "Pengiriman gagal" : draftState === "loaded" ? "Draf lokal dipulihkan" : draftState === "saved" ? "Draf lokal" : "Belum terkirim";
+  const statusLabel = syncState === "unsynced" ? "BELUM TERSINKRON" : syncState === "submitting" ? "MENGIRIM" : syncState === "failed" ? "PENGIRIMAN GAGAL" : draftState === "loaded" ? "DRAF LOKAL DIPULIHKAN" : draftState === "saved" ? "DRAF LOKAL" : "BELUM DIKIRIM";
   const statusSemantic = syncState === "failed" ? "danger" : syncState === "unsynced" ? "warning" : syncState === "submitting" ? "info" : "neutral";
   return <Card className="shadow-sm"><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="font-heading text-xl">Inspeksi lapangan</CardTitle><p className="mt-2 text-sm text-muted-foreground">Draf tersimpan di perangkat ini sampai inspeksi dikirim.</p></div><StatusBadge label={statusLabel} semantic={statusSemantic} status="LOCAL_DRAFT" /></div>{!isOnline ? <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800">Offline · data baru tersimpan lokal dan belum tersinkron.</p> : null}<div className="grid grid-cols-3 gap-2 pt-4">{STEPS.map((item, index) => <button className={`rounded-xl border px-3 py-2 text-left text-xs font-semibold transition-colors ${step === index ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground"}`} disabled={isPending} key={item} onClick={() => setStep(index)} type="button"><span className="mr-2 inline-flex size-5 items-center justify-center rounded-full bg-muted text-[10px]">{index + 1}</span>{item}</button>)}</div></CardHeader><CardContent><form className="space-y-7" onSubmit={(event) => void handleSubmit(event)}>
     {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}

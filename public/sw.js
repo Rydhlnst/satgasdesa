@@ -1,9 +1,26 @@
-const CACHE_NAME = "satgas-static-v5";
+const CACHE_NAME = "satgas-static-v7";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [OFFLINE_URL, "/manifest.webmanifest", "/favicon.ico"];
 
+async function cacheResponse(request, response) {
+  if (!response || !response.ok) return response;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+  return response;
+}
+
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  const network = fetch(request).then((response) => cacheResponse(request, response));
+  if (cached) {
+    void network.catch(() => undefined);
+    return cached;
+  }
+  return network;
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => Promise.allSettled(STATIC_ASSETS.map((asset) => cache.add(asset)))));
   self.skipWaiting();
 });
 
@@ -25,12 +42,7 @@ function isCacheableStaticRequest(request) {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (isCacheableStaticRequest(request)) {
-    event.respondWith(
-      caches.match(request).then((cached) => cached ?? fetch(request).then((response) => {
-        if (response.ok) void caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
-        return response;
-      })),
-    );
+    event.respondWith(staleWhileRevalidate(request));
     return;
   }
 

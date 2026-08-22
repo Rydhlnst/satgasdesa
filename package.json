@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:cpanel": "next build && node scripts/prepare-cpanel.mjs",
     "start": "next start",
+    "start:cpanel": "node .next/standalone/server.js",
     "lint": "eslint",
+    "ui:responsive": "node scripts/validate-responsive-ui.mjs",
     "env:check": "node scripts/validate-env.mjs",
     "db:migrate:runtime": "node scripts/migrate-runtime.mjs",
     "db:explain": "node scripts/explain-queries.mjs",

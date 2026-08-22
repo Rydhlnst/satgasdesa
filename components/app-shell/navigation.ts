@@ -9,6 +9,20 @@ export type AppNavItem = {
   permission?: Permission;
 };
 
+export type AccessRole = "PIMPINAN" | "BENDAHARA" | "PETUGAS_LAPANGAN";
+
+export function accessRoleLabel(role: AccessRole): string {
+  if (role === "PIMPINAN") return "PIMPINAN / ADMIN";
+  if (role === "BENDAHARA") return "BENDAHARA";
+  return "PETUGAS LAPANGAN";
+}
+
+export function getAccessRole(items: AppNavItem[]): AccessRole {
+  if (items.some((item) => item.href === "/dashboard/settings/users")) return "PIMPINAN";
+  if (items.some((item) => item.href === "/dashboard/finance")) return "BENDAHARA";
+  return "PETUGAS_LAPANGAN";
+}
+
 export const APP_NAV_ITEMS: AppNavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
   { label: "Monitoring Blok", href: "/dashboard/blocks", icon: "blocks", permission: PERMISSIONS.BLOCK_READ },

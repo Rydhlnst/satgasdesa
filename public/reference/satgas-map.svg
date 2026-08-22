@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 980">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#183f36"/><stop offset=".48" stop-color="#356846"/><stop offset="1" stop-color="#142f39"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <rect width="720" height="980" fill="url(#base)"/>
+  <g opacity=".46" filter="url(#soft)" fill="#789560"><path d="M-50 90 210 0l120 190-190 150zM450 0l300 120-80 220-270-70zM-40 560l220-170 190 210-220 260zM450 490l310-150v330l-220 120z"/><path fill="#a2ad63" d="m140 360 150-150 170 80-120 200zM440 710l230-120 80 230-260 180z"/></g>
+  <g fill="none" stroke-linecap="round"><path d="M-40 160C120 260 210 170 320 300s140 100 260 40 120-120 210-80" stroke="#e7dca7" stroke-width="11" opacity=".65"/><path d="M-20 720c150-90 170-240 300-270s130 30 210-120 100-190 250-220" stroke="#d4d9bd" stroke-width="5" opacity=".7"/><path d="M50 0c90 170 250 160 270 360s-50 300 160 620" stroke="#c3d0bb" stroke-width="4" opacity=".52"/><path d="M20 470c190-20 240 120 400 80s170-120 340-70" stroke="#6d9aa0" stroke-width="15" opacity=".45"/></g>
+  <g stroke="#c0c8a0" stroke-width="2" opacity=".35"><path d="M0 260h720M0 520h720M0 780h720M180 0v980M420 0v980M610 0v980"/></g>
+  <g font-family="Arial" font-size="12" font-weight="700" fill="#eef8db" opacity=".7"><text x="80" y="245">SEJOLI</text><text x="530" y="300">KONAWE</text><text x="270" y="650">AREA BLOK</text><text x="570" y="830">POSKO</text></g>
+</svg>

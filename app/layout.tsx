@@ -21,6 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="id"
       className={`h-full antialiased font-sans ${jakartaSans.variable}`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col"><AppProviders><ServiceWorkerRegister />{children}</AppProviders></body>
     </html>

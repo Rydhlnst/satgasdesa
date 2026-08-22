@@ -30,5 +30,5 @@ export function WorkspaceTabs({ items }: WorkspaceTabsProps) {
   const pathname = usePathname();
   const visibleGroups = GROUPS.filter((group) => isVisible(items, group.routes));
 
-  return <Tabs className="w-full" value={activeGroup(pathname)}><TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-none border-t border-border bg-transparent p-0" variant="line">{visibleGroups.map((group) => <TabsTrigger asChild className="h-10 flex-none px-3 text-[11px] tracking-[0.12em] sm:px-4" key={group.value} value={group.value}><Link href={group.href}>{group.label}</Link></TabsTrigger>)}</TabsList></Tabs>;
+  return <Tabs className="w-full" value={activeGroup(pathname)}><TabsList className="no-scrollbar w-full justify-start gap-1 overflow-x-auto rounded-lg border-t border-border bg-transparent p-0" variant="line">{visibleGroups.map((group) => <TabsTrigger asChild className="h-10 flex-none px-3 text-[11px] tracking-[0.12em] sm:px-4" key={group.value} value={group.value}><Link href={group.href}>{group.label}</Link></TabsTrigger>)}</TabsList></Tabs>;
 }

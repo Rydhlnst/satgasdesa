@@ -73,6 +73,7 @@ export async function getDashboardSummary() {
   const realization = Object.fromEntries(realizationStatusRows.map((row) => [row.status, Number(row.total)]));
   return {
     roleScope: {
+      canManageUsers: has(permissions, PERMISSIONS.USER_READ),
       canReadFinance: has(permissions, PERMISSIONS.FINANCE_READ),
       canReadDues: has(permissions, PERMISSIONS.DUES_READ),
       canReadBudget: has(permissions, PERMISSIONS.BUDGET_READ),

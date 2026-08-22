@@ -54,7 +54,7 @@ export function AppNavLink({ className, item, variant }: AppNavLinkProps) {
       className={cn(
         "text-muted-foreground transition-all hover:border-border hover:bg-muted hover:text-foreground",
         isActive && "border-border bg-muted text-foreground",
-        "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-transparent px-1 text-[9px] font-semibold uppercase tracking-wide",
+        "flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border border-transparent px-1 text-[8px] font-semibold tracking-wide",
         className,
       )}
       href={item.href}

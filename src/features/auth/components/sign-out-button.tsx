@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/src/lib/auth/auth-client";
@@ -13,6 +14,7 @@ export function SignOutButton() {
   async function handleSignOut() {
     setIsPending(true);
     await authClient.signOut();
+    toast.success("Anda telah keluar.");
     router.push("/login");
   }
 

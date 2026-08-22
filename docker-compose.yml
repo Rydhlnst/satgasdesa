@@ -2,8 +2,6 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
-    ports:
-      - "${MYSQL_HOST_PORT:-3306}:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -47,6 +45,8 @@ services:
       STORAGE_REGION: ${STORAGE_REGION:-auto}
       STORAGE_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:-}
       STORAGE_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:-}
+      NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY:-}
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
       ROAD_ENTRY_DUE_AUTOMATION_ENABLED: ${ROAD_ENTRY_DUE_AUTOMATION_ENABLED:-false}
       MONTHLY_DUE_DAY: ${MONTHLY_DUE_DAY:-10}
       AUTOMATION_ACTOR_USER_ID: ${AUTOMATION_ACTOR_USER_ID:-}

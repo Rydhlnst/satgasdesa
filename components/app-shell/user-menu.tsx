@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useState } from "react";
 import { LogOut, Moon, Sun, UserRound, Monitor } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,10 +18,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/src/lib/auth/auth-client";
+import { cn } from "@/lib/utils";
 
 type UserMenuProps = {
   userName: string;
   userEmail: string;
+  triggerClassName?: string;
+  navLabel?: string;
 };
 
 function initials(name: string): string {
@@ -33,7 +36,12 @@ function initials(name: string): string {
     .join("");
 }
 
-export function UserMenu({ userName, userEmail }: UserMenuProps) {
+function avatarUrl(userName: string, userEmail: string): string {
+  const seed = encodeURIComponent(`${userName}:${userEmail}`);
+  return `https://api.dicebear.com/9.x/initials/svg?seed=${seed}&backgroundColor=2563eb&fontFamily=Arial&fontWeight=700&fontSize=38&textColor=ffffff`;
+}
+
+export function UserMenu({ userName, userEmail, triggerClassName, navLabel }: UserMenuProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [isPending, setIsPending] = useState(false);
@@ -47,10 +55,12 @@ export function UserMenu({ userName, userEmail }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button aria-label={`Open account menu for ${userName}`} className="rounded-lg border border-border bg-muted text-foreground hover:bg-accent" size="icon-sm" variant="ghost">
+        <Button aria-label={`Open account menu for ${userName}`} className={cn("rounded-lg border border-border bg-muted text-foreground hover:bg-accent", navLabel ? "min-h-12 w-full flex-1 flex-col gap-1 px-1 py-1 text-[9px] font-semibold uppercase tracking-wide" : undefined, triggerClassName)} size={navLabel ? undefined : "icon-sm"} variant="ghost">
           <Avatar size="sm">
+            <AvatarImage alt="" height={32} src={avatarUrl(userName, userEmail)} width={32} />
             <AvatarFallback className="bg-sidebar-primary font-semibold text-sidebar-primary-foreground">{initials(userName) || <UserRound aria-hidden="true" />}</AvatarFallback>
           </Avatar>
+          {navLabel ? <span className="flex min-h-5 items-start justify-center text-center leading-3">{navLabel}</span> : null}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
