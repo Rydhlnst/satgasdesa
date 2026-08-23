@@ -38,6 +38,8 @@ Because inspection photos upload from the browser to a presigned URL, add this p
 
 The application does not make the bucket public. Inspection photos remain private and are opened through short-lived download URLs.
 
+Apply the policy with the deployment credentials by running `pnpm storage:configure-cors` in the app container. Set `STORAGE_CORS_ORIGINS` to a comma-separated list when additional trusted origins are required.
+
 ## Image optimization
 
 Inspection images are resized in the browser to a maximum 1600px edge and encoded as WebP where supported, with JPEG fallback. The client targets approximately 2.5 MB or less per image; the server still enforces the existing 10 MB upload limit and validates MIME type and extension.
