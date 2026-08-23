@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=()" },
-          { key: "Content-Security-Policy", value: "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; connect-src 'self' https://maps.googleapis.com https://*.googleapis.com; frame-src https://www.google.com https://maps.google.com;" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com; connect-src 'self' https://maps.googleapis.com https://*.googleapis.com https://*.r2.cloudflarestorage.com; frame-src https://www.google.com https://maps.google.com;" },
         ],
       },
       {

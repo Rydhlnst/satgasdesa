@@ -6,10 +6,17 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL must be configured before seeding demo users.");
 if (process.env.NODE_ENV === "production") throw new Error("Demo users may only be seeded outside production.");
 
+function requiredPassword(name) {
+  const password = process.env[name];
+  if (!password) throw new Error(`${name} must be configured before seeding users.`);
+  return password;
+}
+
 const accounts = [
-  { name: "Local Pimpinan", email: "pimpinan@satgas.local", password: "SatgasPimpinan123!", role: "PIMPINAN" },
-  { name: "Local Bendahara", email: "bendahara@satgas.local", password: "SatgasBendahara123!", role: "BENDAHARA" },
-  { name: "Local Petugas Lapangan", email: "petugas@satgas.local", password: "SatgasPetugas123!", role: "PETUGAS_LAPANGAN" },
+  { name: "Bootstrap Admin", email: "admin@satgas.local", password: requiredPassword("SEED_ADMIN_PASSWORD"), role: "PIMPINAN" },
+  { name: "Local Pimpinan", email: "pimpinan@satgas.local", password: requiredPassword("SEED_PIMPINAN_PASSWORD"), role: "PIMPINAN" },
+  { name: "Local Bendahara", email: "bendahara@satgas.local", password: requiredPassword("SEED_BENDAHARA_PASSWORD"), role: "BENDAHARA" },
+  { name: "Local Petugas Lapangan", email: "petugas@satgas.local", password: requiredPassword("SEED_PETUGAS_PASSWORD"), role: "PETUGAS_LAPANGAN" },
 ];
 
 const pool = mysql.createPool({ uri: databaseUrl, connectionLimit: 1 });
