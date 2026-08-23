@@ -4,7 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { z } from "zod";
 
 import { createDailyInformationAction } from "@/app/dashboard/information/_actions";
-import { FormErrorToast, showActionError } from "@/components/shared/action-form";
+import { FormErrorToast, showActionError } from "@/components/shared/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

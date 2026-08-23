@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { FormErrorToast } from "@/components/shared/action-form";
+import { FormErrorToast } from "@/components/shared/action-feedback";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

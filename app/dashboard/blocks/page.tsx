@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/app-shell/page-container";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState, NoResultsState } from "@/components/shared/ui-state";
 import { LazyGoogleMap } from "@/components/shared/google-map-lazy";
 import type { GoogleMapMarker } from "@/components/shared/google-map";
@@ -40,13 +41,7 @@ export default async function BlocksPage({ searchParams }: BlocksPageProps) {
   return (
     <PageContainer>
       <div className="space-y-8">
-        <header className="hidden border-b border-border pb-6 md:block">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Operational core</p>
-          <h1 className="mt-2 font-heading text-3xl font-semibold uppercase tracking-wide">Block monitoring</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Monitor operating status, location, staffing, and field ownership for each registered block.
-          </p>
-        </header>
+        <PageHeader breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Monitoring blok" }]} description="Pantau status operasi, lokasi, tenaga kerja, dan kepemilikan lapangan untuk setiap blok terdaftar." eyebrow="Operasional inti" title="Monitoring blok" />
 
         <form className="hidden flex-col gap-3 border-y border-border py-4 sm:flex-row md:flex" method="get">
           <input

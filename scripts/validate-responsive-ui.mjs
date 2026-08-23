@@ -34,13 +34,23 @@ for (const exportName of requiredStateExports) {
 
 for (const filePath of routeFiles) {
   const source = fs.readFileSync(filePath, "utf8");
-  const route = filePath
-    .slice(dashboardRoot.length)
-    .replace(/\\page\.tsx$/, "")
-    .replaceAll(path.sep, "/") || "/";
+  const relativeRoute = path.relative(dashboardRoot, filePath).replaceAll(path.sep, "/").replace(/page\.tsx$/, "").replace(/\/$/, "");
+  const route = relativeRoute ? `/${relativeRoute}` : "/";
 
   if (!source.includes("PageContainer")) {
     failures.push(`${route}: missing PageContainer`);
+  }
+
+  if (route !== "/" && !source.includes("PageHeader")) {
+    failures.push(`${route}: missing shared PageHeader`);
+  }
+
+  if (source.includes("bg-[#f6faf7]") || source.includes("bg-[#f7f9fc]")) {
+    failures.push(`${route}: role-specific page background drift`);
+  }
+
+  if (source.includes("rounded-none") || source.includes("[--radius:0]") || source.includes("[--cell-radius:0]")) {
+    failures.push(`${route}: square-radius style override found`);
   }
 
   const routeDirectory = path.dirname(filePath);
@@ -50,7 +60,7 @@ for (const filePath of routeFiles) {
   if (
     source.includes("<table") &&
     !source.includes("ResponsiveDataView") &&
-    !(source.includes("md:hidden") && source.includes("md:block")) &&
+    !(source.includes("md:hidden") && (source.includes("md:block") || source.includes("md:grid"))) &&
     !source.includes("Mobile")
   ) {
     failures.push(`${route}: table has no mobile representation`);

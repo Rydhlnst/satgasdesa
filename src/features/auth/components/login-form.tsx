@@ -7,7 +7,7 @@ import { z } from "zod";
 import { LockKeyhole, Mail } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FormErrorToast } from "@/components/shared/action-form";
+import { FormErrorToast } from "@/components/shared/action-feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

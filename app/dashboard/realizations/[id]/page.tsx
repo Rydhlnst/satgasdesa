@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 
 import { PageContainer } from "@/components/app-shell/page-container";
-import { ActionForm, ConfirmActionForm } from "@/components/shared/action-form";
+import { ActionForm } from "@/components/shared/action-form";
+import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MoneyDisplay } from "@/components/shared/money-display";
 import { PageHeader } from "@/components/shared/page-header";

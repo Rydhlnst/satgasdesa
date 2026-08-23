@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageContainer } from "@/components/app-shell/page-container";
-import { ActionForm, ConfirmActionForm } from "@/components/shared/action-form";
+import { ActionForm } from "@/components/shared/action-form";
+import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
 import { EvidenceList } from "@/src/features/evidence/components/evidence-list";
 import { EvidenceUploader } from "@/src/features/evidence/components/evidence-uploader";
 import { MoneyDisplay } from "@/components/shared/money-display";

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/app-shell/page-container";
+import { PageHeader } from "@/components/shared/page-header";
 import { hasPermission, requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getBlock } from "@/src/features/blocks/actions";
@@ -24,24 +25,7 @@ export default async function BlockDetailPage({ params }: BlockDetailPageProps) 
   return (
     <PageContainer>
       <div className="space-y-8">
-        <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <Link href="/dashboard/blocks" className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground hover:text-foreground">
-              ← All blocks
-            </Link>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Block detail</p>
-            <h1 className="mt-2 font-heading text-3xl font-semibold uppercase tracking-wide">{item.code}</h1>
-            <p className="mt-2 text-sm text-muted-foreground">{item.name}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge variant={item.status === "STOPPED" ? "destructive" : "default"}>{item.status.replace("_", " ")}</Badge>
-            {canUpdate ? (
-              <Button asChild size="sm" variant="outline">
-                <Link href={`/dashboard/blocks/${item.id}/edit`}>Edit block</Link>
-              </Button>
-            ) : null}
-          </div>
-        </header>
+        <PageHeader actions={<div className="flex items-center gap-3"><Badge variant={item.status === "STOPPED" ? "destructive" : "default"}>{item.status.replace("_", " ")}</Badge>{canUpdate ? <Button asChild size="sm" variant="outline"><Link href={`/dashboard/blocks/${item.id}/edit`}>Edit block</Link></Button> : null}</div>} breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Monitoring blok", href: "/dashboard/blocks" }, { label: item.code }]} description={item.name} eyebrow="Detail blok" title={item.code} />
 
         <section className="grid gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Workers" value={String(item.workerCount)} />

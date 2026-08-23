@@ -1,6 +1,7 @@
 "use client";
 
-import { ActionForm, ConfirmActionForm } from "@/components/shared/action-form";
+import { ActionForm } from "@/components/shared/action-form";
+import { ConfirmActionForm } from "@/components/shared/confirm-action-form";
 import { Button } from "@/components/ui/button";
 import { updateUserStatus } from "@/src/features/users/actions";
 

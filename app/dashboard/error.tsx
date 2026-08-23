@@ -1,7 +1,7 @@
 "use client";
 
 import { PageContainer } from "@/components/app-shell/page-container";
-import { FormErrorToast } from "@/components/shared/action-form";
+import { FormErrorToast } from "@/components/shared/action-feedback";
 import { ErrorState } from "@/components/shared/ui-state";
 import { Button } from "@/components/ui/button";
 

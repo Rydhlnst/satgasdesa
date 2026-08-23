@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/app-shell/page-container";
+import { PageHeader } from "@/components/shared/page-header";
 import { BlockForm } from "@/src/features/blocks/components/block-form";
 import { getBlock, updateBlock } from "@/src/features/blocks/actions";
 import { requirePermission } from "@/src/lib/permissions/authorize";
@@ -22,10 +23,8 @@ export default async function BlockEditPage({ params }: BlockEditPageProps) {
 
   return (
     <PageContainer>
-      <div className="mx-auto max-w-4xl space-y-6">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={`/dashboard/blocks/${item.id}`}>← Back to block</Link>
-        </Button>
+      <div className="mx-auto max-w-4xl space-y-8">
+        <PageHeader actions={<Button asChild variant="outline" size="sm"><Link href={`/dashboard/blocks/${item.id}`}>Kembali ke blok</Link></Button>} breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Monitoring blok", href: "/dashboard/blocks" }, { label: item.code, href: `/dashboard/blocks/${item.id}` }, { label: "Edit" }]} description="Perbarui identitas, lokasi, penanggung jawab, dan kondisi operasional blok." eyebrow="Edit blok" title={item.code} />
         <BlockForm
           action={updateBlock}
           submitLabel="Save block"
