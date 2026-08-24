@@ -1,14 +1,20 @@
-import { and, asc, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, lt, or, sql } from "drizzle-orm";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
+import { block } from "@/src/db/schema/blocks";
+import { businessActor, duePaymentVerification } from "@/src/db/schema/business-actors";
 import { due, duePayment } from "@/src/db/schema/dues";
 import { excavator, excavatorMovement } from "@/src/db/schema/excavators";
 import { financialTransaction } from "@/src/db/schema/finance";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
-import { createDueSchema, dueIdSchema, duesFiltersSchema, recordDuePaymentSchema } from "./schema";
+import { getObjectStorage, validateUpload } from "@/src/lib/storage";
+import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
+import { createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
+import { getFinanceDefaults } from "../settings/service";
+import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
 
 function parseInput<T>(result: { success: boolean; data?: T }): T {
   if (!result.success || !result.data) throw new Error("Please check the dues details and try again.");
@@ -23,22 +29,29 @@ function createPaymentTransactionCode(): string {
   return `TX-PAY-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
 }
 
-function periodBounds(periodKey: string): { start: string; end: string } {
-  const [year, month] = periodKey.split("-").map(Number);
-  const end = new Date(Date.UTC(year, month, 1));
-  return { start: `${periodKey}-01`, end: end.toISOString().slice(0, 10) };
+function duePaymentScope(paymentId: string): string { return `due-payments/${paymentId}`; }
+function assertDuePaymentEvidenceKey(paymentId: string, storageKey: string): void {
+  const scope = `${duePaymentScope(paymentId)}/`;
+  if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("Payment evidence is outside the permitted storage scope.");
 }
 
 function buildDueConditions(filters: ReturnType<typeof duesFiltersSchema.parse>) {
   const conditions = [];
   if (filters.status) conditions.push(eq(due.status, filters.status));
   if (filters.dueType) conditions.push(eq(due.dueType, filters.dueType));
-  if (filters.blockId) conditions.push(eq(excavator.currentBlockId, filters.blockId));
-  if (filters.periodKey) {
-    const bounds = periodBounds(filters.periodKey);
-    conditions.push(gte(due.dueDate, bounds.start), lt(due.dueDate, bounds.end));
-  }
+  if (filters.blockId) conditions.push(eq(due.blockId, filters.blockId));
+  if (filters.periodKey) conditions.push(eq(due.referenceKey, filters.periodKey));
+  if (filters.query) conditions.push(or(like(due.payerName, `%${filters.query}%`), like(due.referenceKey, `%${filters.query}%`)));
+  if (filters.overdueOnly) conditions.push(and(inArray(due.status, ["UNPAID", "PARTIAL"]), lt(due.dueDate, jakartaDate())));
   return conditions.length ? and(...conditions) : undefined;
+}
+
+function jakartaDate(today = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(today);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
+  const year = value("year"); const month = value("month"); const day = value("day");
+  if (!year || !month || !day) throw new Error("Unable to determine Jakarta date.");
+  return `${year}-${month}-${day}`;
 }
 
 async function assertExcavatorExists(id: string): Promise<void> {
@@ -70,11 +83,14 @@ export async function getDues(status?: "UNPAID" | "PARTIAL" | "PAID") {
 export async function getDuesPage(input?: unknown) {
   await requirePermission(PERMISSIONS.DUES_READ);
   const filters = duesFiltersSchema.parse(input ?? {});
-  const conditions = buildDueConditions(filters);
+  const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+  if (assignedBlockIds && !assignedBlockIds.length) return { rows: [], pagination: { page: filters.page, pageSize: filters.pageSize, total: 0, totalPages: 0 } };
+  const baseConditions = buildDueConditions(filters);
+  const conditions = assignedBlockIds ? and(baseConditions, inArray(due.blockId, assignedBlockIds)) : baseConditions;
   const offset = (filters.page - 1) * filters.pageSize;
   const database = getDb();
   const [rows, totalRows] = await Promise.all([
-    database.select().from(due).innerJoin(excavator, eq(excavator.id, due.excavatorId)).where(conditions).orderBy(desc(due.dueDate), asc(due.id)).limit(filters.pageSize).offset(offset),
+    database.select().from(due).innerJoin(excavator, eq(excavator.id, due.excavatorId)).leftJoin(block, eq(block.id, due.blockId)).leftJoin(businessActor, eq(businessActor.id, due.businessActorId)).where(conditions).orderBy(desc(due.dueDate), asc(due.id)).limit(filters.pageSize).offset(offset),
     database.select({ value: count() }).from(due).innerJoin(excavator, eq(excavator.id, due.excavatorId)).where(conditions),
   ]);
   const total = Number(totalRows[0]?.value ?? 0);
@@ -84,7 +100,10 @@ export async function getDuesPage(input?: unknown) {
 export async function getReceivableReconciliation(input?: unknown) {
   await requirePermission(PERMISSIONS.DUES_READ);
   const filters = duesFiltersSchema.parse(input ?? {});
-  const conditions = buildDueConditions(filters);
+  const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+  if (assignedBlockIds && !assignedBlockIds.length) return { obligationTotal: 0, recordedPaidTotal: 0, paymentLedgerTotal: 0, receivableTotal: 0, reconciled: true, counts: { total: 0, unpaid: 0, partial: 0, paid: 0 } };
+  const baseConditions = buildDueConditions(filters);
+  const conditions = assignedBlockIds ? and(baseConditions, inArray(due.blockId, assignedBlockIds)) : baseConditions;
   const database = getDb();
   const dueRows = await database
     .select({ id: due.id, amountDue: due.amountDue, amountPaid: due.amountPaid, status: due.status })
@@ -93,7 +112,11 @@ export async function getReceivableReconciliation(input?: unknown) {
     .where(conditions);
   const dueIds = dueRows.map((row) => row.id);
   const paymentRows = dueIds.length
-    ? await database.select({ dueId: duePayment.dueId, amount: duePayment.amount }).from(duePayment).where(inArray(duePayment.dueId, dueIds))
+    ? await database
+      .select({ dueId: duePayment.dueId, amount: duePayment.amount })
+      .from(duePayment)
+      .innerJoin(financialTransaction, and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, duePayment.id), eq(financialTransaction.status, "SAH")))
+      .where(inArray(duePayment.dueId, dueIds))
     : [];
   const obligationTotal = dueRows.reduce((total, row) => total + row.amountDue, 0);
   const recordedPaidTotal = dueRows.reduce((total, row) => total + row.amountPaid, 0);
@@ -119,13 +142,62 @@ export async function getDue(id: string) {
   const validId = parseInput(dueIdSchema.safeParse(id));
   const [item] = await getDb().select().from(due).where(eq(due.id, validId)).limit(1);
   if (!item) return null;
-  const payments = await getDb().select().from(duePayment).where(eq(duePayment.dueId, validId)).orderBy(desc(duePayment.paymentDate));
-  return { item: { ...item, remaining: item.amountDue - item.amountPaid }, payments };
+  if (item.blockId) await requireAssignedBlockAccess(item.blockId);
+  const [paymentRows, verifications] = await Promise.all([
+    getDb().select({ payment: duePayment, cashStatus: financialTransaction.status, cashTransactionId: financialTransaction.id }).from(duePayment).leftJoin(financialTransaction, and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, duePayment.id))).where(eq(duePayment.dueId, validId)).orderBy(desc(duePayment.paymentDate)),
+    getDb().select().from(duePaymentVerification).innerJoin(duePayment, eq(duePayment.id, duePaymentVerification.duePaymentId)).where(eq(duePayment.dueId, validId)).orderBy(desc(duePaymentVerification.verifiedAt)),
+  ]);
+  return { item: { ...item, remaining: item.amountDue - item.amountPaid, paymentState: duePaymentState(item) }, payments: paymentRows.map((row) => ({ ...row.payment, cashStatus: row.cashStatus ?? "MISSING", cashTransactionId: row.cashTransactionId })), verifications };
+}
+
+export async function getDuePaymentsPage(input?: unknown) {
+  await requirePermission(PERMISSIONS.DUES_READ);
+  const filters = duePaymentFiltersSchema.parse(input ?? {});
+  const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+  if (assignedBlockIds && !assignedBlockIds.length) return { rows: [], pagination: { page: filters.page, pageSize: filters.pageSize, total: 0, totalPages: 0 } };
+  const monthStart = filters.periodKey ? `${filters.periodKey}-01` : undefined;
+  const [year, month] = filters.periodKey?.split("-").map(Number) ?? [];
+  const nextMonthStart = monthStart && year && month ? `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, "0")}-01` : undefined;
+  const conditions = [
+    filters.blockId ? eq(due.blockId, filters.blockId) : undefined,
+    assignedBlockIds ? inArray(due.blockId, assignedBlockIds) : undefined,
+    filters.query ? or(like(duePayment.payerName, `%${filters.query}%`), like(due.payerName, `%${filters.query}%`), like(due.referenceKey, `%${filters.query}%`)) : undefined,
+  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+  const database = getDb(); const offset = (filters.page - 1) * filters.pageSize;
+  const dateConditions = [
+    ...conditions,
+    monthStart ? sqlDateGte(duePayment.paymentDate, monthStart) : undefined,
+    nextMonthStart ? sqlDateLt(duePayment.paymentDate, nextMonthStart) : undefined,
+  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+  const where = dateConditions.length ? and(...dateConditions) : undefined;
+  const [rows, totals] = await Promise.all([
+    database.select({ payment: duePayment, due: { id: due.id, blockId: due.blockId, payerName: due.payerName, referenceKey: due.referenceKey, dueType: due.dueType }, block: { code: block.code, name: block.name }, cashStatus: financialTransaction.status }).from(duePayment).innerJoin(due, eq(due.id, duePayment.dueId)).leftJoin(block, eq(block.id, due.blockId)).leftJoin(financialTransaction, and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, duePayment.id))).where(where).orderBy(desc(duePayment.paymentDate), desc(duePayment.createdAt)).limit(filters.pageSize).offset(offset),
+    database.select({ value: count() }).from(duePayment).innerJoin(due, eq(due.id, duePayment.dueId)).where(where),
+  ]);
+  const total = Number(totals[0]?.value ?? 0);
+  return { rows, pagination: { page: filters.page, pageSize: filters.pageSize, total, totalPages: Math.ceil(total / filters.pageSize) } };
+}
+
+function sqlDateGte(column: typeof duePayment.paymentDate, value: string) { return sql`${column} >= ${value}`; }
+function sqlDateLt(column: typeof duePayment.paymentDate, value: string) { return sql`${column} < ${value}`; }
+
+function duePaymentState(item: { amountDue: number; amountPaid: number; dueDate: string }, today = new Date()): "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE" {
+  if (item.amountPaid >= item.amountDue) return "PAID";
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(today);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
+  const year = value("year"); const month = value("month"); const day = value("day");
+  if (!year || !month || !day) throw new Error("Unable to determine Jakarta date.");
+  const jakarta = `${year}-${month}-${day}`;
+  if (item.dueDate < jakarta) return "OVERDUE";
+  return item.amountPaid > 0 ? "PARTIAL" : "UNPAID";
 }
 
 export async function createDue(input: unknown) {
   const session = await requirePermission(PERMISSIONS.DUES_MANAGE);
   const values = parseInput(createDueSchema.safeParse(input));
+  const defaults = await getFinanceDefaults();
+  const expectedAmount = values.dueType === "MONTHLY" ? defaults.monthlyDueAmount : defaults.roadEntryDueAmount;
+  if (values.amountDue !== expectedAmount) throw new Error(`The configured ${values.dueType === "MONTHLY" ? "monthly" : "road-entry"} due is Rp${expectedAmount.toLocaleString("id-ID")}.`);
   await assertExcavatorExists(values.excavatorId);
   await assertDueSource(values);
   const database = getDb();
@@ -144,10 +216,14 @@ export async function createDue(input: unknown) {
 
   const id = crypto.randomUUID();
   const now = new Date();
+  const [unit] = await database.select({ currentBlockId: excavator.currentBlockId, businessActorId: excavator.businessActorId }).from(excavator).where(eq(excavator.id, values.excavatorId)).limit(1);
+  if (!unit?.currentBlockId) throw new Error("An excavator must be assigned to a block before a due can be created.");
   await database.transaction(async (tx) => {
     await tx.insert(due).values({
       id,
       excavatorId: values.excavatorId,
+      blockId: unit.currentBlockId,
+      businessActorId: unit.businessActorId,
       sourceMovementId: values.sourceMovementId ?? null,
       dueType: values.dueType,
       referenceKey: values.referenceKey,
@@ -173,9 +249,51 @@ export async function createDue(input: unknown) {
   return { id };
 }
 
+export async function createDuePaymentUploadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.PAYMENT_CREATE);
+  const values = parseInput(duePaymentUploadSchema.safeParse(input));
+  const [item] = await getDb().select({ id: due.id, blockId: due.blockId }).from(due).where(eq(due.id, values.dueId)).limit(1);
+  if (!item) throw new Error("Due was not found.");
+  if (item.blockId) await requireAssignedBlockAccess(item.blockId);
+  validateUpload(values);
+  const upload = await getObjectStorage().createUploadUrl({ ...values, scope: duePaymentScope(values.paymentId) });
+  assertDuePaymentEvidenceKey(values.paymentId, upload.key);
+  return { key: upload.key, uploadUrl: upload.uploadUrl };
+}
+
+export async function getDuePaymentEvidenceDownloadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.DUES_READ);
+  const values = parseInput(duePaymentEvidenceDownloadSchema.safeParse(input));
+  const [payment] = await getDb().select({ evidenceKey: duePayment.evidenceKey, blockId: due.blockId }).from(duePayment).innerJoin(due, eq(due.id, duePayment.dueId)).where(eq(duePayment.id, values.duePaymentId)).limit(1);
+  if (!payment?.evidenceKey) throw new Error("Payment evidence was not found.");
+  if (payment.blockId) await requireAssignedBlockAccess(payment.blockId);
+  assertDuePaymentEvidenceKey(values.duePaymentId, payment.evidenceKey);
+  return { downloadUrl: await getObjectStorage().createDownloadUrl(payment.evidenceKey) };
+}
+
+export async function getBlockReceivableSummary(input?: unknown) {
+  await requirePermission(PERMISSIONS.DUES_READ);
+  const filters = duesFiltersSchema.parse(input ?? {});
+  const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+  if (assignedBlockIds && !assignedBlockIds.length) return [];
+  const baseConditions = buildDueConditions({ ...filters, dueType: filters.dueType ?? "MONTHLY" });
+  const conditions = assignedBlockIds ? and(baseConditions, inArray(due.blockId, assignedBlockIds)) : baseConditions;
+  const rows = await getDb().select({ blockId: due.blockId, blockCode: block.code, blockName: block.name, amountDue: due.amountDue, amountPaid: due.amountPaid, dueDate: due.dueDate }).from(due).leftJoin(block, eq(block.id, due.blockId)).where(conditions);
+  const grouped = new Map<string, { blockId: string | null; blockCode: string | null; blockName: string | null; obligationTotal: number; paidTotal: number; arrearsTotal: number; overdueUnits: number; units: number }>();
+  for (const row of rows) {
+    const key = row.blockId ?? "UNASSIGNED";
+    const current = grouped.get(key) ?? { blockId: row.blockId, blockCode: row.blockCode, blockName: row.blockName, obligationTotal: 0, paidTotal: 0, arrearsTotal: 0, overdueUnits: 0, units: 0 };
+    current.obligationTotal += row.amountDue; current.paidTotal += row.amountPaid; current.arrearsTotal += row.amountDue - row.amountPaid; current.units += 1;
+    if (duePaymentState(row) === "OVERDUE") current.overdueUnits += 1;
+    grouped.set(key, current);
+  }
+  return [...grouped.values()].sort((left, right) => right.arrearsTotal - left.arrearsTotal || (left.blockCode ?? "").localeCompare(right.blockCode ?? ""));
+}
+
 export async function recordDuePayment(input: unknown) {
   const session = await requirePermission(PERMISSIONS.PAYMENT_CREATE);
   const values = parseInput(recordDuePaymentSchema.safeParse(input));
+  if (values.evidenceKey) assertDuePaymentEvidenceKey(values.idempotencyKey, values.evidenceKey);
   const database = getDb();
   const paymentId = values.idempotencyKey;
   const result = await database.transaction(async (tx) => {
@@ -268,4 +386,33 @@ export async function recordDuePayment(input: unknown) {
     return { id: paymentId, cashTransactionId, dueId: current.id, amountPaid, status, duplicate: false };
   });
   return result;
+}
+
+export async function reverseDuePayment(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.DUES_MANAGE);
+  const values = parseInput(reverseDuePaymentSchema.safeParse(input));
+  const database = getDb();
+  return database.transaction(async (tx) => {
+    const [payment] = await tx.select().from(duePayment).where(eq(duePayment.id, values.duePaymentId)).limit(1);
+    if (!payment) throw new Error("Due payment was not found.");
+    const [currentDue] = await tx.select().from(due).where(eq(due.id, payment.dueId)).limit(1);
+    if (!currentDue) throw new Error("Due was not found.");
+    if (currentDue.blockId) await requireAssignedBlockAccess(currentDue.blockId);
+    const [cashTransaction] = await tx.select().from(financialTransaction).where(and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, payment.id))).limit(1);
+    if (!cashTransaction) throw new Error("Payment cash transaction was not found.");
+    if (cashTransaction.status === "REVERSED") return { id: payment.id, dueId: currentDue.id, status: currentDue.status, duplicate: true };
+    if (cashTransaction.status !== "SAH") throw new Error("Only approved payment transactions can be reversed.");
+    if (currentDue.amountPaid < payment.amount) throw new Error("Due payment balance is inconsistent and requires reconciliation.");
+    const amountPaid = currentDue.amountPaid - payment.amount;
+    const status = amountPaid === 0 ? "UNPAID" : "PARTIAL";
+    const now = new Date();
+    const [updateResult] = await tx.update(due).set({ amountPaid, status, updatedAt: now }).where(and(eq(due.id, currentDue.id), eq(due.amountPaid, currentDue.amountPaid), eq(due.status, currentDue.status)));
+    if (updateResult.affectedRows !== 1) throw new Error("This due changed before the reversal could be applied.");
+    const reversalId = await reverseFinancialTransactionRecord(tx, cashTransaction, session.user.id, values.reason);
+    await tx.insert(auditLog).values([
+      createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.REVERSE, entityType: "DUE_PAYMENT", entityId: payment.id, oldValues: { amount: payment.amount }, newValues: { dueId: currentDue.id, amountPaid, status, reason: values.reason, reversalId, idempotencyKey: values.idempotencyKey } }),
+      createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "DUE", entityId: currentDue.id, oldValues: { amountPaid: currentDue.amountPaid, status: currentDue.status }, newValues: { amountPaid, status, reversedPaymentId: payment.id } }),
+    ]);
+    return { id: payment.id, dueId: currentDue.id, status, reversalId, duplicate: false };
+  });
 }

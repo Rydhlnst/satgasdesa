@@ -1,0 +1,22 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, TextInput } from "react-native";
+
+import { useAuth } from "../../../src/auth";
+import { ErrorState, Header, LoadingState, Screen } from "../../../src/components/Screen";
+import { getBlockDetails, updateBlock } from "../../../src/lib/api";
+import { colors, spacing } from "../../../src/theme";
+
+export default function EditBlock() {
+  const { id } = useLocalSearchParams<{ id: string }>(); const { role } = useAuth(); const router = useRouter(); const client = useQueryClient(); const query = useQuery({ queryKey: ["block", id], queryFn: () => getBlockDetails(id), enabled: Boolean(role && id) }); const [draft, setDraft] = useState<Record<string, string> | null>(null);
+  if (!role) return null;
+  if (query.isLoading) return <><Header role={role} title="Edit Blok" /><Screen><LoadingState /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Edit Blok" /><Screen><ErrorState message="Data blok tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
+  const values = draft ?? blockValues(query.data.item);
+  const field = (key: string, label: string, multiline = false) => <><Text style={styles.label}>{label}</Text><TextInput value={values[key] ?? ""} onChangeText={(value) => setDraft((current) => ({ ...(current ?? values), [key]: value }))} multiline={multiline} style={[styles.input, multiline && styles.multiline]} /></>;
+  async function save() { try { await updateBlock({ id, ...values, latitude: Number(values.latitude), longitude: Number(values.longitude), areaHectares: values.areaHectares ? Number(values.areaHectares) : undefined, workerCount: Number(values.workerCount), startDate: values.startDate || undefined, notes: values.notes || undefined }); await client.invalidateQueries({ queryKey: ["block", id] }); await client.invalidateQueries({ queryKey: ["blocks"] }); router.back(); } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Periksa data blok."); } }
+  return <><Header role={role} title="Edit Blok" subtitle="Perbarui data atau status operasional" /><Screen><Text style={styles.heading}>Data Blok</Text>{field("code", "Kode blok")}{field("name", "Nama blok")}<Text style={styles.label}>Status</Text><TextInput value={values.status ?? ""} onChangeText={(status) => setDraft((current) => ({ ...(current ?? values), status }))} placeholder="ACTIVE, STOPPED, atau NOT_OPERATING" style={styles.input} />{field("priority", "Prioritas: LOW, NORMAL, HIGH, atau CRITICAL")}{field("latitude", "Latitude")}{field("longitude", "Longitude")}{field("areaHectares", "Luas area (hektar)")}{field("managerName", "Pengelola")}{field("locationPicName", "PJ lokasi")}{field("fieldPicName", "PJ lapangan")}{field("workerCount", "Jumlah pekerja")}{field("operationalCondition", "Kondisi operasional", true)}{field("notes", "Catatan", true)}<Pressable onPress={() => void save()} style={styles.primary}><Text style={styles.primaryText}>Simpan Perubahan</Text></Pressable></Screen></>;
+}
+function blockValues(item: Record<string, string | number | null>): Record<string, string> { return { code: String(item.code ?? ""), name: String(item.name ?? ""), status: String(item.status ?? ""), priority: String(item.priority ?? "NORMAL"), latitude: String(item.latitude ?? ""), longitude: String(item.longitude ?? ""), areaHectares: String(item.areaHectares ?? ""), managerName: String(item.managerName ?? ""), locationPicName: String(item.locationPicName ?? ""), fieldPicName: String(item.fieldPicName ?? ""), workerCount: String(item.workerCount ?? ""), operationalCondition: String(item.operationalCondition ?? ""), startDate: "", notes: "" }; }
+const styles = StyleSheet.create({ heading: { color: colors.text, fontSize: 16, fontWeight: "900" }, label: { color: colors.text, fontSize: 11, fontWeight: "800", marginBottom: -4 }, input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: 12, paddingVertical: 10 }, multiline: { minHeight: 90, textAlignVertical: "top" }, primary: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 10, marginTop: spacing.sm, padding: 14 }, primaryText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" } });

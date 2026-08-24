@@ -1,5 +1,7 @@
 import mysql from "mysql2/promise";
 
+process.loadEnvFile(".env");
+
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL must be configured before MySQL smoke tests.");
 
@@ -15,7 +17,13 @@ const requiredTables = [
   "due_payment",
   "financial_transaction",
   "budget_period",
+  "budget_category",
+  "budget_subcategory",
+  "budget_item_attachment",
+  "budget_period_history",
   "realization_request",
+  "realization_approval",
+  "realization_evidence",
   "notification",
 ];
 

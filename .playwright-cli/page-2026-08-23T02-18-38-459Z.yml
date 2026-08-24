@@ -1,0 +1,163 @@
+- generic [active] [ref=f32e1]:
+  - generic [ref=f32e2]:
+    - status [ref=f32e3]
+    - generic [ref=f32e4]:
+      - generic [ref=f32e6]:
+        - generic [ref=f32e13]:
+          - paragraph [ref=f32e14]: SATGAS
+          - paragraph [ref=f32e15]: Desa Sejoli
+        - navigation "Primary navigation" [ref=f32e17]:
+          - generic [ref=f32e18]:
+            - generic [ref=f32e19]: Navigasi utama
+            - list [ref=f32e21]:
+              - listitem [ref=f32e22]:
+                - link "Dashboard" [ref=f32e23] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f32e30]:
+                - link "Monitoring Blok" [ref=f32e31] [cursor=pointer]:
+                  - /url: /dashboard/blocks
+              - listitem [ref=f32e36]:
+                - link "Excavator" [ref=f32e37] [cursor=pointer]:
+                  - /url: /dashboard/excavators
+              - listitem [ref=f32e44]:
+                - link "Inspeksi Lapangan" [ref=f32e45] [cursor=pointer]:
+                  - /url: /dashboard/inspections
+              - listitem [ref=f32e51]:
+                - link "Informasi Harian" [ref=f32e52] [cursor=pointer]:
+                  - /url: /dashboard/information
+              - listitem [ref=f32e57]:
+                - link "Iuran & Pembayaran" [ref=f32e58] [cursor=pointer]:
+                  - /url: /dashboard/dues
+              - listitem [ref=f32e63]:
+                - link "Keuangan" [ref=f32e64] [cursor=pointer]:
+                  - /url: /dashboard/finance
+              - listitem [ref=f32e68]:
+                - link "Anggaran" [ref=f32e69] [cursor=pointer]:
+                  - /url: /dashboard/budgets
+              - listitem [ref=f32e74]:
+                - link "Realisasi" [ref=f32e75] [cursor=pointer]:
+                  - /url: /dashboard/realizations
+              - listitem [ref=f32e79]:
+                - link "Laporan" [ref=f32e80] [cursor=pointer]:
+                  - /url: /dashboard/reports
+              - listitem [ref=f32e85]:
+                - link "Notifikasi" [ref=f32e86] [cursor=pointer]:
+                  - /url: /dashboard/notifications
+              - listitem [ref=f32e91]:
+                - link "Audit Log" [ref=f32e92] [cursor=pointer]:
+                  - /url: /dashboard/audit
+              - listitem [ref=f32e98]:
+                - link "Pengelola Blok" [ref=f32e99] [cursor=pointer]:
+                  - /url: /dashboard/block-managers
+              - listitem [ref=f32e105]:
+                - link "Pengguna" [ref=f32e106] [cursor=pointer]:
+                  - /url: /dashboard/settings/users
+        - paragraph [ref=f32e112]: Operasional internal
+      - generic [ref=f32e113]:
+        - banner [ref=f32e114]:
+          - generic [ref=f32e115]:
+            - generic [ref=f32e116]:
+              - paragraph [ref=f32e117]: SATGAS DESA SEJOLI
+              - generic [ref=f32e118]:
+                - generic [ref=f32e119]: PIMPINAN / ADMIN
+                - generic [ref=f32e120]: Operasional internal
+            - generic [ref=f32e121]:
+              - link "Notifikasi" [ref=f32e122] [cursor=pointer]:
+                - /url: /dashboard/notifications
+                - generic [ref=f32e126]: "5"
+              - generic [ref=f32e127]:
+                - paragraph [ref=f32e128]: Local Pimpinan
+                - paragraph [ref=f32e129]: pimpinan@satgas.local
+              - button "Open account menu for Local Pimpinan" [ref=f32e130]:
+                - generic [ref=f32e131]: LP
+          - tablist [ref=f32e134]:
+            - tab "Ringkasan" [ref=f32e135] [cursor=pointer]
+            - tab "Operasional" [ref=f32e136] [cursor=pointer]
+            - tab "Keuangan" [ref=f32e137] [cursor=pointer]
+            - tab "Tata kelola" [selected] [ref=f32e138] [cursor=pointer]
+        - main [ref=f32e139]:
+          - generic [ref=f32e140]:
+            - generic [ref=f32e141]:
+              - navigation "breadcrumb" [ref=f32e142]:
+                - list [ref=f32e143]:
+                  - listitem [ref=f32e144]:
+                    - link "Dashboard" [ref=f32e145] [cursor=pointer]:
+                      - /url: /dashboard
+                  - listitem [ref=f32e146]
+                  - listitem [ref=f32e149]:
+                    - link "Notifikasi" [disabled] [ref=f32e150]
+              - generic [ref=f32e151]:
+                - generic [ref=f32e152]:
+                  - paragraph [ref=f32e153]: Ruang kerja
+                  - heading "Notifikasi" [level=1] [ref=f32e154]
+                  - paragraph [ref=f32e155]: Pemberitahuan dari alur operasional, iuran, anggaran, dan realisasi.
+                - button "Tandai semua dibaca" [ref=f32e158]
+            - generic [ref=f32e159]:
+              - textbox "Cari notifikasi" [ref=f32e160]
+              - combobox [ref=f32e161]:
+                - option "Semua notifikasi" [selected]
+                - option "Belum dibaca"
+              - button "Filter" [ref=f32e162]
+            - generic [ref=f32e163]:
+              - article [ref=f32e164]:
+                - generic [ref=f32e165]:
+                  - generic [ref=f32e166]:
+                    - generic [ref=f32e167]:
+                      - heading "Realization approved" [level=2] [ref=f32e168]
+                      - generic [ref=f32e169]: Belum dibaca
+                    - paragraph [ref=f32e170]: A realization request changed status and is ready for review.
+                    - paragraph [ref=f32e171]: 23/8/2026, 09.09.06 · REALIZATION SAH
+                  - generic [ref=f32e172]:
+                    - link "Buka" [ref=f32e173] [cursor=pointer]:
+                      - /url: /dashboard/realizations/83bd21d2-c451-41ac-8482-25e8baa83a31
+                    - button "Tandai dibaca" [ref=f32e175]
+              - article [ref=f32e176]:
+                - generic [ref=f32e177]:
+                  - generic [ref=f32e178]:
+                    - generic [ref=f32e179]:
+                      - heading "Realization verified" [level=2] [ref=f32e180]
+                      - generic [ref=f32e181]: Belum dibaca
+                    - paragraph [ref=f32e182]: A realization request changed status and is ready for review.
+                    - paragraph [ref=f32e183]: 23/8/2026, 09.08.50 · REALIZATION VERIFIED
+                  - generic [ref=f32e184]:
+                    - link "Buka" [ref=f32e185] [cursor=pointer]:
+                      - /url: /dashboard/realizations/83bd21d2-c451-41ac-8482-25e8baa83a31
+                    - button "Tandai dibaca" [ref=f32e187]
+              - article [ref=f32e188]:
+                - generic [ref=f32e189]:
+                  - generic [ref=f32e190]:
+                    - generic [ref=f32e191]:
+                      - heading "Realization waiting for verification" [level=2] [ref=f32e192]
+                      - generic [ref=f32e193]: Belum dibaca
+                    - paragraph [ref=f32e194]: A realization request was submitted for verification.
+                    - paragraph [ref=f32e195]: 23/8/2026, 09.08.19 · REALIZATION SUBMITTED
+                  - generic [ref=f32e196]:
+                    - link "Buka" [ref=f32e197] [cursor=pointer]:
+                      - /url: /dashboard/realizations/83bd21d2-c451-41ac-8482-25e8baa83a31
+                    - button "Tandai dibaca" [ref=f32e199]
+              - article [ref=f32e200]:
+                - generic [ref=f32e201]:
+                  - generic [ref=f32e202]:
+                    - generic [ref=f32e203]:
+                      - heading "High-priority daily information" [level=2] [ref=f32e204]
+                      - generic [ref=f32e205]: Belum dibaca
+                    - paragraph [ref=f32e206]: HIGH complaint requires attention.
+                    - paragraph [ref=f32e207]: 23/8/2026, 08.57.51 · HIGH PRIORITY INFORMATION
+                  - generic [ref=f32e208]:
+                    - link "Buka" [ref=f32e209] [cursor=pointer]:
+                      - /url: /dashboard
+                    - button "Tandai dibaca" [ref=f32e211]
+              - article [ref=f32e212]:
+                - generic [ref=f32e213]:
+                  - generic [ref=f32e214]:
+                    - generic [ref=f32e215]:
+                      - heading "High-priority daily information" [level=2] [ref=f32e216]
+                      - generic [ref=f32e217]: Belum dibaca
+                    - paragraph [ref=f32e218]: HIGH complaint requires attention.
+                    - paragraph [ref=f32e219]: 23/8/2026, 07.56.24 · HIGH PRIORITY INFORMATION
+                  - generic [ref=f32e220]:
+                    - link "Buka" [ref=f32e221] [cursor=pointer]:
+                      - /url: /dashboard
+                    - button "Tandai dibaca" [ref=f32e223]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f32e229] [cursor=pointer]

@@ -1,16 +1,17 @@
-import { and, count, desc, eq, inArray, like, or, sum } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, like, lt, or, sum } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
 import { duePayment } from "@/src/db/schema/dues";
-import { financialTransaction } from "@/src/db/schema/finance";
+import { financeCategory, financialTransaction } from "@/src/db/schema/finance";
 import { realizationRequest } from "@/src/db/schema/budgets";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
+import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 
-import { approveFinancialTransactionSchema, createFinancialTransactionSchema, financialTransactionFiltersSchema, reverseFinancialTransactionSchema } from "./schema";
+import { approveFinancialTransactionSchema, createFinancialTransactionSchema, financeCategoryFiltersSchema, financeCategorySchema, financialTransactionEvidenceDownloadSchema, financialTransactionFiltersSchema, financialTransactionUploadSchema, reverseFinancialTransactionSchema, updateFinanceCategorySchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T }): T {
   if (!result.success || !result.data) throw new Error("Please check the financial transaction details and try again.");
@@ -33,13 +34,77 @@ function idempotentTransactionCode(idempotencyKey: string): string {
   return `TX-${idempotencyKey.replaceAll("-", "").toUpperCase()}`;
 }
 
+function financialTransactionScope(transactionId: string): string { return `financial-transactions/${transactionId}`; }
+function assertFinancialEvidenceKey(transactionId: string, storageKey: string): void {
+  const scope = `${financialTransactionScope(transactionId)}/`;
+  if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("Transaction evidence is outside the permitted storage scope.");
+}
+
 function sameTransactionPayload(current: typeof financialTransaction.$inferSelect, values: z.infer<typeof createFinancialTransactionSchema>): boolean {
   return current.transactionType === values.transactionType
     && current.amount === values.amount
     && current.description === values.description
+    && current.categoryId === (values.categoryId ?? null)
     && current.relatedEntityType === optionalValue(values.relatedEntityType)
     && current.relatedEntityId === (values.relatedEntityId ?? null)
     && current.evidenceKey === optionalValue(values.evidenceKey);
+}
+
+async function assertActiveFinanceCategory(categoryId: string | undefined, transactionType: "CASH_IN" | "CASH_OUT"): Promise<void> {
+  if (!categoryId) return;
+  const [category] = await getDb().select({ transactionType: financeCategory.transactionType, isActive: financeCategory.isActive }).from(financeCategory).where(eq(financeCategory.id, categoryId)).limit(1);
+  if (!category || !category.isActive || category.transactionType !== transactionType) throw new Error("Select an active category matching the transaction type.");
+}
+
+export async function getFinanceCategories(input?: unknown) {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const values = financeCategoryFiltersSchema.parse(input ?? {});
+  const conditions = [
+    values.transactionType ? eq(financeCategory.transactionType, values.transactionType) : undefined,
+    values.includeInactive ? undefined : eq(financeCategory.isActive, true),
+    values.query ? like(financeCategory.name, `%${values.query}%`) : undefined,
+  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+  return getDb().select().from(financeCategory).where(conditions.length ? and(...conditions) : undefined).orderBy(financeCategory.transactionType, financeCategory.sortOrder, financeCategory.name);
+}
+
+export async function createFinanceCategory(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.FINANCE_CATEGORY_MANAGE);
+  const values = parseInput(financeCategorySchema.safeParse(input));
+  const id = crypto.randomUUID(); const now = new Date();
+  await getDb().transaction(async (tx) => {
+    await tx.insert(financeCategory).values({ id, name: values.name, transactionType: values.transactionType, isActive: true, sortOrder: values.sortOrder, createdBy: session.user.id, createdAt: now, updatedAt: now });
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "FINANCE_CATEGORY", entityId: id, newValues: values }));
+  });
+  return { id };
+}
+
+export async function updateFinanceCategory(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.FINANCE_CATEGORY_MANAGE);
+  const values = parseInput(updateFinanceCategorySchema.safeParse(input));
+  const [current] = await getDb().select().from(financeCategory).where(eq(financeCategory.id, values.id)).limit(1);
+  if (!current) throw new Error("Finance category was not found.");
+  await getDb().transaction(async (tx) => {
+    await tx.update(financeCategory).set({ name: values.name, transactionType: values.transactionType, isActive: values.isActive, sortOrder: values.sortOrder, updatedAt: new Date() }).where(eq(financeCategory.id, values.id));
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "FINANCE_CATEGORY", entityId: values.id, oldValues: { name: current.name, transactionType: current.transactionType, isActive: current.isActive, sortOrder: current.sortOrder }, newValues: values }));
+  });
+  return { id: values.id };
+}
+
+export async function createFinancialTransactionUploadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.FINANCE_CREATE);
+  const values = parseInput(financialTransactionUploadSchema.safeParse(input));
+  validateUpload(values);
+  const upload = await getObjectStorage().createUploadUrl({ ...values, scope: financialTransactionScope(values.transactionId) });
+  assertFinancialEvidenceKey(values.transactionId, upload.key);
+  return { key: upload.key, uploadUrl: upload.uploadUrl };
+}
+
+export async function getFinancialTransactionEvidenceDownloadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.FINANCE_READ);
+  const values = parseInput(financialTransactionEvidenceDownloadSchema.safeParse(input));
+  const [item] = await getDb().select({ evidenceKey: financialTransaction.evidenceKey }).from(financialTransaction).where(eq(financialTransaction.id, values.id)).limit(1);
+  if (!item?.evidenceKey) throw new Error("Transaction evidence was not found.");
+  return { downloadUrl: await getObjectStorage().createDownloadUrl(item.evidenceKey) };
 }
 
 type TransactionContext = Pick<ReturnType<typeof getDb>, "insert" | "update">;
@@ -91,14 +156,19 @@ export async function getFinancialTransaction(id: string) {
 export async function getFinancialTransactionsPage(input?: unknown) {
   await requirePermission(PERMISSIONS.FINANCE_READ);
   const values = financialTransactionFiltersSchema.parse(input ?? {});
+  const periodRange = values.periodKey ? { start: new Date(`${values.periodKey}-01T00:00:00.000Z`), end: new Date(`${values.periodKey}-01T00:00:00.000Z`) } : null;
+  if (periodRange) periodRange.end.setUTCMonth(periodRange.end.getUTCMonth() + 1);
   const conditions = [
     values.status ? eq(financialTransaction.status, values.status) : undefined,
     values.transactionType ? eq(financialTransaction.transactionType, values.transactionType) : undefined,
     values.relatedEntityType ? eq(financialTransaction.relatedEntityType, values.relatedEntityType) : undefined,
+    values.categoryId ? eq(financialTransaction.categoryId, values.categoryId) : undefined,
     values.query ? or(
       like(financialTransaction.transactionCode, `%${values.query}%`),
       like(financialTransaction.description, `%${values.query}%`),
     ) : undefined,
+    periodRange ? gte(financialTransaction.transactionAt, periodRange.start) : undefined,
+    periodRange ? lt(financialTransaction.transactionAt, periodRange.end) : undefined,
   ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
   const where = conditions.length ? and(...conditions) : undefined;
   const database = getDb();
@@ -186,6 +256,8 @@ export async function getCashBalance() {
 export async function createFinancialTransaction(input: unknown) {
   const session = await requirePermission(PERMISSIONS.FINANCE_CREATE);
   const values = parseInput(createFinancialTransactionSchema.safeParse(input));
+  await assertActiveFinanceCategory(values.categoryId, values.transactionType);
+  if (values.evidenceKey) assertFinancialEvidenceKey(values.idempotencyKey, values.evidenceKey);
   const transactionCode = idempotentTransactionCode(values.idempotencyKey);
   const id = crypto.randomUUID();
   const now = new Date();
@@ -202,6 +274,7 @@ export async function createFinancialTransaction(input: unknown) {
       transactionType: values.transactionType,
       amount: values.amount,
       description: values.description,
+      categoryId: values.categoryId ?? null,
       relatedEntityType: optionalValue(values.relatedEntityType),
       relatedEntityId: values.relatedEntityId ?? null,
       evidenceKey: optionalValue(values.evidenceKey),

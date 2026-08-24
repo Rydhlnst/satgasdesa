@@ -1,0 +1,6 @@
+import { createInvitedUser, getRoles, getUsers } from "@/src/features/users/actions";
+import { apiErrorResponse, withMobileSession } from "@/src/lib/mobile-api";
+
+export const dynamic = "force-dynamic";
+export async function GET(request: Request) { return withMobileSession(request, async () => { try { const p = new URL(request.url).searchParams; const [users, roles] = await Promise.all([getUsers({ query: p.get("query") || undefined, status: p.get("status") || undefined, roleId: p.get("roleId") || undefined }), getRoles()]); return Response.json({ users, roles }); } catch (error) { return apiErrorResponse(error); } }); }
+export async function POST(request: Request) { return withMobileSession(request, async () => { try { const input = await request.json() as { name?: string; email?: string; roleId?: string }; const data = new FormData(); data.set("name", input.name ?? ""); data.set("email", input.email ?? ""); data.set("roleId", input.roleId ?? ""); const result = await createInvitedUser({ error: null, success: null }, data); if (result.error) return Response.json({ message: result.error, created: result.error.startsWith("The user was created") }, { status: result.error.startsWith("The user was created") ? 201 : 400 }); return Response.json(result, { status: 201 }); } catch (error) { return apiErrorResponse(error); } }); }

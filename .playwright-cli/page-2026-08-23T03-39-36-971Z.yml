@@ -1,0 +1,24 @@
+- generic [active] [ref=f1e1]:
+  - main [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - generic [ref=f1e9]:
+        - paragraph [ref=f1e10]: SATGAS
+        - paragraph [ref=f1e11]: Desa Sejoli
+      - generic [ref=f1e12]:
+        - generic [ref=f1e13]:
+          - generic [ref=f1e14]: Masuk
+          - generic [ref=f1e15]: Gunakan akun internal yang diberikan oleh administrator organisasi Anda.
+        - generic [ref=f1e17]:
+          - generic [ref=f1e18]:
+            - generic [ref=f1e19]: Email
+            - textbox "Email" [ref=f1e21]
+          - generic [ref=f1e22]:
+            - generic [ref=f1e23]:
+              - generic [ref=f1e24]: Kata sandi
+              - link "Lupa kata sandi?" [ref=f1e25] [cursor=pointer]:
+                - /url: /forgot-password
+            - textbox "Kata sandi" [ref=f1e27]
+          - button "Masuk" [ref=f1e28]
+          - paragraph [ref=f1e29]: Akun dibuat oleh administrator yang berwenang. Pendaftaran publik dinonaktifkan.
+  - region "Notifications alt+T"
+  - alert [ref=f1e30]

@@ -1,0 +1,169 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - status [ref=f1e3]
+    - generic [ref=f1e4]:
+      - generic [ref=f1e6]:
+        - generic [ref=f1e13]:
+          - paragraph [ref=f1e14]: SATGAS
+          - paragraph [ref=f1e15]: Desa Sejoli
+        - navigation "Primary navigation" [ref=f1e17]:
+          - generic [ref=f1e18]:
+            - generic [ref=f1e19]: Navigasi utama
+            - list [ref=f1e21]:
+              - listitem [ref=f1e22]:
+                - link "Dashboard" [ref=f1e23] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f1e30]:
+                - link "Monitoring Blok" [ref=f1e31] [cursor=pointer]:
+                  - /url: /dashboard/blocks
+              - listitem [ref=f1e36]:
+                - link "Excavator" [ref=f1e37] [cursor=pointer]:
+                  - /url: /dashboard/excavators
+              - listitem [ref=f1e44]:
+                - link "Inspeksi Lapangan" [ref=f1e45] [cursor=pointer]:
+                  - /url: /dashboard/inspections
+              - listitem [ref=f1e51]:
+                - link "Informasi Harian" [ref=f1e52] [cursor=pointer]:
+                  - /url: /dashboard/information
+              - listitem [ref=f1e57]:
+                - link "Iuran & Pembayaran" [ref=f1e58] [cursor=pointer]:
+                  - /url: /dashboard/dues
+              - listitem [ref=f1e63]:
+                - link "Keuangan" [ref=f1e64] [cursor=pointer]:
+                  - /url: /dashboard/finance
+              - listitem [ref=f1e68]:
+                - link "Anggaran" [ref=f1e69] [cursor=pointer]:
+                  - /url: /dashboard/budgets
+              - listitem [ref=f1e74]:
+                - link "Realisasi" [ref=f1e75] [cursor=pointer]:
+                  - /url: /dashboard/realizations
+              - listitem [ref=f1e79]:
+                - link "Laporan" [ref=f1e80] [cursor=pointer]:
+                  - /url: /dashboard/reports
+              - listitem [ref=f1e85]:
+                - link "Notifikasi" [ref=f1e86] [cursor=pointer]:
+                  - /url: /dashboard/notifications
+              - listitem [ref=f1e91]:
+                - link "Pengelola Blok" [ref=f1e92] [cursor=pointer]:
+                  - /url: /dashboard/block-managers
+        - paragraph [ref=f1e99]: Operasional internal
+      - generic [ref=f1e100]:
+        - banner [ref=f1e101]:
+          - generic [ref=f1e102]:
+            - generic [ref=f1e103]:
+              - paragraph [ref=f1e104]: SATGAS DESA SEJOLI
+              - generic [ref=f1e105]:
+                - generic [ref=f1e106]: BENDAHARA
+                - generic [ref=f1e107]: Operasional internal
+            - generic [ref=f1e108]:
+              - link "Notifikasi" [ref=f1e109] [cursor=pointer]:
+                - /url: /dashboard/notifications
+                - generic [ref=f1e113]: "1"
+              - generic [ref=f1e114]:
+                - paragraph [ref=f1e115]: Local Bendahara
+                - paragraph [ref=f1e116]: bendahara@satgas.local
+              - button "Open account menu for Local Bendahara" [ref=f1e117]:
+                - generic [ref=f1e118]: LB
+          - tablist [ref=f1e121]:
+            - tab "Ringkasan" [selected] [ref=f1e122] [cursor=pointer]
+            - tab "Operasional" [ref=f1e123] [cursor=pointer]
+            - tab "Keuangan" [ref=f1e124] [cursor=pointer]
+            - tab "Tata kelola" [ref=f1e125] [cursor=pointer]
+        - main [ref=f1e126]:
+          - generic [ref=f1e128]:
+            - generic [ref=f1e129]:
+              - generic [ref=f1e130]:
+                - paragraph [ref=f1e131]: Akses Bendahara
+                - heading "Dashboard Keuangan" [level=1] [ref=f1e132]
+                - paragraph [ref=f1e133]: Kelola iuran, alokasi anggaran, pengajuan, dan realisasi dana desa.
+              - generic [ref=f1e139]:
+                - paragraph [ref=f1e140]: Signed in as
+                - paragraph [ref=f1e141]: Local Bendahara
+            - generic [ref=f1e142]:
+              - generic [ref=f1e143]:
+                - generic [ref=f1e147]:
+                  - paragraph [ref=f1e148]: Saldo Kas Aktual
+                  - paragraph [ref=f1e149]:
+                    - generic [ref=f1e150]: Rp 1.001.234
+                  - paragraph [ref=f1e151]: 4 transaksi
+                - generic [ref=f1e159]:
+                  - paragraph [ref=f1e160]: Iuran Diterima
+                  - paragraph [ref=f1e161]:
+                    - generic [ref=f1e162]: Rp 1.301.234
+                  - paragraph [ref=f1e163]: Dana diterima
+                - generic [ref=f1e171]:
+                  - paragraph [ref=f1e172]: Tunggakan
+                  - paragraph [ref=f1e173]:
+                    - generic [ref=f1e174]: Rp 9.000.000
+                  - paragraph [ref=f1e175]: 0 blok
+                - generic [ref=f1e182]:
+                  - paragraph [ref=f1e183]: Alokasi Bulanan
+                  - paragraph [ref=f1e184]:
+                    - generic [ref=f1e185]: Rp 0
+                  - paragraph [ref=f1e186]: Belum dibuat
+              - generic [ref=f1e191]:
+                - generic [ref=f1e192]:
+                  - heading "Ringkasan Iuran" [level=2] [ref=f1e194]
+                  - generic [ref=f1e195]:
+                    - generic [ref=f1e197]:
+                      - strong [ref=f1e198]: 10%
+                      - generic [ref=f1e199]: Diterima
+                    - generic [ref=f1e200]:
+                      - paragraph [ref=f1e201]:
+                        - text: Diterima
+                        - strong [ref=f1e203]:
+                          - generic [ref=f1e204]: Rp 1.000.000
+                      - paragraph [ref=f1e205]:
+                        - text: Tunggakan
+                        - strong [ref=f1e207]:
+                          - generic [ref=f1e208]: Rp 9.000.000
+                - generic [ref=f1e209]:
+                  - heading "Alokasi Anggaran" [level=2] [ref=f1e211]
+                  - generic [ref=f1e212]:
+                    - generic [ref=f1e213]:
+                      - generic [ref=f1e214]: Total alokasi
+                      - strong [ref=f1e215]:
+                        - generic [ref=f1e216]: Rp 0
+                    - generic [ref=f1e217]:
+                      - generic [ref=f1e218]: Realisasi disetujui
+                      - strong [ref=f1e219]:
+                        - generic [ref=f1e220]: Rp 0
+                    - progressbar "Serapan anggaran" [ref=f1e221]
+                    - paragraph [ref=f1e223]: 0% serapan
+              - generic [ref=f1e224]:
+                - generic [ref=f1e225]:
+                  - heading "Perlu Perhatian" [level=2] [ref=f1e227]
+                  - generic [ref=f1e228]:
+                    - article [ref=f1e229]:
+                      - generic [ref=f1e233]:
+                        - generic [ref=f1e234]:
+                          - paragraph [ref=f1e235]: Overdue excavator due
+                          - generic [ref=f1e236]: HIGH
+                        - paragraph [ref=f1e237]: QA Excavator Operator has Rp9.000.000 outstanding.
+                    - article [ref=f1e238]:
+                      - generic [ref=f1e242]:
+                        - generic [ref=f1e243]:
+                          - paragraph [ref=f1e244]: Daily information unresolved
+                          - generic [ref=f1e245]: MEDIUM
+                        - paragraph [ref=f1e246]: MEDIUM complaint still needs follow-up.
+                - generic [ref=f1e247]:
+                  - heading "Alur Pengajuan" [level=2] [ref=f1e249]
+                  - generic [ref=f1e250]:
+                    - link [ref=f1e251] [cursor=pointer]:
+                      - /url: /dashboard/realizations
+                      - generic [ref=f1e252]: DRAFT
+                      - generic [ref=f1e255]: "1"
+                    - link [ref=f1e258] [cursor=pointer]:
+                      - /url: /dashboard/realizations
+                      - generic [ref=f1e259]: SUBMITTED
+                      - generic [ref=f1e262]: "0"
+                    - link [ref=f1e265] [cursor=pointer]:
+                      - /url: /dashboard/realizations
+                      - generic [ref=f1e266]: VERIFIED
+                      - generic [ref=f1e269]: "0"
+                    - link [ref=f1e272] [cursor=pointer]:
+                      - /url: /dashboard/realizations
+                      - generic [ref=f1e273]: SAH
+                      - generic [ref=f1e276]: "1"
+  - region "Notifications alt+T"
+  - alert [ref=f1e279]

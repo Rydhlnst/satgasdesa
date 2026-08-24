@@ -1,0 +1,38 @@
+import { useState } from "react";
+import { Controller, type Control, type FieldErrors, type FieldValues, type UseFormRegister } from "react-hook-form";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { colors, spacing } from "../theme";
+
+export function InputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder }: { name: string; label: string; register: UseFormRegister<T>; errors: FieldErrors<T>; multiline?: boolean; keyboardType?: "default" | "numeric"; placeholder?: string }) {
+  const error = errors[name as keyof T]?.message;
+  return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput {...register(name as never)} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} placeholder={placeholder} placeholderTextColor={colors.textMuted} style={[styles.input, multiline && styles.textarea, error ? styles.invalid : undefined]} /><ErrorText value={error} /></View>;
+}
+
+export function DateField<T extends FieldValues>({ name, label, control, errors, required = false }: { name: string; label: string; control: Control<T>; errors: FieldErrors<T>; required?: boolean }) {
+  const error = errors[name as keyof T]?.message;
+  return <Controller control={control} name={name as never} render={({ field: { value, onChange } }) => <DatePicker value={String(value ?? "")} onChange={onChange} label={`${label}${required ? " *" : ""}`} error={error} />} />;
+}
+
+export function DatePicker({ value, onChange, label, error }: { value: string; onChange: (value: string) => void; label: string; error?: unknown }) {
+  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(value || new Date().toISOString().slice(0, 10));
+  function save() { if (/^\d{4}-\d{2}-\d{2}$/.test(draft) && !Number.isNaN(Date.parse(`${draft}T00:00:00.000Z`))) { onChange(draft); setOpen(false); } }
+  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable onPress={() => { setDraft(value || new Date().toISOString().slice(0, 10)); setOpen(true); }} style={[styles.input, error ? styles.invalid : undefined]}><Text style={value ? styles.value : styles.placeholder}>{value || "Pilih tanggal (YYYY-MM-DD)"}</Text></Pressable><ErrorText value={error} /><Modal animationType="slide" transparent visible={open} onRequestClose={() => setOpen(false)}><View style={styles.backdrop}><View style={styles.sheet}><Text style={styles.sheetTitle}>Pilih Tanggal</Text><Text style={styles.sheetHint}>Gunakan format YYYY-MM-DD</Text><TextInput autoFocus keyboardType="numeric" onChangeText={setDraft} value={draft} style={styles.input} /><View style={styles.actions}><Pressable onPress={() => setOpen(false)} style={styles.cancel}><Text>Batal</Text></Pressable><Pressable onPress={save} style={styles.confirm}><Text style={styles.confirmText}>Gunakan</Text></Pressable></View></View></View></Modal></View>;
+}
+
+export function MonthField<T extends FieldValues>({ name, label, control, errors }: { name: string; label: string; control: Control<T>; errors: FieldErrors<T> }) {
+  const error = errors[name as keyof T]?.message;
+  return <Controller control={control} name={name as never} render={({ field: { value, onChange } }) => <MonthPicker value={String(value ?? "")} onChange={onChange} label={label} error={error} />} />;
+}
+
+export function MonthPicker({ value, onChange, label, error }: { value: string; onChange: (value: string) => void; label: string; error?: unknown }) {
+  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(value || new Date().toISOString().slice(0, 7));
+  function save() { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(draft)) { onChange(draft); setOpen(false); } }
+  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable onPress={() => { setDraft(value || new Date().toISOString().slice(0, 7)); setOpen(true); }} style={[styles.input, error ? styles.invalid : undefined]}><Text style={value ? styles.value : styles.placeholder}>{value || "Pilih bulan (YYYY-MM)"}</Text></Pressable><ErrorText value={error} /><Modal animationType="slide" transparent visible={open} onRequestClose={() => setOpen(false)}><View style={styles.backdrop}><View style={styles.sheet}><Text style={styles.sheetTitle}>Pilih Periode</Text><TextInput autoFocus keyboardType="numeric" onChangeText={setDraft} value={draft} style={styles.input} /><View style={styles.actions}><Pressable onPress={() => setOpen(false)} style={styles.cancel}><Text>Batal</Text></Pressable><Pressable onPress={save} style={styles.confirm}><Text style={styles.confirmText}>Gunakan</Text></Pressable></View></View></View></Modal></View>;
+}
+
+export function SelectField({ label, value, options, onChange }: { label: string; value: string; options: Array<{ label: string; value: string }>; onChange: (value: string) => void }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.options}>{options.map((option) => <Pressable key={option.value} onPress={() => onChange(option.value)} style={[styles.option, value === option.value && styles.optionActive]}><Text style={[styles.optionText, value === option.value && styles.optionTextActive]}>{option.label}</Text></Pressable>)}</ScrollView></View>; }
+export function SubmitButton({ label, loading, onPress }: { label: string; loading: boolean; onPress?: () => void }) { return <Pressable disabled={loading} onPress={onPress} style={[styles.submit, loading && { opacity: 0.55 }]}><Text style={styles.submitText}>{loading ? "Menyimpan…" : label}</Text></Pressable>; }
+export function ErrorText({ value }: { value: unknown }) { return value ? <Text style={styles.error}>{String(value)}</Text> : null; }
+const styles = StyleSheet.create({ field: { gap: 6 }, label: { color: colors.text, fontSize: 11, fontWeight: "800" }, input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: 12, paddingVertical: 10 }, textarea: { minHeight: 96, textAlignVertical: "top" }, invalid: { borderColor: colors.danger }, error: { color: colors.danger, fontSize: 10 }, value: { color: colors.text, fontSize: 12, paddingTop: 2 }, placeholder: { color: colors.textMuted, fontSize: 12, paddingTop: 2 }, backdrop: { backgroundColor: "#00000066", flex: 1, justifyContent: "flex-end" }, sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, gap: spacing.sm, padding: spacing.lg }, sheetTitle: { color: colors.text, fontSize: 18, fontWeight: "900" }, sheetHint: { color: colors.textMuted, fontSize: 11 }, actions: { flexDirection: "row", gap: spacing.sm, justifyContent: "flex-end", marginTop: spacing.sm }, cancel: { borderColor: colors.border, borderRadius: 9, borderWidth: 1, padding: spacing.md }, confirm: { backgroundColor: colors.primary, borderRadius: 9, padding: spacing.md }, confirmText: { color: "#FFFFFF", fontWeight: "800" }, options: { gap: spacing.sm }, option: { borderColor: colors.border, borderRadius: 9, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 9 }, optionActive: { backgroundColor: "#EAF1FF", borderColor: colors.primary }, optionText: { color: colors.text, fontSize: 11 }, optionTextActive: { color: colors.primary, fontWeight: "800" }, submit: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 10, padding: 14 }, submitText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" } });
+export const formStyles = styles;

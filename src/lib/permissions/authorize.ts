@@ -4,13 +4,19 @@ import { redirect } from "next/navigation";
 import { permission, rolePermission, userRole } from "@/src/db/schema/rbac";
 import { getDb } from "@/src/db";
 import { getSession } from "@/src/lib/auth/session";
+import { getRequestSession } from "@/src/lib/auth/request-context";
 
 import type { Permission } from "./constants";
 
 export async function requireAuth() {
-  const session = await getSession();
+  const session = getRequestSession() ?? await getSession();
 
   if (!session) {
+    if (getRequestSession() !== undefined) {
+      const error = new Error("Authentication is required.");
+      Object.assign(error, { code: "UNAUTHORIZED", status: 401 });
+      throw error;
+    }
     redirect("/login");
   }
 
@@ -45,6 +51,11 @@ export async function requirePermission(required: Permission) {
   const allowed = await hasPermission(session.user.id, required);
 
   if (!allowed) {
+    if (getRequestSession()) {
+      const error = new Error("You do not have permission to perform this action.");
+      Object.assign(error, { code: "FORBIDDEN", status: 403, requiredPermission: required });
+      throw error;
+    }
     redirect("/unauthorized");
   }
 

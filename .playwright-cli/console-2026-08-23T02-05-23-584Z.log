@@ -1,0 +1,10 @@
+[     221ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[     962ms] [LOG] [Fast Refresh] done in 849ms @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[    1201ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[    1203ms] [ERROR] eval() is not supported in this environment. If this page was served with a `Content-Security-Policy` header, make sure that `unsafe-eval` is included. React requires eval() in development mode for various debugging features like reconstructing callstacks from a different environment.
+React will never use eval() in production mode @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:1052
+[    1221ms] [LOG] [HMR] connected @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[    1565ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[    1726ms] [LOG] [Fast Refresh] done in 261ms @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[   22561ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776
+[   23198ms] [LOG] [Fast Refresh] done in 745ms @ http://localhost:3002/_next/static/chunks/1psn_next_dist_00qw4-5._.js:776

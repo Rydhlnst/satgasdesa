@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "SATGAS DESA SEJOLI",
+    "slug": "satgas-desa-sejoli",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "satgasdesa",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "android": {
+      "package": "id.satgas.desasejoli"
+    }
+  }
+}

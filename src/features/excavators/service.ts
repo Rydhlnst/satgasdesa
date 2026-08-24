@@ -1,18 +1,20 @@
-import { and, asc, count, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, ne, or } from "drizzle-orm";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
 import { block } from "@/src/db/schema/blocks";
+import { businessActor } from "@/src/db/schema/business-actors";
 import { due } from "@/src/db/schema/dues";
 import { excavator, excavatorMovement } from "@/src/db/schema/excavators";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
+import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 
-import { DUE_AMOUNTS_RUPIAH, isRoadEntryDueAutomationEnabled } from "../dues/config";
+import { getFinanceDefaults } from "../settings/service";
 import { notifyPermissionHolders } from "../notifications/service";
 
-import { blockIdSchema, excavatorFiltersSchema, excavatorIdSchema, recordExcavatorMovementSchema, registerExcavatorSchema } from "./schema";
+import { blockIdSchema, excavatorFiltersSchema, excavatorIdSchema, recordExcavatorMovementSchema, registerExcavatorSchema, updateExcavatorSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T }): T {
   if (!result.success || !result.data) throw new Error("Please check the excavator details and try again.");
@@ -36,6 +38,11 @@ async function assertBlockExists(id: string): Promise<void> {
   if (!targetBlock) throw new Error("Target block was not found.");
 }
 
+async function assertBusinessActorExists(id: string): Promise<void> {
+  const [actor] = await getDb().select({ id: businessActor.id }).from(businessActor).where(eq(businessActor.id, id)).limit(1);
+  if (!actor) throw new Error("Business actor was not found.");
+}
+
 export async function getExcavators(input?: unknown) {
   await requirePermission(PERMISSIONS.EXCAVATOR_READ);
   const filters = excavatorFiltersSchema.parse(input ?? {});
@@ -47,6 +54,11 @@ export async function getExcavators(input?: unknown) {
   if (filters.operatorName) conditions.push(like(excavator.operatorName, `%${filters.operatorName}%`));
   if (filters.status) conditions.push(eq(excavator.status, filters.status));
   if (filters.blockId) conditions.push(eq(excavator.currentBlockId, filters.blockId));
+  const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+  if (assignedBlockIds) {
+    if (!assignedBlockIds.length) return [];
+    conditions.push(inArray(excavator.currentBlockId, assignedBlockIds));
+  }
 
   return getDb()
     .select({
@@ -54,6 +66,8 @@ export async function getExcavators(input?: unknown) {
       unitCode: excavator.unitCode,
       brand: excavator.brand,
       model: excavator.model,
+      businessActorId: excavator.businessActorId,
+      businessActorName: businessActor.name,
       operatorName: excavator.operatorName,
       currentBlockId: excavator.currentBlockId,
       currentBlockCode: block.code,
@@ -63,6 +77,7 @@ export async function getExcavators(input?: unknown) {
       status: excavator.status,
     })
     .from(excavator)
+    .leftJoin(businessActor, eq(businessActor.id, excavator.businessActorId))
     .leftJoin(block, eq(block.id, excavator.currentBlockId))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(asc(excavator.unitCode))
@@ -80,11 +95,16 @@ export async function getExcavatorPage(input?: unknown) {
   if (filters.operatorName) conditions.push(like(excavator.operatorName, `%${filters.operatorName}%`));
   if (filters.status) conditions.push(eq(excavator.status, filters.status));
   if (filters.blockId) conditions.push(eq(excavator.currentBlockId, filters.blockId));
+  const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+  if (assignedBlockIds) {
+    if (!assignedBlockIds.length) return { rows: [], pagination: { page: filters.page, pageSize: filters.pageSize, total: 0, totalPages: 0 } };
+    conditions.push(inArray(excavator.currentBlockId, assignedBlockIds));
+  }
   const where = conditions.length ? and(...conditions) : undefined;
   const offset = (filters.page - 1) * filters.pageSize;
   const database = getDb();
   const [rows, totalRows] = await Promise.all([
-    database.select().from(excavator).leftJoin(block, eq(block.id, excavator.currentBlockId)).where(where).orderBy(asc(excavator.unitCode)).limit(filters.pageSize).offset(offset),
+    database.select().from(excavator).leftJoin(businessActor, eq(businessActor.id, excavator.businessActorId)).leftJoin(block, eq(block.id, excavator.currentBlockId)).where(where).orderBy(asc(excavator.unitCode)).limit(filters.pageSize).offset(offset),
     database.select({ value: count() }).from(excavator).where(where),
   ]);
   const total = Number(totalRows[0]?.value ?? 0);
@@ -94,6 +114,8 @@ export async function getExcavatorPage(input?: unknown) {
 export async function getExcavator(id: string) {
   await requirePermission(PERMISSIONS.EXCAVATOR_READ);
   const validId = parseInput(excavatorIdSchema.safeParse(id));
+  const [scope] = await getDb().select({ currentBlockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.id, validId)).limit(1);
+  if (scope?.currentBlockId) await requireAssignedBlockAccess(scope.currentBlockId);
   const [item] = await getDb().select().from(excavator).where(eq(excavator.id, validId)).limit(1);
   if (!item) return null;
 
@@ -109,6 +131,8 @@ export async function getExcavator(id: string) {
 export async function getExcavatorMovementHistory(id: string) {
   await requirePermission(PERMISSIONS.EXCAVATOR_READ);
   const validId = parseInput(excavatorIdSchema.safeParse(id));
+  const [scope] = await getDb().select({ currentBlockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.id, validId)).limit(1);
+  if (scope?.currentBlockId) await requireAssignedBlockAccess(scope.currentBlockId);
   const [item] = await getDb().select({ id: excavator.id }).from(excavator).where(eq(excavator.id, validId)).limit(1);
   if (!item) return null;
 
@@ -131,10 +155,13 @@ export async function registerExcavator(input: unknown) {
   if (existing) throw new Error("An excavator with this unit code already exists.");
 
   if (values.currentBlockId) await assertBlockExists(values.currentBlockId);
+  await assertBusinessActorExists(values.businessActorId);
+  if (values.currentBlockId) await requireAssignedBlockAccess(values.currentBlockId, values.entryDate);
 
   const id = crypto.randomUUID();
   const now = new Date();
   const isActive = Boolean(values.currentBlockId);
+  const financeDefaults = await getFinanceDefaults();
 
   await database.transaction(async (tx) => {
     await tx.insert(excavator).values({
@@ -142,6 +169,7 @@ export async function registerExcavator(input: unknown) {
       unitCode: values.unitCode,
       brand: values.brand,
       model: values.model,
+      businessActorId: values.businessActorId,
       operatorName: optionalValue(values.operatorName),
       currentBlockId: values.currentBlockId ?? null,
       currentEntryDate: values.entryDate ?? null,
@@ -163,8 +191,9 @@ export async function registerExcavator(input: unknown) {
         createdBy: session.user.id,
         createdAt: now,
       });
-      if (isRoadEntryDueAutomationEnabled()) {
-        await tx.insert(due).values({ id: crypto.randomUUID(), excavatorId: id, sourceMovementId: movementId, dueType: "ROAD_ENTRY", referenceKey: `ENTRY-${movementId}`, payerName: values.operatorName?.trim() || values.unitCode, amountDue: DUE_AMOUNTS_RUPIAH.ROAD_ENTRY, amountPaid: 0, status: "UNPAID", dueDate: values.entryDate, createdBy: session.user.id, createdAt: now, updatedAt: now });
+      if (financeDefaults.roadEntryAutomationEnabled) {
+        const [actor] = await tx.select({ name: businessActor.name }).from(businessActor).where(eq(businessActor.id, values.businessActorId)).limit(1);
+        await tx.insert(due).values({ id: crypto.randomUUID(), excavatorId: id, blockId: values.currentBlockId, businessActorId: values.businessActorId, sourceMovementId: movementId, dueType: "ROAD_ENTRY", referenceKey: `ENTRY-${movementId}`, payerName: actor?.name ?? values.unitCode, amountDue: financeDefaults.roadEntryDueAmount, amountPaid: 0, status: "UNPAID", dueDate: values.entryDate, createdBy: session.user.id, createdAt: now, updatedAt: now });
       }
     }
 
@@ -184,6 +213,23 @@ export async function registerExcavator(input: unknown) {
   }
 
   return { id };
+}
+
+export async function updateExcavator(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.EXCAVATOR_MANAGE);
+  const values = parseInput(updateExcavatorSchema.safeParse(input));
+  const database = getDb();
+  const [current] = await database.select().from(excavator).where(eq(excavator.id, values.id)).limit(1);
+  if (!current) throw new Error("Excavator was not found.");
+  if (current.currentBlockId) await requireAssignedBlockAccess(current.currentBlockId);
+  const [duplicate] = await database.select({ id: excavator.id }).from(excavator).where(and(eq(excavator.unitCode, values.unitCode), ne(excavator.id, values.id))).limit(1);
+  if (duplicate) throw new Error("An excavator with this unit code already exists.");
+  const now = new Date();
+  await database.transaction(async (tx) => {
+    await tx.update(excavator).set({ unitCode: values.unitCode, brand: values.brand, model: values.model, operatorName: optionalValue(values.operatorName), updatedAt: now }).where(eq(excavator.id, current.id));
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "EXCAVATOR", entityId: current.id, oldValues: { unitCode: current.unitCode, brand: current.brand, model: current.model, operatorName: current.operatorName }, newValues: values }));
+  });
+  return { id: current.id };
 }
 
 export async function recordExcavatorMovement(input: unknown) {
@@ -212,9 +258,12 @@ export async function recordExcavatorMovement(input: unknown) {
   if (values.movementType === "TRANSFER" && !current.currentBlockId) throw new Error("An inactive excavator must enter a block before it can transfer.");
   if (values.movementType === "TRANSFER" && values.toBlockId === current.currentBlockId) throw new Error("Destination block must be different from the current block.");
   if (isExit && !current.currentBlockId) throw new Error("Only an active excavator can exit a block.");
+  if (current.currentBlockId) await requireAssignedBlockAccess(current.currentBlockId, occurredDate);
+  if (values.toBlockId) await requireAssignedBlockAccess(values.toBlockId, occurredDate);
 
   const status = isExit ? "EXITED" : "ACTIVE";
   const nextBlockId = isExit ? null : values.toBlockId!;
+  const financeDefaults = await getFinanceDefaults();
 
   await database.transaction(async (tx) => {
     const movementId = crypto.randomUUID();
@@ -230,8 +279,9 @@ export async function recordExcavatorMovement(input: unknown) {
       createdAt: new Date(),
     });
 
-    if (values.movementType === "ENTRY" && isRoadEntryDueAutomationEnabled()) {
-      await tx.insert(due).values({ id: crypto.randomUUID(), excavatorId: current.id, sourceMovementId: movementId, dueType: "ROAD_ENTRY", referenceKey: `ENTRY-${movementId}`, payerName: current.operatorName ?? current.unitCode, amountDue: DUE_AMOUNTS_RUPIAH.ROAD_ENTRY, amountPaid: 0, status: "UNPAID", dueDate: occurredDate, createdBy: session.user.id, createdAt: new Date(), updatedAt: new Date() });
+    if (values.movementType === "ENTRY" && financeDefaults.roadEntryAutomationEnabled) {
+      const [actor] = current.businessActorId ? await tx.select({ name: businessActor.name }).from(businessActor).where(eq(businessActor.id, current.businessActorId)).limit(1) : [];
+      await tx.insert(due).values({ id: crypto.randomUUID(), excavatorId: current.id, blockId: nextBlockId, businessActorId: current.businessActorId, sourceMovementId: movementId, dueType: "ROAD_ENTRY", referenceKey: `ENTRY-${movementId}`, payerName: actor?.name ?? current.operatorName ?? current.unitCode, amountDue: financeDefaults.roadEntryDueAmount, amountPaid: 0, status: "UNPAID", dueDate: occurredDate, createdBy: session.user.id, createdAt: new Date(), updatedAt: new Date() });
     }
 
     await tx

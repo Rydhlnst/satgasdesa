@@ -10,6 +10,6 @@ export function isRoadEntryDueAutomationEnabled(): boolean {
 }
 
 export function getMonthlyDueDay(): number {
-  const configured = Number.parseInt(process.env.MONTHLY_DUE_DAY ?? "10", 10);
-  return Number.isInteger(configured) && configured >= 1 && configured <= 31 ? configured : 10;
+  const configured = Number.parseInt(process.env.MONTHLY_DUE_DAY ?? "7", 10);
+  return Number.isInteger(configured) && configured >= 1 && configured <= 31 ? configured : 7;
 }

@@ -1,17 +1,17 @@
-import { and, count, desc, eq, like, or } from "drizzle-orm";
-
+import { and, count, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
 import { block } from "@/src/db/schema/blocks";
 import { dailyInformation, dailyInformationAttachment, dailyInformationFollowUp } from "@/src/db/schema/daily-information";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
-import { requirePermission } from "@/src/lib/permissions/authorize";
+import { hasPermission, requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
+import { requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { notifyPermissionHolders } from "@/src/features/notifications/service";
-import { getObjectStorage } from "@/src/lib/storage";
+import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 
 import { DAILY_INFORMATION_TRANSITIONS, type DailyInformationStatus } from "./constants";
-import { addDailyInformationAttachmentSchema, addDailyInformationFollowUpSchema, createDailyInformationSchema, dailyInformationAttachmentDownloadSchema, dailyInformationFiltersSchema, dailyInformationIdSchema, transitionDailyInformationSchema } from "./schema";
+import { addDailyInformationAttachmentSchema, addDailyInformationFollowUpSchema, createDailyInformationSchema, dailyInformationAttachmentDownloadSchema, dailyInformationAttachmentUploadSchema, dailyInformationFiltersSchema, dailyInformationIdSchema, transitionDailyInformationSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T }): T {
   if (!result.success || !result.data) throw new Error("Please check the daily information details and try again.");
@@ -39,6 +39,22 @@ function assertAttachmentStorageKey(id: string, storageKey: string): void {
   }
 }
 
+function forbidden(message: string): never {
+  const error = new Error(message);
+  Object.assign(error, { code: "FORBIDDEN", status: 403 });
+  throw error;
+}
+
+async function isFieldOfficer(userId: string): Promise<boolean> {
+  return (await hasPermission(userId, PERMISSIONS.PAYMENT_FIELD_VERIFY)) && !(await hasPermission(userId, PERMISSIONS.FIELD_ASSIGNMENT_MANAGE));
+}
+
+async function assertInformationScope(item: { reporterId: string; blockId: string | null }, userId: string): Promise<void> {
+  if (!await isFieldOfficer(userId)) return;
+  if (item.reporterId !== userId) forbidden("You can only access information that you reported.");
+  if (item.blockId) await requireAssignedBlockAccess(item.blockId);
+}
+
 function parseFilters(input?: unknown) {
   return dailyInformationFiltersSchema.parse(typeof input === "string" ? { status: input } : input ?? {});
 }
@@ -53,24 +69,34 @@ function buildFilterConditions(filters: ReturnType<typeof parseFilters>) {
   if (filters.category) conditions.push(eq(dailyInformation.category, filters.category));
   if (filters.priority) conditions.push(eq(dailyInformation.priority, filters.priority));
   if (filters.status) conditions.push(eq(dailyInformation.status, filters.status));
+  if (filters.reportedDate) {
+    const start = new Date(`${filters.reportedDate}T00:00:00.000+07:00`);
+    const end = new Date(`${filters.reportedDate}T23:59:59.999+07:00`);
+    conditions.push(gte(dailyInformation.reportedAt, start), lte(dailyInformation.reportedAt, end));
+  }
   return conditions.length ? and(...conditions) : undefined;
 }
 
 export async function getDailyInformation(input?: DailyInformationStatus | unknown) {
-  await requirePermission(PERMISSIONS.DAILY_INFO_READ);
+  const session = await requirePermission(PERMISSIONS.DAILY_INFO_READ);
   const filters = parseFilters(input);
   const database = getDb();
   const query = database.select().from(dailyInformation);
+  const filter = buildFilterConditions(filters);
+  const scope = await isFieldOfficer(session.user.id) ? eq(dailyInformation.reporterId, session.user.id) : undefined;
+  const conditions = filter && scope ? and(filter, scope) : filter ?? scope;
 
-  return buildFilterConditions(filters)
-    ? query.where(buildFilterConditions(filters)).orderBy(desc(dailyInformation.reportedAt)).limit(100)
+  return conditions
+    ? query.where(conditions).orderBy(desc(dailyInformation.reportedAt)).limit(100)
     : query.orderBy(desc(dailyInformation.reportedAt)).limit(100);
 }
 
 export async function getDailyInformationPage(input?: unknown) {
-  await requirePermission(PERMISSIONS.DAILY_INFO_READ);
+  const session = await requirePermission(PERMISSIONS.DAILY_INFO_READ);
   const filters = parseFilters(input);
-  const conditions = buildFilterConditions(filters);
+  const baseConditions = buildFilterConditions(filters);
+  const scope = filters.mine || await isFieldOfficer(session.user.id) ? eq(dailyInformation.reporterId, session.user.id) : undefined;
+  const conditions = baseConditions && scope ? and(baseConditions, scope) : baseConditions ?? scope;
   const offset = (filters.page - 1) * filters.pageSize;
   const database = getDb();
   const [rows, totalRows] = await Promise.all([
@@ -82,10 +108,11 @@ export async function getDailyInformationPage(input?: unknown) {
 }
 
 export async function getDailyInformationItem(id: string) {
-  await requirePermission(PERMISSIONS.DAILY_INFO_READ);
+  const session = await requirePermission(PERMISSIONS.DAILY_INFO_READ);
   const validId = parseInput(dailyInformationIdSchema.safeParse(id));
   const [item] = await getDb().select().from(dailyInformation).where(eq(dailyInformation.id, validId)).limit(1);
   if (!item) return null;
+  await assertInformationScope(item, session.user.id);
   const [followUps, attachments] = await Promise.all([
     getDb().select().from(dailyInformationFollowUp).where(eq(dailyInformationFollowUp.dailyInformationId, validId)).orderBy(dailyInformationFollowUp.createdAt),
     getDb().select().from(dailyInformationAttachment).where(eq(dailyInformationAttachment.dailyInformationId, validId)).orderBy(dailyInformationAttachment.createdAt),
@@ -96,8 +123,9 @@ export async function getDailyInformationItem(id: string) {
 export async function addDailyInformationFollowUp(input: unknown) {
   const session = await requirePermission(PERMISSIONS.DAILY_INFO_UPDATE);
   const values = parseInput(addDailyInformationFollowUpSchema.safeParse(input));
-  const [item] = await getDb().select({ id: dailyInformation.id }).from(dailyInformation).where(eq(dailyInformation.id, values.id)).limit(1);
+  const [item] = await getDb().select().from(dailyInformation).where(eq(dailyInformation.id, values.id)).limit(1);
   if (!item) throw new Error("Daily information record was not found.");
+  await assertInformationScope(item, session.user.id);
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(dailyInformationFollowUp).values({ id, dailyInformationId: item.id, note: values.note, createdBy: session.user.id, createdAt: now });
@@ -110,8 +138,9 @@ export async function addDailyInformationFollowUp(input: unknown) {
 export async function addDailyInformationAttachment(input: unknown) {
   const session = await requirePermission(PERMISSIONS.DAILY_INFO_UPDATE);
   const values = parseInput(addDailyInformationAttachmentSchema.safeParse(input));
-  const [item] = await getDb().select({ id: dailyInformation.id }).from(dailyInformation).where(eq(dailyInformation.id, values.id)).limit(1);
+  const [item] = await getDb().select().from(dailyInformation).where(eq(dailyInformation.id, values.id)).limit(1);
   if (!item) throw new Error("Daily information record was not found.");
+  await assertInformationScope(item, session.user.id);
   assertAttachmentStorageKey(item.id, values.storageKey);
   if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(values.contentType)) {
     throw new Error("Unsupported attachment type.");
@@ -124,8 +153,20 @@ export async function addDailyInformationAttachment(input: unknown) {
   return { id };
 }
 
+export async function createDailyInformationAttachmentUploadUrl(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.DAILY_INFO_CREATE);
+  const values = dailyInformationAttachmentUploadSchema.parse(input);
+  validateUpload({ contentType: values.contentType, size: values.sizeBytes, originalName: values.originalName });
+  const [existing] = await getDb().select().from(dailyInformation).where(eq(dailyInformation.id, values.id)).limit(1);
+  if (existing) await assertInformationScope(existing, session.user.id);
+  const scope = attachmentScope(values.id);
+  const upload = await getObjectStorage().createUploadUrl({ contentType: values.contentType, size: values.sizeBytes, originalName: values.originalName, scope });
+  assertAttachmentStorageKey(values.id, upload.key);
+  return { id: values.id, key: upload.key, uploadUrl: upload.uploadUrl, contentType: values.contentType, sizeBytes: values.sizeBytes };
+}
+
 export async function getDailyInformationAttachmentDownloadUrl(input: unknown) {
-  await requirePermission(PERMISSIONS.DAILY_INFO_READ);
+  const session = await requirePermission(PERMISSIONS.DAILY_INFO_READ);
   const values = parseInput(dailyInformationAttachmentDownloadSchema.safeParse(input));
   const [attachment] = await getDb()
     .select({ id: dailyInformationAttachment.id, storageKey: dailyInformationAttachment.storageKey })
@@ -134,16 +175,23 @@ export async function getDailyInformationAttachmentDownloadUrl(input: unknown) {
     .limit(1);
   if (!attachment) throw new Error("Daily information attachment was not found.");
   assertAttachmentStorageKey(values.id, attachment.storageKey);
+  const [item] = await getDb().select().from(dailyInformation).where(eq(dailyInformation.id, values.id)).limit(1);
+  if (!item) throw new Error("Daily information record was not found.");
+  await assertInformationScope(item, session.user.id);
   return { downloadUrl: await getObjectStorage().createDownloadUrl(attachment.storageKey) };
 }
 
 export async function createDailyInformation(input: unknown) {
   const session = await requirePermission(PERMISSIONS.DAILY_INFO_CREATE);
   const values = parseInput(createDailyInformationSchema.safeParse(input));
-  if (values.blockId) await assertBlockExists(values.blockId);
+  if (values.blockId) { await assertBlockExists(values.blockId); await requireAssignedBlockAccess(values.blockId); }
 
-  const id = crypto.randomUUID();
+  const id = values.id ?? crypto.randomUUID();
   const now = new Date();
+  for (const attachment of values.attachments) {
+    assertAttachmentStorageKey(id, attachment.storageKey);
+    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(attachment.contentType)) throw new Error("Unsupported attachment type.");
+  }
   await getDb().transaction(async (tx) => {
     await tx.insert(dailyInformation).values({
       id,
@@ -154,6 +202,10 @@ export async function createDailyInformation(input: unknown) {
       priority: values.priority,
       description: values.description,
       documentation: optionalValue(values.documentation),
+      latitude: values.latitude?.toFixed(7) ?? null,
+      longitude: values.longitude?.toFixed(7) ?? null,
+      gpsAccuracy: values.gpsAccuracy?.toFixed(2) ?? null,
+      gpsCapturedAt: values.gpsCapturedAt ?? null,
       followUp: null,
       status: "NEW",
       lastUpdatedBy: session.user.id,
@@ -161,13 +213,17 @@ export async function createDailyInformation(input: unknown) {
       updatedAt: now,
     });
 
+    if (values.attachments.length) {
+      await tx.insert(dailyInformationAttachment).values(values.attachments.map((attachment) => ({ id: crypto.randomUUID(), dailyInformationId: id, storageKey: attachment.storageKey, contentType: attachment.contentType, sizeBytes: attachment.sizeBytes, createdBy: session.user.id, createdAt: now })));
+    }
+
     await tx.insert(auditLog).values(
       createAuditLogValues({
         actorUserId: session.user.id,
         action: AUDIT_ACTIONS.CREATE,
         entityType: "DAILY_INFORMATION",
         entityId: id,
-        newValues: { blockId: values.blockId ?? null, category: values.category, priority: values.priority, status: "NEW" },
+        newValues: { blockId: values.blockId ?? null, category: values.category, priority: values.priority, status: "NEW", attachmentCount: values.attachments.length, hasGps: values.latitude !== undefined },
       }),
     );
   });
@@ -189,6 +245,7 @@ export async function transitionDailyInformation(input: unknown) {
     .where(eq(dailyInformation.id, values.id))
     .limit(1);
   if (!current) throw new Error("Daily information record was not found.");
+  await assertInformationScope(current, session.user.id);
 
   const allowed = DAILY_INFORMATION_TRANSITIONS[current.status as DailyInformationStatus] ?? [];
   if (!allowed.includes(values.status)) {

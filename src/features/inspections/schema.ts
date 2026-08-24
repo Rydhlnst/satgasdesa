@@ -5,6 +5,7 @@ export const MAX_INSPECTION_PHOTOS = 3;
 export const MAX_INSPECTION_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export const inspectionIdSchema = uuid;
+export const INSPECTION_STATUSES = ["DRAFT", "SUBMITTED"] as const;
 export const inspectionUploadSchema = z.object({
   inspectionId: inspectionIdSchema,
   contentType: z.string().trim().min(1).max(100),
@@ -16,7 +17,7 @@ export const inspectionPhotoInputSchema = z.object({
   storageKey: z.string().trim().min(1).max(255),
   contentType: z.string().trim().min(1).max(100),
   size: z.coerce.number().int().positive(),
-  originalName: z.string().trim().min(1).max(255),
+  originalName: z.string().trim().min(1).max(255).optional(),
   capturedAt: z.coerce.date().optional(),
 });
 
@@ -31,6 +32,9 @@ export const createInspectionSchema = z.object({
   excavatorCount: z.coerce.number().int().min(0).max(100000),
   workerCount: z.coerce.number().int().min(0).max(1000000),
   condition: z.string().trim().min(1, "Condition is required.").max(5000),
+  roadCondition: z.string().trim().min(1).max(64),
+  environmentCondition: z.string().trim().min(1).max(64),
+  activityCondition: z.string().trim().min(1).max(64),
   findings: z.string().trim().max(10000).optional(),
   notes: z.string().trim().max(10000).optional(),
   photos: z.array(inspectionPhotoInputSchema).max(MAX_INSPECTION_PHOTOS, `A maximum of ${MAX_INSPECTION_PHOTOS} inspection photos is allowed.`).default([]),
@@ -39,4 +43,17 @@ export const createInspectionSchema = z.object({
 export const inspectionPhotoDownloadSchema = z.object({
   inspectionId: inspectionIdSchema,
   storageKey: z.string().trim().min(1).max(255),
+});
+
+export const inspectionFiltersSchema = z.object({
+  blockId: uuid.optional(),
+  status: z.enum(INSPECTION_STATUSES).optional(),
+  mine: z.coerce.boolean().default(false),
+  query: z.string().trim().max(100).optional(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).superRefine((value, context) => {
+  if (value.dateFrom && value.dateTo && value.dateFrom > value.dateTo) {
+    context.addIssue({ code: "custom", path: ["dateTo"], message: "End date must not be before start date." });
+  }
 });

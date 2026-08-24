@@ -15,6 +15,7 @@ export const registerExcavatorSchema = z
     unitCode: z.string().trim().min(1, "Unit code is required.").max(64).transform((value) => value.toUpperCase()),
     brand: z.string().trim().min(1, "Brand is required.").max(100),
     model: z.string().trim().min(1, "Model is required.").max(100),
+    businessActorId: z.string().uuid("Business actor is required."),
     operatorName: z.string().trim().max(160).optional(),
     currentBlockId: blockIdSchema.optional(),
     entryDate: calendarDate.optional(),
@@ -28,6 +29,14 @@ export const registerExcavatorSchema = z
       context.addIssue({ code: "custom", path: ["currentBlockId"], message: "A current block is required when an entry date is set." });
     }
   });
+
+export const updateExcavatorSchema = z.object({
+  id: excavatorIdSchema,
+  unitCode: z.string().trim().min(1, "Unit code is required.").max(64).transform((value) => value.toUpperCase()),
+  brand: z.string().trim().min(1, "Brand is required.").max(100),
+  model: z.string().trim().min(1, "Model is required.").max(100),
+  operatorName: z.string().trim().max(160).optional(),
+});
 
 export const recordExcavatorMovementSchema = z.object({
   excavatorId: excavatorIdSchema,

@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/mysql-core";
 
 import { user } from "./auth";
+import { businessActor } from "./business-actors";
 import { block } from "./blocks";
 
 export const excavator = mysqlTable(
@@ -18,6 +19,9 @@ export const excavator = mysqlTable(
     unitCode: varchar("unit_code", { length: 64 }).notNull(),
     brand: varchar("brand", { length: 100 }).notNull(),
     model: varchar("model", { length: 100 }).notNull(),
+    businessActorId: varchar("business_actor_id", { length: 36 }).references(() => businessActor.id, {
+      onDelete: "restrict",
+    }),
     operatorName: varchar("operator_name", { length: 160 }),
     currentBlockId: varchar("current_block_id", { length: 36 }).references(() => block.id, {
       onDelete: "set null",
@@ -31,6 +35,7 @@ export const excavator = mysqlTable(
   (table) => [
     uniqueIndex("excavator_unit_code_unique").on(table.unitCode),
     index("excavator_current_block_idx").on(table.currentBlockId),
+    index("excavator_business_actor_idx").on(table.businessActorId),
     index("excavator_status_idx").on(table.status),
   ],
 );

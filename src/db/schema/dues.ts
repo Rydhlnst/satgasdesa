@@ -12,6 +12,8 @@ import {
 import { sql } from "drizzle-orm";
 
 import { user } from "./auth";
+import { block } from "./blocks";
+import { businessActor } from "./business-actors";
 import { excavator, excavatorMovement } from "./excavators";
 
 export const due = mysqlTable(
@@ -21,6 +23,8 @@ export const due = mysqlTable(
     excavatorId: varchar("excavator_id", { length: 36 })
       .notNull()
       .references(() => excavator.id, { onDelete: "restrict" }),
+    blockId: varchar("block_id", { length: 36 }).references(() => block.id, { onDelete: "restrict" }),
+    businessActorId: varchar("business_actor_id", { length: 36 }).references(() => businessActor.id, { onDelete: "restrict" }),
     sourceMovementId: varchar("source_movement_id", { length: 36 }).references(() => excavatorMovement.id, {
       onDelete: "restrict",
     }),
@@ -41,6 +45,8 @@ export const due = mysqlTable(
     uniqueIndex("due_excavator_type_reference_unique").on(table.excavatorId, table.dueType, table.referenceKey),
     uniqueIndex("due_source_movement_unique").on(table.sourceMovementId),
     index("due_status_due_date_idx").on(table.status, table.dueDate),
+    index("due_block_reference_idx").on(table.blockId, table.referenceKey),
+    index("due_actor_reference_idx").on(table.businessActorId, table.referenceKey),
     check("due_amount_due_range_check", sql`${table.amountDue} > 0 AND ${table.amountDue} <= 9007199254740991`),
     check("due_amount_paid_range_check", sql`${table.amountPaid} >= 0 AND ${table.amountPaid} <= ${table.amountDue}`),
   ],

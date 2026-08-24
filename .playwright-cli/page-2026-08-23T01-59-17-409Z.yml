@@ -1,0 +1,158 @@
+- generic [active] [ref=f21e1]:
+  - generic [ref=f21e2]:
+    - status [ref=f21e3]
+    - generic [ref=f21e4]:
+      - generic [ref=f21e6]:
+        - generic [ref=f21e13]:
+          - paragraph [ref=f21e14]: SATGAS
+          - paragraph [ref=f21e15]: Desa Sejoli
+        - navigation "Primary navigation" [ref=f21e17]:
+          - generic [ref=f21e18]:
+            - generic [ref=f21e19]: Navigasi utama
+            - list [ref=f21e21]:
+              - listitem [ref=f21e22]:
+                - link "Dashboard" [ref=f21e23] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f21e30]:
+                - link "Monitoring Blok" [ref=f21e31] [cursor=pointer]:
+                  - /url: /dashboard/blocks
+              - listitem [ref=f21e36]:
+                - link "Excavator" [ref=f21e37] [cursor=pointer]:
+                  - /url: /dashboard/excavators
+              - listitem [ref=f21e44]:
+                - link "Inspeksi Lapangan" [ref=f21e45] [cursor=pointer]:
+                  - /url: /dashboard/inspections
+              - listitem [ref=f21e51]:
+                - link "Informasi Harian" [ref=f21e52] [cursor=pointer]:
+                  - /url: /dashboard/information
+              - listitem [ref=f21e57]:
+                - link "Iuran & Pembayaran" [ref=f21e58] [cursor=pointer]:
+                  - /url: /dashboard/dues
+              - listitem [ref=f21e63]:
+                - link "Keuangan" [ref=f21e64] [cursor=pointer]:
+                  - /url: /dashboard/finance
+              - listitem [ref=f21e68]:
+                - link "Anggaran" [ref=f21e69] [cursor=pointer]:
+                  - /url: /dashboard/budgets
+              - listitem [ref=f21e74]:
+                - link "Realisasi" [ref=f21e75] [cursor=pointer]:
+                  - /url: /dashboard/realizations
+              - listitem [ref=f21e79]:
+                - link "Laporan" [ref=f21e80] [cursor=pointer]:
+                  - /url: /dashboard/reports
+              - listitem [ref=f21e85]:
+                - link "Notifikasi" [ref=f21e86] [cursor=pointer]:
+                  - /url: /dashboard/notifications
+              - listitem [ref=f21e91]:
+                - link "Audit Log" [ref=f21e92] [cursor=pointer]:
+                  - /url: /dashboard/audit
+              - listitem [ref=f21e98]:
+                - link "Pengelola Blok" [ref=f21e99] [cursor=pointer]:
+                  - /url: /dashboard/block-managers
+              - listitem [ref=f21e105]:
+                - link "Pengguna" [ref=f21e106] [cursor=pointer]:
+                  - /url: /dashboard/settings/users
+        - paragraph [ref=f21e112]: Operasional internal
+      - generic [ref=f21e113]:
+        - banner [ref=f21e114]:
+          - generic [ref=f21e115]:
+            - generic [ref=f21e116]:
+              - paragraph [ref=f21e117]: SATGAS DESA SEJOLI
+              - generic [ref=f21e118]:
+                - generic [ref=f21e119]: PIMPINAN / ADMIN
+                - generic [ref=f21e120]: Operasional internal
+            - generic [ref=f21e121]:
+              - link "Notifikasi" [ref=f21e122] [cursor=pointer]:
+                - /url: /dashboard/notifications
+                - generic [ref=f21e126]: "2"
+              - generic [ref=f21e127]:
+                - paragraph [ref=f21e128]: Local Pimpinan
+                - paragraph [ref=f21e129]: pimpinan@satgas.local
+              - button "Open account menu for Local Pimpinan" [ref=f21e130]:
+                - generic [ref=f21e131]: LP
+          - tablist [ref=f21e134]:
+            - tab "Ringkasan" [ref=f21e135] [cursor=pointer]
+            - tab "Operasional" [ref=f21e136] [cursor=pointer]
+            - tab "Keuangan" [selected] [ref=f21e137] [cursor=pointer]
+            - tab "Tata kelola" [ref=f21e138] [cursor=pointer]
+        - main [ref=f21e139]:
+          - generic [ref=f21e140]:
+            - generic [ref=f21e141]:
+              - navigation "breadcrumb" [ref=f21e142]:
+                - list [ref=f21e143]:
+                  - listitem [ref=f21e144]:
+                    - link "Dashboard" [ref=f21e145] [cursor=pointer]:
+                      - /url: /dashboard
+                  - listitem [ref=f21e146]
+                  - listitem [ref=f21e149]:
+                    - link "Iuran & Pembayaran" [disabled] [ref=f21e150]
+              - generic [ref=f21e151]:
+                - generic [ref=f21e152]:
+                  - paragraph [ref=f21e153]: Keuangan
+                  - heading "Iuran & Pembayaran" [level=1] [ref=f21e154]
+                  - paragraph [ref=f21e155]: Track excavator obligations, receivables, and recorded payments without treating unpaid dues as cash.
+                - link "Payment register" [ref=f21e157] [cursor=pointer]:
+                  - /url: /dashboard/payments
+            - generic [ref=f21e158]:
+              - generic [ref=f21e160]:
+                - paragraph [ref=f21e161]: Obligation
+                - paragraph [ref=f21e162]:
+                  - generic [ref=f21e163]: Rp 0
+              - generic [ref=f21e165]:
+                - paragraph [ref=f21e166]: Recorded paid
+                - paragraph [ref=f21e167]:
+                  - generic [ref=f21e168]: Rp 0
+              - generic [ref=f21e170]:
+                - paragraph [ref=f21e171]: Receivable
+                - paragraph [ref=f21e172]:
+                  - generic [ref=f21e173]: Rp 0
+              - generic [ref=f21e175]:
+                - paragraph [ref=f21e176]: Reconciliation
+                - paragraph [ref=f21e177]:
+                  - generic [ref=f21e178]: Reconciled
+                - paragraph [ref=f21e179]: 0 dues · 0 unpaid
+            - generic [ref=f21e180]:
+              - combobox "Filter status" [ref=f21e181]:
+                - option "All statuses" [selected]
+                - option "UNPAID"
+                - option "PARTIAL"
+                - option "PAID"
+              - combobox "Filter due type" [ref=f21e182]:
+                - option "All due types" [selected]
+                - option "MONTHLY"
+                - option "ROAD ENTRY"
+              - textbox "Filter period" [ref=f21e183]:
+                - /placeholder: Period YYYY-MM
+              - button "Filter" [ref=f21e184]
+            - generic [ref=f21e185]:
+              - generic [ref=f21e186]:
+                - generic [ref=f21e187]: Generate monthly dues
+                - generic [ref=f21e189]:
+                  - generic [ref=f21e190]:
+                    - generic [ref=f21e191]:
+                      - text: Period
+                      - textbox "Period" [ref=f21e192]:
+                        - /placeholder: 2026-08
+                    - button "Generate dues" [ref=f21e193]
+                  - paragraph [ref=f21e194]: Monthly obligations use the configured Rp10.000.000 amount per eligible excavator.
+              - generic [ref=f21e195]:
+                - generic [ref=f21e196]: Add manual due
+                - generic [ref=f21e199]:
+                  - combobox [ref=f21e200]:
+                    - option "Select excavator" [selected]
+                    - option "E2E-EXC-20260823 · No operator"
+                    - option "E2E-FULL-EXC · No operator"
+                  - combobox [ref=f21e201]:
+                    - option "Monthly" [selected]
+                    - option "Road entry"
+                  - textbox "Payer name" [ref=f21e202]
+                  - textbox "Reference, e.g. 2026-08" [ref=f21e203]
+                  - spinbutton [ref=f21e204]: "10000000"
+                  - textbox [ref=f21e205]
+                  - textbox "Entry movement ID (road entry only)" [ref=f21e206]
+                  - button "Create due" [ref=f21e207]
+            - status [ref=f21e209]:
+              - heading "Belum ada iuran" [level=2] [ref=f21e216]
+              - paragraph [ref=f21e217]: Buat iuran pertama atau ubah filter pencarian.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f21e223] [cursor=pointer]

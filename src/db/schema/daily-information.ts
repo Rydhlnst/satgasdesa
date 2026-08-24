@@ -1,4 +1,5 @@
 import {
+  decimal,
   index,
   int,
   mysqlTable,
@@ -23,6 +24,10 @@ export const dailyInformation = mysqlTable(
     priority: varchar("priority", { length: 16 }).notNull(),
     description: text("description").notNull(),
     documentation: text("documentation"),
+    latitude: decimal("latitude", { precision: 10, scale: 7 }),
+    longitude: decimal("longitude", { precision: 10, scale: 7 }),
+    gpsAccuracy: decimal("gps_accuracy", { precision: 10, scale: 2 }),
+    gpsCapturedAt: timestamp("gps_captured_at"),
     followUp: text("follow_up"),
     status: varchar("status", { length: 16 }).notNull().default("NEW"),
     lastUpdatedBy: varchar("last_updated_by", { length: 36 })
@@ -35,6 +40,7 @@ export const dailyInformation = mysqlTable(
     index("daily_information_status_reported_idx").on(table.status, table.reportedAt),
     index("daily_information_block_reported_idx").on(table.blockId, table.reportedAt),
     index("daily_information_priority_reported_idx").on(table.priority, table.reportedAt),
+    index("daily_information_reporter_reported_idx").on(table.reporterId, table.reportedAt),
   ],
 );
 

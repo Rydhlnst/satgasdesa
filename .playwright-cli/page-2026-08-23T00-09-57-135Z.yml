@@ -1,0 +1,80 @@
+- generic [active] [ref=f22e1]:
+  - generic [ref=f22e2]:
+    - status [ref=f22e3]
+    - generic [ref=f22e4]:
+      - generic [ref=f22e6]:
+        - generic [ref=f22e13]:
+          - paragraph [ref=f22e14]: SATGAS
+          - paragraph [ref=f22e15]: Desa Sejoli
+        - navigation "Primary navigation" [ref=f22e17]:
+          - generic [ref=f22e18]:
+            - generic [ref=f22e19]: Navigasi utama
+            - list [ref=f22e21]:
+              - listitem [ref=f22e22]:
+                - link "Dashboard" [ref=f22e23] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f22e30]:
+                - link "Monitoring Blok" [ref=f22e31] [cursor=pointer]:
+                  - /url: /dashboard/blocks
+              - listitem [ref=f22e36]:
+                - link "Excavator" [ref=f22e37] [cursor=pointer]:
+                  - /url: /dashboard/excavators
+              - listitem [ref=f22e44]:
+                - link "Inspeksi Lapangan" [ref=f22e45] [cursor=pointer]:
+                  - /url: /dashboard/inspections
+              - listitem [ref=f22e51]:
+                - link "Informasi Harian" [ref=f22e52] [cursor=pointer]:
+                  - /url: /dashboard/information
+              - listitem [ref=f22e57]:
+                - link "Iuran & Pembayaran" [ref=f22e58] [cursor=pointer]:
+                  - /url: /dashboard/dues
+              - listitem [ref=f22e63]:
+                - link "Keuangan" [ref=f22e64] [cursor=pointer]:
+                  - /url: /dashboard/finance
+              - listitem [ref=f22e68]:
+                - link "Anggaran" [ref=f22e69] [cursor=pointer]:
+                  - /url: /dashboard/budgets
+              - listitem [ref=f22e74]:
+                - link "Realisasi" [ref=f22e75] [cursor=pointer]:
+                  - /url: /dashboard/realizations
+              - listitem [ref=f22e79]:
+                - link "Laporan" [ref=f22e80] [cursor=pointer]:
+                  - /url: /dashboard/reports
+              - listitem [ref=f22e85]:
+                - link "Notifikasi" [ref=f22e86] [cursor=pointer]:
+                  - /url: /dashboard/notifications
+              - listitem [ref=f22e91]:
+                - link "Audit Log" [ref=f22e92] [cursor=pointer]:
+                  - /url: /dashboard/audit
+              - listitem [ref=f22e98]:
+                - link "Pengelola Blok" [ref=f22e99] [cursor=pointer]:
+                  - /url: /dashboard/block-managers
+              - listitem [ref=f22e105]:
+                - link "Pengguna" [ref=f22e106] [cursor=pointer]:
+                  - /url: /dashboard/settings/users
+        - paragraph [ref=f22e112]: Operasional internal
+      - generic [ref=f22e113]:
+        - banner [ref=f22e114]:
+          - generic [ref=f22e115]:
+            - generic [ref=f22e116]:
+              - paragraph [ref=f22e117]: SATGAS DESA SEJOLI
+              - generic [ref=f22e118]:
+                - generic [ref=f22e119]: PIMPINAN / ADMIN
+                - generic [ref=f22e120]: Operasional internal
+            - generic [ref=f22e121]:
+              - link "Notifikasi" [ref=f22e122] [cursor=pointer]:
+                - /url: /dashboard/notifications
+              - generic [ref=f22e126]:
+                - paragraph [ref=f22e127]: Local Pimpinan
+                - paragraph [ref=f22e128]: pimpinan@satgas.local
+              - button "Open account menu for Local Pimpinan" [ref=f22e129]:
+                - generic [ref=f22e130]: LP
+          - tablist [ref=f22e133]:
+            - tab "Ringkasan" [ref=f22e134] [cursor=pointer]
+            - tab "Operasional" [selected] [ref=f22e135] [cursor=pointer]
+            - tab "Keuangan" [ref=f22e136] [cursor=pointer]
+            - tab "Tata kelola" [ref=f22e137] [cursor=pointer]
+        - main [ref=f22e138]:
+          - status "Memuat data" [ref=f22e139]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f22e207] [cursor=pointer]

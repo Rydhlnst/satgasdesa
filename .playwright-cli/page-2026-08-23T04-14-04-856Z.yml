@@ -1,0 +1,185 @@
+- generic [active] [ref=f4e1]:
+  - generic [ref=f4e2]:
+    - status [ref=f4e3]
+    - generic [ref=f4e4]:
+      - generic [ref=f4e6]:
+        - generic [ref=f4e13]:
+          - paragraph [ref=f4e14]: SATGAS
+          - paragraph [ref=f4e15]: Desa Sejoli
+        - navigation "Primary navigation" [ref=f4e17]:
+          - generic [ref=f4e18]:
+            - generic [ref=f4e19]: Navigasi utama
+            - list [ref=f4e21]:
+              - listitem [ref=f4e22]:
+                - link "Dashboard" [ref=f4e23] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f4e30]:
+                - link "Monitoring Blok" [ref=f4e31] [cursor=pointer]:
+                  - /url: /dashboard/blocks
+              - listitem [ref=f4e36]:
+                - link "Excavator" [ref=f4e37] [cursor=pointer]:
+                  - /url: /dashboard/excavators
+              - listitem [ref=f4e44]:
+                - link "Inspeksi Lapangan" [ref=f4e45] [cursor=pointer]:
+                  - /url: /dashboard/inspections
+              - listitem [ref=f4e51]:
+                - link "Informasi Harian" [ref=f4e52] [cursor=pointer]:
+                  - /url: /dashboard/information
+              - listitem [ref=f4e57]:
+                - link "Iuran & Pembayaran" [ref=f4e58] [cursor=pointer]:
+                  - /url: /dashboard/dues
+              - listitem [ref=f4e63]:
+                - link "Keuangan" [ref=f4e64] [cursor=pointer]:
+                  - /url: /dashboard/finance
+              - listitem [ref=f4e68]:
+                - link "Anggaran" [ref=f4e69] [cursor=pointer]:
+                  - /url: /dashboard/budgets
+              - listitem [ref=f4e74]:
+                - link "Realisasi" [ref=f4e75] [cursor=pointer]:
+                  - /url: /dashboard/realizations
+              - listitem [ref=f4e79]:
+                - link "Laporan" [ref=f4e80] [cursor=pointer]:
+                  - /url: /dashboard/reports
+              - listitem [ref=f4e85]:
+                - link "Notifikasi" [ref=f4e86] [cursor=pointer]:
+                  - /url: /dashboard/notifications
+              - listitem [ref=f4e91]:
+                - link "Pengelola Blok" [ref=f4e92] [cursor=pointer]:
+                  - /url: /dashboard/block-managers
+        - paragraph [ref=f4e99]: Operasional internal
+      - generic [ref=f4e100]:
+        - banner [ref=f4e101]:
+          - generic [ref=f4e102]:
+            - generic [ref=f4e103]:
+              - paragraph [ref=f4e104]: SATGAS DESA SEJOLI
+              - generic [ref=f4e105]:
+                - generic [ref=f4e106]: BENDAHARA
+                - generic [ref=f4e107]: Operasional internal
+            - generic [ref=f4e108]:
+              - link "Notifikasi" [ref=f4e109] [cursor=pointer]:
+                - /url: /dashboard/notifications
+                - generic [ref=f4e113]: "1"
+              - generic [ref=f4e114]:
+                - paragraph [ref=f4e115]: Local Bendahara
+                - paragraph [ref=f4e116]: bendahara@satgas.local
+              - button "Open account menu for Local Bendahara" [ref=f4e117]
+          - tablist [ref=f4e120]:
+            - tab "Ringkasan" [ref=f4e121] [cursor=pointer]
+            - tab "Operasional" [ref=f4e122] [cursor=pointer]
+            - tab "Keuangan" [selected] [ref=f4e123] [cursor=pointer]
+            - tab "Tata kelola" [ref=f4e124] [cursor=pointer]
+        - main [ref=f4e125]:
+          - generic [ref=f4e126]:
+            - generic [ref=f4e127]:
+              - navigation "breadcrumb" [ref=f4e128]:
+                - list [ref=f4e129]:
+                  - listitem [ref=f4e130]:
+                    - link "Dashboard" [ref=f4e131] [cursor=pointer]:
+                      - /url: /dashboard
+                  - listitem [ref=f4e132]
+                  - listitem [ref=f4e135]:
+                    - link "Keuangan" [ref=f4e136] [cursor=pointer]:
+                      - /url: /dashboard/finance
+                  - listitem [ref=f4e137]
+                  - listitem [ref=f4e140]:
+                    - link "Transaksi" [disabled] [ref=f4e141]
+              - generic [ref=f4e142]:
+                - generic [ref=f4e143]:
+                  - paragraph [ref=f4e144]: Keuangan
+                  - heading "Transaksi" [level=1] [ref=f4e145]
+                  - paragraph [ref=f4e146]: Buat transaksi kas draf dan tinjau catatan yang telah disetujui.
+                - link "Ringkasan keuangan" [ref=f4e148] [cursor=pointer]:
+                  - /url: /dashboard/finance
+            - generic [ref=f4e149]:
+              - combobox "Filter status" [ref=f4e150]:
+                - option "Semua status" [selected]
+                - option "DRAFT"
+                - option "SAH"
+                - option "REVERSED"
+              - combobox "Filter jenis" [ref=f4e151]:
+                - option "Semua jenis" [selected]
+                - option "Kas masuk"
+                - option "Kas keluar"
+              - textbox "Cari kode atau uraian" [ref=f4e152]
+              - button "Filter" [ref=f4e153]
+            - generic [ref=f4e154]:
+              - heading "Transaksi draf baru" [level=2] [ref=f4e157]
+              - generic [ref=f4e158]:
+                - generic [ref=f4e159]:
+                  - text: Jenis
+                  - combobox "Jenis" [ref=f4e160]:
+                    - option "Kas masuk" [selected]
+                    - option "Kas keluar"
+                - generic [ref=f4e161]:
+                  - text: Jumlah
+                  - spinbutton "Jumlah" [ref=f4e162]
+                - generic [ref=f4e163]:
+                  - text: Tanggal
+                  - textbox "Tanggal" [ref=f4e164]
+                - generic [ref=f4e165]:
+                  - text: Uraian
+                  - textbox "Uraian" [ref=f4e166]
+                - generic [ref=f4e167]:
+                  - text: Jenis terkait
+                  - textbox "Jenis terkait" [ref=f4e168]:
+                    - /placeholder: Opsional
+                - generic [ref=f4e169]:
+                  - text: ID terkait
+                  - textbox "ID terkait" [ref=f4e170]:
+                    - /placeholder: UUID jika terkait
+                - generic [ref=f4e171]:
+                  - text: Bukti
+                  - textbox "Bukti" [ref=f4e172]:
+                    - /placeholder: Gunakan pengunggah bukti setelah dibuat
+                - button "Buat draf" [ref=f4e174]
+            - table [ref=f4e176]:
+              - rowgroup [ref=f4e177]:
+                - row [ref=f4e178]:
+                  - columnheader "Transaksi" [ref=f4e179]
+                  - columnheader "Jenis" [ref=f4e180]
+                  - columnheader "Jumlah" [ref=f4e181]
+                  - columnheader "Status" [ref=f4e182]
+                  - columnheader "Aksi" [ref=f4e183]
+              - rowgroup [ref=f4e184]:
+                - row [ref=f4e185]:
+                  - cell [ref=f4e186]:
+                    - paragraph [ref=f4e187]: TX-3DE3ECD018C149E8A1E3D7007D0416B6
+                    - paragraph [ref=f4e188]: LIVE E2E finance draft
+                  - cell "Kas masuk" [ref=f4e189]
+                  - cell "Rp 1.234" [ref=f4e190]
+                  - cell "Sah" [ref=f4e192]
+                  - cell [ref=f4e194]:
+                    - link "Buka" [ref=f4e195] [cursor=pointer]:
+                      - /url: /dashboard/finance/transactions/f6a187ca-9956-4bde-bc25-a42a674a0f80
+                - row [ref=f4e196]:
+                  - cell [ref=f4e197]:
+                    - paragraph [ref=f4e198]: TX-3B2193AEB60E47FF82AE
+                    - paragraph [ref=f4e199]: "Reversal of TX-REAL-AE081591ADF84843: QA reversal transition."
+                  - cell "Kas masuk" [ref=f4e200]
+                  - cell "Rp 300.000" [ref=f4e201]
+                  - cell "Sah" [ref=f4e203]
+                  - cell [ref=f4e205]:
+                    - link "Buka" [ref=f4e206] [cursor=pointer]:
+                      - /url: /dashboard/finance/transactions/66049997-bb31-43c0-885b-fd543807ec15
+                - row [ref=f4e207]:
+                  - cell [ref=f4e208]:
+                    - paragraph [ref=f4e209]: TX-REAL-AE081591ADF84843
+                    - paragraph [ref=f4e210]: QA approved realization fixture
+                  - cell "Kas keluar" [ref=f4e211]
+                  - cell "Rp -300.000" [ref=f4e212]
+                  - cell "REVERSED" [ref=f4e214]
+                  - cell [ref=f4e216]:
+                    - link "Buka" [ref=f4e217] [cursor=pointer]:
+                      - /url: /dashboard/finance/transactions/8afb63e3-6b5c-46f9-934a-7a79cf7fa08d
+                - row [ref=f4e218]:
+                  - cell [ref=f4e219]:
+                    - paragraph [ref=f4e220]: TX-PAY-E7B5240E600D4821
+                    - paragraph [ref=f4e221]: Due payment for 14b96fc8-86d3-49cf-9351-cae57a289f56
+                  - cell "Kas masuk" [ref=f4e222]
+                  - cell "Rp 1.000.000" [ref=f4e223]
+                  - cell "Sah" [ref=f4e225]
+                  - cell [ref=f4e227]:
+                    - link "Buka" [ref=f4e228] [cursor=pointer]:
+                      - /url: /dashboard/finance/transactions/d7c2b3c3-4dde-460c-8c49-67c3333a47a6
+  - region "Notifications alt+T"
+  - alert [ref=f4e229]

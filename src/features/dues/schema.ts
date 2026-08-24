@@ -21,12 +21,10 @@ export const createDueSchema = z.object({
   if (value.dueType === "MONTHLY") {
     if (value.sourceMovementId) context.addIssue({ code: "custom", path: ["sourceMovementId"], message: "Monthly dues cannot be linked to a road-entry movement." });
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value.referenceKey)) context.addIssue({ code: "custom", path: ["referenceKey"], message: "Monthly dues require a YYYY-MM reference." });
-    if (value.amountDue !== 10_000_000) context.addIssue({ code: "custom", path: ["amountDue"], message: "Monthly dues must be Rp10.000.000." });
   }
   if (value.dueType === "ROAD_ENTRY") {
     if (!value.sourceMovementId) context.addIssue({ code: "custom", path: ["sourceMovementId"], message: "Road-entry dues require a source movement." });
     if (!value.referenceKey.startsWith("ENTRY-")) context.addIssue({ code: "custom", path: ["referenceKey"], message: "Road-entry dues require an ENTRY reference." });
-    if (value.amountDue !== 5_000_000) context.addIssue({ code: "custom", path: ["amountDue"], message: "Road-entry dues must be Rp5.000.000." });
   }
 });
 
@@ -41,11 +39,37 @@ export const recordDuePaymentSchema = z.object({
   notes: z.string().trim().max(5000).optional(),
 });
 
+export const duePaymentUploadSchema = z.object({
+  dueId: dueIdSchema,
+  paymentId: uuid,
+  contentType: z.string().trim().min(1).max(100),
+  size: z.coerce.number().int().positive().max(10 * 1024 * 1024),
+  originalName: z.string().trim().min(1).max(255),
+});
+
+export const duePaymentEvidenceDownloadSchema = z.object({ duePaymentId: uuid });
+
+export const reverseDuePaymentSchema = z.object({
+  duePaymentId: uuid,
+  reason: z.string().trim().min(1, "Reversal reason is required.").max(5000),
+  idempotencyKey: uuid,
+});
+
 export const duesFiltersSchema = z.object({
   status: z.enum(["UNPAID", "PARTIAL", "PAID"]).optional(),
   dueType: z.enum(["MONTHLY", "ROAD_ENTRY"]).optional(),
   blockId: uuid.optional(),
   periodKey: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+  query: z.string().trim().max(100).optional(),
+  overdueOnly: z.coerce.boolean().default(false),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+export const duePaymentFiltersSchema = z.object({
+  blockId: uuid.optional(),
+  periodKey: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+  query: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });

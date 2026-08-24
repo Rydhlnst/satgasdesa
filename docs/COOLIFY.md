@@ -55,7 +55,7 @@ Use a URL-safe `MYSQL_PASSWORD` (letters, numbers, `_`, and `-`) or URL-encode r
 - Coolify health check: `GET /api/health`.
 - The health endpoint checks MySQL connectivity and returns no internal error details.
 - Use the Coolify domain over HTTPS; Better Auth cookies and the service worker depend on this.
-- Schedule the daily job externally with `POST /api/jobs/daily` and `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`.
+- Schedule the daily job externally with `POST /api/jobs/daily` and `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`. Set `MONTHLY_DUE_DAY=7` so the monthly collection window closes on the 7th.
 - Back up the MySQL named volume and use the documented logical backup procedure in `docs/BACKUP-RESTORE.md`.
 - Keep R2 private and use signed download URLs only.
 

@@ -4,6 +4,7 @@ import { auditLog } from "@/src/db/schema/audit";
 export const AUDIT_ACTIONS = {
   CREATE: "CREATE",
   UPDATE: "UPDATE",
+  DELETE: "DELETE",
   SUBMIT: "SUBMIT",
   VERIFY: "VERIFY",
   APPROVE: "APPROVE",

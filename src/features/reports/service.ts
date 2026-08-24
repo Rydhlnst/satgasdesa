@@ -84,7 +84,11 @@ export async function getMonthlyReportData(periodKey: string): Promise<MonthlyRe
     database.select({ id: excavatorMovement.id }).from(excavatorMovement).where(and(gte(excavatorMovement.occurredAt, start), lt(excavatorMovement.occurredAt, end))),
     database.select({ transactionType: financialTransaction.transactionType, amount: financialTransaction.amount, status: financialTransaction.status, relatedEntityType: financialTransaction.relatedEntityType }).from(financialTransaction).where(and(inArray(financialTransaction.status, ["SAH", "REVERSED"]), gte(financialTransaction.transactionAt, start), lt(financialTransaction.transactionAt, end))),
     database.select({ transactionType: financialTransaction.transactionType, amount: financialTransaction.amount }).from(financialTransaction).where(and(inArray(financialTransaction.status, ["SAH", "REVERSED"]), lt(financialTransaction.transactionAt, start))),
-    database.select({ amount: duePayment.amount }).from(duePayment).where(and(gte(duePayment.paymentDate, startDate), lt(duePayment.paymentDate, endDateExclusive))),
+    database
+      .select({ amount: duePayment.amount })
+      .from(duePayment)
+      .innerJoin(financialTransaction, and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, duePayment.id), eq(financialTransaction.status, "SAH")))
+      .where(and(gte(duePayment.paymentDate, startDate), lt(duePayment.paymentDate, endDateExclusive))),
     database.select({ amountDue: due.amountDue, amountPaid: due.amountPaid }).from(due).where(and(gte(due.dueDate, startDate), lt(due.dueDate, endDateExclusive))),
   ]);
   const period = periodRows[0] ?? null;

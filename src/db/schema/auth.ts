@@ -16,6 +16,7 @@ export const user = mysqlTable(
     email: varchar("email", { length: 255 }).notNull(),
     emailVerified: boolean("email_verified").notNull().default(false),
     image: text("image"),
+    phone: varchar("phone", { length: 30 }),
     status: varchar("status", { length: 16 }).notNull().default("ACTIVE"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
