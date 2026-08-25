@@ -11,21 +11,35 @@ function run(command, args) {
   });
 }
 
-await run(process.execPath, ["scripts/validate-env.mjs"]);
-await run(process.execPath, ["scripts/migrate-runtime.mjs"]);
+async function startApplication() {
+  await run(process.execPath, ["scripts/validate-env.mjs"]);
+  await run(process.execPath, ["scripts/migrate-runtime.mjs"]);
 
-if (process.env.SEED_RBAC === "true") {
-  await run(process.execPath, ["scripts/seed-rbac.mjs"]);
+  if (process.env.SEED_RBAC === "true") {
+    await run(process.execPath, ["scripts/seed-rbac.mjs"]);
+  }
+
+  if (process.env.BOOTSTRAP_ADMIN_EMAIL?.trim()) {
+    await run(process.execPath, ["scripts/seed-admin.mjs"]);
+  }
+
+  const server = spawn(process.execPath, ["server.js"], { stdio: "inherit", env: process.env });
+  const shutdown = (signal) => {
+    server.kill(signal);
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
+  server.once("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 }
 
-if (process.env.BOOTSTRAP_ADMIN_EMAIL?.trim()) {
-  await run(process.execPath, ["scripts/seed-admin.mjs"]);
-}
+try {
+  await startApplication();
+} catch (error) {
+  if (process.env.KEEP_CONTAINER_RUNNING_ON_STARTUP_FAILURE !== "true") throw error;
 
-const server = spawn(process.execPath, ["server.js"], { stdio: "inherit", env: process.env });
-const shutdown = (signal) => {
-  server.kill(signal);
-};
-process.once("SIGTERM", () => shutdown("SIGTERM"));
-process.once("SIGINT", () => shutdown("SIGINT"));
-server.once("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
+  console.error("Startup failed; keeping the container running for diagnostics.", error);
+  await new Promise((resolve) => {
+    process.once("SIGTERM", resolve);
+    process.once("SIGINT", resolve);
+  });
+}
