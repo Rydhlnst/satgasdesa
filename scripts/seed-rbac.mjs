@@ -1,6 +1,9 @@
+import { existsSync } from "node:fs";
 import mysql from "mysql2/promise";
 
-process.loadEnvFile(".env");
+// Local scripts can load .env, while production containers receive env values
+// from Compose/Coolify and intentionally do not include a .env file.
+if (existsSync(".env")) process.loadEnvFile(".env");
 
 const databaseUrl = process.env.DATABASE_URL;
 
