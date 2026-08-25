@@ -9,7 +9,10 @@ const maxAttempts = 30;
 const retryDelayMs = 2000;
 
 function isConnectionFailure(error) {
-  return ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "PROTOCOL_CONNECTION_LOST"].includes(error?.code);
+  const rootCause = getRootCause(error);
+  const code = rootCause?.code ?? error?.code;
+
+  return ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "PROTOCOL_CONNECTION_LOST"].includes(code);
 }
 
 function redactSecrets(value) {
@@ -31,11 +34,13 @@ function getRootCause(error) {
 }
 
 function migrationErrorDetails(error) {
+  const rootCause = getRootCause(error);
+
   return {
-    code: getRootCause(error)?.code ?? error?.code,
-    errno: getRootCause(error)?.errno ?? error?.errno,
-    sqlState: getRootCause(error)?.sqlState ?? error?.sqlState,
-    message: redactSecrets(getRootCause(error)?.sqlMessage ?? getRootCause(error)?.message ?? error?.message),
+    code: rootCause?.code ?? error?.code,
+    errno: rootCause?.errno ?? error?.errno,
+    sqlState: rootCause?.sqlState ?? error?.sqlState,
+    message: redactSecrets(rootCause?.sqlMessage ?? rootCause?.message ?? error?.message),
   };
 }
 
