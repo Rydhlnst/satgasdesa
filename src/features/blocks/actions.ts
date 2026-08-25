@@ -163,6 +163,8 @@ export async function addBlockPhoto(input: unknown) {
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(blockPhoto).values({ id, blockId: values.blockId, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption ?? ""), createdBy: session.user.id, createdAt: now });
+    const [currentBlock] = await tx.select({ locationPhotoKey: block.locationPhotoKey }).from(block).where(eq(block.id, values.blockId)).limit(1);
+    if (!currentBlock?.locationPhotoKey) await tx.update(block).set({ locationPhotoKey: values.storageKey, updatedAt: now }).where(eq(block.id, values.blockId));
     await tx.insert(blockHistory).values({ id: crypto.randomUUID(), blockId: values.blockId, action: "PHOTO_ADDED", oldValues: null, newValues: JSON.stringify({ photoId: id, caption: values.caption ?? null }), changedBy: session.user.id, createdAt: now });
     await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "BLOCK_PHOTO", entityId: id, newValues: { blockId: values.blockId, caption: values.caption ?? null } }));
   });

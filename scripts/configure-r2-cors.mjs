@@ -1,4 +1,4 @@
-import { PutBucketCorsCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetBucketCorsCommand, PutBucketCorsCommand, S3Client } from "@aws-sdk/client-s3";
 
 const endpoint = process.env.STORAGE_ENDPOINT?.replace(/\/+$/, "");
 const bucket = process.env.STORAGE_BUCKET;
@@ -20,17 +20,27 @@ const client = new S3Client({
   credentials: { accessKeyId, secretAccessKey },
 });
 
+const corsConfiguration = {
+  CORSRules: [{
+    AllowedOrigins: origins,
+    AllowedMethods: ["PUT", "GET", "HEAD"],
+    AllowedHeaders: ["Content-Type"],
+    ExposeHeaders: ["ETag"],
+    MaxAgeSeconds: 3600,
+  }],
+};
+
 await client.send(new PutBucketCorsCommand({
   Bucket: bucket,
-  CORSConfiguration: {
-    CORSRules: [{
-      AllowedOrigins: origins,
-      AllowedMethods: ["PUT", "GET"],
-      AllowedHeaders: ["Content-Type"],
-      ExposeHeaders: ["ETag"],
-      MaxAgeSeconds: 3600,
-    }],
-  },
+  CORSConfiguration: corsConfiguration,
 }));
 
-console.log(`Configured R2 CORS for ${bucket}: ${origins.join(", ")}`);
+const applied = await client.send(new GetBucketCorsCommand({ Bucket: bucket }));
+const isVerified = applied.CORSRules?.some((rule) =>
+  origins.every((origin) => rule.AllowedOrigins?.includes(origin))
+  && ["PUT", "GET", "HEAD"].every((method) => rule.AllowedMethods?.includes(method))
+  && rule.AllowedHeaders?.some((header) => header.toLowerCase() === "content-type"),
+);
+
+if (!isVerified) throw new Error("R2 CORS policy was saved but could not be verified. Do not deploy until GET Bucket CORS returns the expected browser upload policy.");
+console.log(`Configured and verified R2 CORS for ${bucket}: ${origins.join(", ")}`);

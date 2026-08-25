@@ -10,6 +10,8 @@ export async function GET(request: Request) {
       return Response.json(await getFundRequests({
         status: params.get("status") || undefined,
         periodKey: params.get("periodKey") || undefined,
+        dateFrom: params.get("dateFrom") || undefined,
+        dateTo: params.get("dateTo") || undefined,
         categoryId: params.get("categoryId") || undefined,
         blockId: params.get("blockId") || undefined,
         mine: params.get("mine") === "true",

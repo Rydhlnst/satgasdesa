@@ -1,5 +1,6 @@
-import { and, count, desc, eq, gte, like, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, like, lt, lte, or } from "drizzle-orm";
 import { getDb } from "@/src/db";
+import { nextJakartaDay, startOfJakartaDay } from "@/src/lib/date-range";
 import { auditLog } from "@/src/db/schema/audit";
 import { block } from "@/src/db/schema/blocks";
 import { dailyInformation, dailyInformationAttachment, dailyInformationFollowUp } from "@/src/db/schema/daily-information";
@@ -74,6 +75,8 @@ function buildFilterConditions(filters: ReturnType<typeof parseFilters>) {
     const end = new Date(`${filters.reportedDate}T23:59:59.999+07:00`);
     conditions.push(gte(dailyInformation.reportedAt, start), lte(dailyInformation.reportedAt, end));
   }
+  if (filters.dateFrom) conditions.push(gte(dailyInformation.reportedAt, startOfJakartaDay(filters.dateFrom)));
+  if (filters.dateTo) conditions.push(lt(dailyInformation.reportedAt, nextJakartaDay(filters.dateTo)));
   return conditions.length ? and(...conditions) : undefined;
 }
 
@@ -104,7 +107,10 @@ export async function getDailyInformationPage(input?: unknown) {
     database.select({ value: count() }).from(dailyInformation).where(conditions),
   ]);
   const total = Number(totalRows[0]?.value ?? 0);
-  return { rows, pagination: { page: filters.page, pageSize: filters.pageSize, total, totalPages: Math.ceil(total / filters.pageSize) } };
+  const attachments = rows.length ? await database.select({ dailyInformationId: dailyInformationAttachment.dailyInformationId, storageKey: dailyInformationAttachment.storageKey, contentType: dailyInformationAttachment.contentType }).from(dailyInformationAttachment).where(inArray(dailyInformationAttachment.dailyInformationId, rows.map((row) => row.id))).orderBy(asc(dailyInformationAttachment.createdAt)) : [];
+  const firstAttachment = new Map<string, { storageKey: string; contentType: string }>();
+  for (const attachment of attachments) if (!firstAttachment.has(attachment.dailyInformationId)) firstAttachment.set(attachment.dailyInformationId, attachment);
+  return { rows: rows.map((row) => ({ ...row, coverPhotoKey: firstAttachment.get(row.id)?.storageKey ?? null, coverPhotoContentType: firstAttachment.get(row.id)?.contentType ?? null })), pagination: { page: filters.page, pageSize: filters.pageSize, total, totalPages: Math.ceil(total / filters.pageSize) } };
 }
 
 export async function getDailyInformationItem(id: string) {
@@ -188,6 +194,11 @@ export async function createDailyInformation(input: unknown) {
 
   const id = values.id ?? crypto.randomUUID();
   const now = new Date();
+  const [existing] = await getDb().select({ id: dailyInformation.id, reporterId: dailyInformation.reporterId }).from(dailyInformation).where(eq(dailyInformation.id, id)).limit(1);
+  if (existing) {
+    if (existing.reporterId !== session.user.id) throw new Error("This information idempotency key belongs to another user.");
+    return { id, duplicate: true };
+  }
   for (const attachment of values.attachments) {
     assertAttachmentStorageKey(id, attachment.storageKey);
     if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(attachment.contentType)) throw new Error("Unsupported attachment type.");

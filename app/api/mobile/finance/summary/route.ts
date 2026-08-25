@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withMobileSession(request, async () => {
-    try { return Response.json({ summary: await getFinanceSummary() }); }
+    try { const params = new URL(request.url).searchParams; return Response.json({ summary: await getFinanceSummary({ dateFrom: params.get("dateFrom") || undefined, dateTo: params.get("dateTo") || undefined }) }); }
     catch (error) { return apiErrorResponse(error); }
   });
 }

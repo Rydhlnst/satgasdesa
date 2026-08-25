@@ -1,6 +1,4 @@
-import * as SecureStore from "expo-secure-store";
-
-const inspectionDraftKey = "satgas.mobile.inspection-draft";
+import { clearOfflineDraft, loadOfflineDraft, saveOfflineDraft } from "../offline/store";
 
 export type LocalInspectionDraft = {
   blockId: string;
@@ -16,15 +14,13 @@ export type LocalInspectionDraft = {
 };
 
 export async function loadInspectionDraft(): Promise<LocalInspectionDraft | null> {
-  const value = await SecureStore.getItemAsync(inspectionDraftKey);
-  if (!value) return null;
-  try { return JSON.parse(value) as LocalInspectionDraft; } catch { await SecureStore.deleteItemAsync(inspectionDraftKey); return null; }
+  return (await loadOfflineDraft<LocalInspectionDraft>("inspection"))?.payload ?? null;
 }
 
 export function saveInspectionDraftLocally(draft: LocalInspectionDraft) {
-  return SecureStore.setItemAsync(inspectionDraftKey, JSON.stringify(draft));
+  return saveOfflineDraft("inspection", draft);
 }
 
 export function clearInspectionDraftLocally() {
-  return SecureStore.deleteItemAsync(inspectionDraftKey);
+  return clearOfflineDraft("inspection");
 }

@@ -14,7 +14,7 @@ type WorkspaceTabsProps = {
 const GROUPS = [
   { value: "overview", label: "Ringkasan", href: "/dashboard", routes: ["/dashboard"] },
   { value: "operational", label: "Operasional", href: "/dashboard/blocks", routes: ["/dashboard/blocks", "/dashboard/excavators", "/dashboard/inspections", "/dashboard/information", "/dashboard/block-managers"] },
-  { value: "finance", label: "Keuangan", href: "/dashboard/finance", routes: ["/dashboard/finance", "/dashboard/dues", "/dashboard/payments", "/dashboard/budgets", "/dashboard/realizations", "/dashboard/reports"] },
+  { value: "finance", label: "Keuangan", href: "/dashboard/finance", routes: ["/dashboard/finance", "/dashboard/dues", "/dashboard/payments", "/dashboard/budgets", "/dashboard/fund-requests", "/dashboard/realizations", "/dashboard/reports"] },
   { value: "governance", label: "Tata kelola", href: "/dashboard/notifications", routes: ["/dashboard/notifications", "/dashboard/audit", "/dashboard/settings"] },
 ] as const;
 

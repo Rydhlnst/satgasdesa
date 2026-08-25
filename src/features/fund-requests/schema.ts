@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { FUND_REQUEST_STATUSES } from "./constants";
+import { dateRangeFields, validateDateRange } from "@/src/lib/date-range";
 
 const uuid = z.string().uuid("Invalid ID.");
 const money = z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -24,9 +25,10 @@ export const fundRequestFiltersSchema = z.object({
   blockId: uuid.optional(),
   mine: z.coerce.boolean().default(false),
   query: z.string().trim().max(100).optional(),
+  ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-});
+}).superRefine(validateDateRange);
 
 export const createFundRequestSchema = requestFields;
 export const updateFundRequestSchema = requestFields.extend({ id: uuid });
@@ -34,4 +36,4 @@ export const transitionFundRequestSchema = z.object({ id: uuid, status: z.enum([
 export const correctFundRequestSchema = requestFields.extend({ id: uuid, reason: z.string().trim().min(1).max(5_000) });
 export const fundRequestAttachmentUploadSchema = z.object({ fundRequestId: uuid, contentType: z.string().trim().min(1).max(100), size: z.coerce.number().int().positive().max(10 * 1024 * 1024), originalName: z.string().trim().min(1).max(255) });
 export const addFundRequestAttachmentSchema = z.object({ fundRequestId: uuid, storageKey: z.string().trim().min(1).max(255), contentType: z.string().trim().min(1).max(100), sizeBytes: z.coerce.number().int().positive().max(10 * 1024 * 1024), caption: z.string().trim().max(255).optional() });
-export const fundRequestAttachmentDownloadSchema = z.object({ id: uuid });
+export const fundRequestAttachmentDownloadSchema = z.object({ fundRequestId: uuid, attachmentId: uuid });

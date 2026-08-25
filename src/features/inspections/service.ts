@@ -134,6 +134,9 @@ async function saveInspection(input: unknown, status: "DRAFT" | "SUBMITTED") {
   }
 
   const [existing] = await getDb().select().from(inspection).where(eq(inspection.id, id)).limit(1);
+  if (existing?.status === "SUBMITTED" && status === "SUBMITTED" && existing.inspectorId === session.user.id) {
+    return { id, duplicate: true };
+  }
   if (existing && (existing.status !== "DRAFT" || existing.inspectorId !== session.user.id)) throw new Error("This inspection draft cannot be changed.");
   const existingPhotos = existing
     ? await getDb().select({ storageKey: inspectionPhoto.storageKey }).from(inspectionPhoto).where(eq(inspectionPhoto.inspectionId, id))

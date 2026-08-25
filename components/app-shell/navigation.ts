@@ -32,6 +32,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { label: "Iuran & Pembayaran", href: "/dashboard/dues", icon: "dues", permission: PERMISSIONS.DUES_READ },
   { label: "Keuangan", href: "/dashboard/finance", icon: "finance", permission: PERMISSIONS.FINANCE_READ },
   { label: "Anggaran", href: "/dashboard/budgets", icon: "budgets", permission: PERMISSIONS.BUDGET_READ },
+  { label: "Pengajuan Dana", href: "/dashboard/fund-requests", icon: "realizations", permission: PERMISSIONS.FUND_REQUEST_READ },
   { label: "Realisasi", href: "/dashboard/realizations", icon: "realizations", permission: PERMISSIONS.REALIZATION_READ },
   { label: "Laporan", href: "/dashboard/reports", icon: "reports", permission: PERMISSIONS.REPORT_READ },
   { label: "Notifikasi", href: "/dashboard/notifications", icon: "notifications" },

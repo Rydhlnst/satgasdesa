@@ -6,7 +6,7 @@
 4. Put the app behind HTTPS and a reverse proxy. The service worker and secure auth cookies require HTTPS outside localhost.
 5. Configure private R2-compatible storage if `STORAGE_PROVIDER=r2`.
 6. Configure Resend if `EMAIL_PROVIDER=resend`.
-7. Schedule `POST /api/jobs/daily` with `Authorization: Bearer $CRON_SECRET` only when automation is enabled.
+7. Set `DAILY_AUTOMATION_ENABLED=true`, `AUTOMATION_ACTOR_USER_ID`, and `CRON_SECRET`; verify `/api/health` reports automation as enabled and configured; then schedule `POST /api/jobs/daily` with `Authorization: Bearer $CRON_SECRET` once daily.
 
 Required runtime controls:
 

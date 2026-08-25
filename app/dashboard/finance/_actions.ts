@@ -10,21 +10,27 @@ import {
   getTransactionEvidence,
 } from "@/src/features/evidence/service";
 import { approveFinancialTransaction, createFinancialTransaction, reverseFinancialTransaction } from "@/src/features/finance/service";
+import { getActionErrorMessage } from "@/components/shared/action-form";
 
 function value(formData: FormData, key: string): string { const item = formData.get(key); return typeof item === "string" ? item.trim() : ""; }
 function optional(valueToCheck: string): string | undefined { return valueToCheck || undefined; }
 
 export async function createFinancialTransactionAction(formData: FormData) {
-  const result = await createFinancialTransaction({
-    idempotencyKey: value(formData, "idempotencyKey"),
-    transactionAt: value(formData, "transactionAt") ? new Date(value(formData, "transactionAt")) : undefined,
-    transactionType: value(formData, "transactionType"),
-    amount: value(formData, "amount"),
-    description: value(formData, "description"),
-    relatedEntityType: optional(value(formData, "relatedEntityType")),
-    relatedEntityId: optional(value(formData, "relatedEntityId")),
-    evidenceKey: optional(value(formData, "evidenceKey")),
-  });
+  let result: Awaited<ReturnType<typeof createFinancialTransaction>>;
+  try {
+    result = await createFinancialTransaction({
+      idempotencyKey: value(formData, "idempotencyKey"),
+      transactionAt: value(formData, "transactionAt") ? new Date(value(formData, "transactionAt")) : undefined,
+      transactionType: value(formData, "transactionType"),
+      amount: value(formData, "amount"),
+      description: value(formData, "description"),
+      relatedEntityType: optional(value(formData, "relatedEntityType")),
+      relatedEntityId: optional(value(formData, "relatedEntityId")),
+      evidenceKey: optional(value(formData, "evidenceKey")),
+    });
+  } catch (error) {
+    redirect(`/dashboard/finance/transactions?actionError=${encodeURIComponent(getActionErrorMessage(error))}`);
+  }
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/finance");
   revalidatePath("/dashboard/finance/transactions");

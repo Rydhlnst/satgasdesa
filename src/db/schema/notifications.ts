@@ -21,3 +21,16 @@ export const notificationDispatch = mysqlTable("notification_dispatch", {
   notificationId: varchar("notification_id", { length: 36 }).notNull().references(() => notification.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull(),
 }, (table) => [uniqueIndex("notification_dispatch_rule_target_recipient_unique").on(table.ruleKey, table.targetKey, table.recipientUserId)]);
+
+export const pushDevice = mysqlTable("push_device", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
+  expoPushToken: varchar("expo_push_token", { length: 255 }).notNull(),
+  platform: varchar("platform", { length: 16 }).notNull(),
+  lastSeenAt: timestamp("last_seen_at").notNull(),
+  createdAt: timestamp("created_at").notNull(),
+  updatedAt: timestamp("updated_at").notNull(),
+}, (table) => [
+  uniqueIndex("push_device_expo_token_unique").on(table.expoPushToken),
+  index("push_device_user_seen_idx").on(table.userId, table.lastSeenAt),
+]);

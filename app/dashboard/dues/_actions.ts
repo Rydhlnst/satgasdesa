@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { generateMonthlyDues } from "@/src/features/dues/automation";
 import { createDue, recordDuePayment } from "@/src/features/dues/service";
+import { getActionErrorMessage } from "@/components/shared/action-form";
 
 function value(formData: FormData, key: string): string {
   const item = formData.get(key);
@@ -14,15 +15,20 @@ function value(formData: FormData, key: string): string {
 function optional(valueToCheck: string): string | undefined { return valueToCheck || undefined; }
 
 export async function createDueAction(formData: FormData) {
-  const result = await createDue({
-    excavatorId: value(formData, "excavatorId"),
-    sourceMovementId: optional(value(formData, "sourceMovementId")),
-    dueType: value(formData, "dueType"),
-    referenceKey: value(formData, "referenceKey"),
-    payerName: value(formData, "payerName"),
-    amountDue: value(formData, "amountDue"),
-    dueDate: value(formData, "dueDate"),
-  });
+  let result: Awaited<ReturnType<typeof createDue>>;
+  try {
+    result = await createDue({
+      excavatorId: value(formData, "excavatorId"),
+      sourceMovementId: optional(value(formData, "sourceMovementId")),
+      dueType: value(formData, "dueType"),
+      referenceKey: value(formData, "referenceKey"),
+      payerName: value(formData, "payerName"),
+      amountDue: value(formData, "amountDue"),
+      dueDate: value(formData, "dueDate"),
+    });
+  } catch (error) {
+    redirect(`/dashboard/dues?actionError=${encodeURIComponent(getActionErrorMessage(error))}`);
+  }
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/dues");
   redirect(`/dashboard/dues/${result.id}`);

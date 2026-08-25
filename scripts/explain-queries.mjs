@@ -8,6 +8,7 @@ const queries = {
   dues: "SELECT id FROM due WHERE status IN ('UNPAID', 'PARTIAL') AND due_date < '2026-02-01' ORDER BY due_date LIMIT 50",
   notifications: "SELECT id FROM notification WHERE recipient_user_id = '00000000-0000-0000-0000-000000000000' AND read_at IS NULL ORDER BY created_at DESC LIMIT 20",
   inspections: "SELECT id FROM inspection WHERE block_id = '00000000-0000-0000-0000-000000000000' ORDER BY inspected_at DESC LIMIT 20",
+  auditActor: "SELECT id FROM audit_log WHERE actor_user_id = '00000000-0000-0000-0000-000000000000' ORDER BY created_at DESC LIMIT 50",
   auditEntity: "SELECT id FROM audit_log WHERE entity_type = 'REALIZATION' AND entity_id = '00000000-0000-0000-0000-000000000000' ORDER BY created_at DESC LIMIT 50",
 };
 

@@ -1,4 +1,5 @@
-import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, like, lte, or } from "drizzle-orm";
+import { z } from "zod";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
@@ -12,6 +13,8 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 
 import { endWorkerAssignmentSchema, fieldTaskSchema, fieldWorkerSchema, taskFiltersSchema, updateFieldTaskSchema, updateFieldWorkerSchema, workerAssignmentSchema, workerFiltersSchema } from "./schema";
+
+const entityIdSchema = z.string().uuid("Invalid record ID.");
 
 function optional(value?: string | null): string | null { return value?.trim() || null; }
 type TransactionContext = Pick<ReturnType<typeof getDb>, "insert">;
@@ -47,6 +50,8 @@ export async function getFieldTasks(input?: unknown) {
   if (filters.status) conditions.push(eq(fieldTask.status, filters.status));
   if (filters.priority) conditions.push(eq(fieldTask.priority, filters.priority));
   if (filters.blockId) conditions.push(eq(fieldTask.blockId, filters.blockId));
+  if (filters.dateFrom) conditions.push(gte(fieldTask.dueDate, filters.dateFrom));
+  if (filters.dateTo) conditions.push(lte(fieldTask.dueDate, filters.dateTo));
   if (!admin || filters.mine) conditions.push(eq(fieldTask.assignedFieldOfficerId, session.user.id));
   const items = await getDb().select().from(fieldTask).where(conditions.length ? and(...conditions) : undefined).orderBy(asc(fieldTask.status), asc(fieldTask.dueDate), desc(fieldTask.updatedAt)).limit(filters.pageSize).offset((filters.page - 1) * filters.pageSize);
   return { items, page: filters.page, pageSize: filters.pageSize };
@@ -54,7 +59,8 @@ export async function getFieldTasks(input?: unknown) {
 
 export async function getFieldTask(id: string) {
   const session = await requirePermission(PERMISSIONS.FIELD_TASK_READ);
-  const [item] = await getDb().select().from(fieldTask).where(eq(fieldTask.id, id)).limit(1);
+  const validId = entityIdSchema.parse(id);
+  const [item] = await getDb().select().from(fieldTask).where(eq(fieldTask.id, validId)).limit(1);
   if (!item) throw failure("Field task was not found.", 404, "NOT_FOUND");
   const admin = await canManageAll(session.user.id);
   if (!admin && item.assignedFieldOfficerId !== session.user.id) throw failure("You do not have access to this field task.", 403, "FORBIDDEN");
@@ -134,9 +140,10 @@ export async function getFieldWorkers(input?: unknown) {
 
 export async function getFieldWorker(id: string) {
   const session = await requirePermission(PERMISSIONS.WORKER_READ);
-  const [item] = await getDb().select().from(fieldWorker).where(eq(fieldWorker.id, id)).limit(1);
+  const validId = entityIdSchema.parse(id);
+  const [item] = await getDb().select().from(fieldWorker).where(eq(fieldWorker.id, validId)).limit(1);
   if (!item) throw failure("Worker was not found.", 404, "NOT_FOUND");
-  const assignments = await getDb().select().from(workerBlockAssignment).where(eq(workerBlockAssignment.workerId, id)).orderBy(desc(workerBlockAssignment.startedAt));
+  const assignments = await getDb().select().from(workerBlockAssignment).where(eq(workerBlockAssignment.workerId, validId)).orderBy(desc(workerBlockAssignment.startedAt));
   if (!await canManageAll(session.user.id)) {
     const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
     if (!assignedBlockIds?.length || !assignments.some((assignment) => assignedBlockIds.includes(assignment.blockId))) throw failure("You do not have access to this worker.", 403, "FORBIDDEN");

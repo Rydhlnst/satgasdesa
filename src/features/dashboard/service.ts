@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, isNull, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lt, lte } from "drizzle-orm";
 
 import { getDb } from "@/src/db";
 import { block } from "@/src/db/schema/blocks";
@@ -16,6 +16,7 @@ import { getAssignedBlockIdsForCurrentUser } from "@/src/features/field-operatio
 import { getMonthlyReportData } from "@/src/features/reports/service";
 import { getUserPermissions, requireAuth } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS, type Permission } from "@/src/lib/permissions/constants";
+import { nextJakartaDay, startOfJakartaDay } from "@/src/lib/date-range";
 
 const FINAL_INFORMATION_STATUSES = ["COMPLETED", "CLOSED"];
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -33,18 +34,19 @@ function jakartaDate(now = new Date()): string {
 function periodKeyForDate(date: string): string { return date.slice(0, 7); }
 function validPeriodKey(value?: string): string { return value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : periodKeyForDate(jakartaDate()); }
 function periodRange(periodKey: string) { const [year, month] = periodKey.split("-").map(Number); return { start: new Date(Date.UTC(year, month - 1, 1) - JAKARTA_OFFSET_MS), end: new Date(Date.UTC(year, month, 1) - JAKARTA_OFFSET_MS) }; }
+function selectedRange(periodKey: string, dateFrom?: string, dateTo?: string) { return dateFrom || dateTo ? { start: dateFrom ? startOfJakartaDay(dateFrom) : new Date("1970-01-01T00:00:00.000Z"), end: dateTo ? nextJakartaDay(dateTo) : new Date("2999-12-31T00:00:00.000Z") } : periodRange(periodKey); }
 function nextPeriodKey(periodKey: string): string { const [year, month] = periodKey.split("-").map(Number); const next = new Date(Date.UTC(year, month, 1)); return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}`; }
 function has(permissions: Set<Permission>, permission: Permission): boolean { return permissions.has(permission); }
 function statusCounts(rows: { status: string; total: number }[]): Record<string, number> { return Object.fromEntries(rows.map((row) => [row.status, Number(row.total)])); }
 function openInformationCount(rows: Record<string, number>): number { return Object.entries(rows).filter(([status]) => !FINAL_INFORMATION_STATUSES.includes(status)).reduce((total, [, value]) => total + value, 0); }
 
-async function getOperationalSummary(input: { periodKey: string; assignedBlockIds: string[] | null; userId: string; tasksMineOnly: boolean }) {
-  const database = getDb(); const { start, end } = periodRange(input.periodKey);
+async function getOperationalSummary(input: { periodKey: string; dateFrom?: string; dateTo?: string; assignedBlockIds: string[] | null; userId: string; tasksMineOnly: boolean }) {
+  const database = getDb(); const { start, end } = selectedRange(input.periodKey, input.dateFrom, input.dateTo);
   if (input.assignedBlockIds && !input.assignedBlockIds.length) return { blocks: { total: 0, active: 0, stopped: 0, notOperating: 0 }, excavators: {}, inspections: 0, dailyInformation: { byStatus: {}, open: 0 }, workers: 0, tasks: { TODO: 0, IN_PROGRESS: 0, DONE: 0, CANCELLED: 0, dueToday: 0, items: [] as Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }> } };
   const blockConditions = [isNull(block.archivedAt), input.assignedBlockIds ? inArray(block.id, input.assignedBlockIds) : undefined].filter(Boolean);
   const inspectionWhere = and(gte(inspection.inspectedAt, start), lt(inspection.inspectedAt, end), ...(input.assignedBlockIds ? [inArray(inspection.blockId, input.assignedBlockIds)] : []));
   const informationWhere = and(gte(dailyInformation.reportedAt, start), lt(dailyInformation.reportedAt, end), ...(input.assignedBlockIds ? [inArray(dailyInformation.blockId, input.assignedBlockIds)] : []));
-  const taskConditions = [input.tasksMineOnly ? eq(fieldTask.assignedFieldOfficerId, input.userId) : undefined, input.assignedBlockIds ? inArray(fieldTask.blockId, input.assignedBlockIds) : undefined].filter(Boolean);
+  const taskConditions = [input.tasksMineOnly ? eq(fieldTask.assignedFieldOfficerId, input.userId) : undefined, input.assignedBlockIds ? inArray(fieldTask.blockId, input.assignedBlockIds) : undefined, input.dateFrom ? gte(fieldTask.dueDate, input.dateFrom) : undefined, input.dateTo ? lte(fieldTask.dueDate, input.dateTo) : undefined].filter(Boolean);
   const workerJoinConditions = [eq(workerBlockAssignment.workerId, fieldWorker.id), isNull(workerBlockAssignment.endedAt), input.assignedBlockIds ? inArray(workerBlockAssignment.blockId, input.assignedBlockIds) : undefined].filter(Boolean);
   const [blockRows, excavatorRows, inspectionRows, informationRows, workerRows, taskRows, taskItems] = await Promise.all([
     database.select({ status: block.status, total: count() }).from(block).where(blockConditions.length ? and(...blockConditions) : undefined).groupBy(block.status),
@@ -63,8 +65,8 @@ async function getOperationalSummary(input: { periodKey: string; assignedBlockId
   };
 }
 
-async function getPeriodFinance(periodKey: string) {
-  const { start, end } = periodRange(periodKey);
+async function getPeriodFinance(periodKey: string, dateFrom?: string, dateTo?: string) {
+  const { start, end } = selectedRange(periodKey, dateFrom, dateTo);
   const rows = await getDb().select({ transactionType: financialTransaction.transactionType, amount: financialTransaction.amount, transactionAt: financialTransaction.transactionAt }).from(financialTransaction).where(and(eq(financialTransaction.status, "SAH"), lt(financialTransaction.transactionAt, end)));
   const incomeExpenseSeries = Array.from({ length: 4 }, (_, index) => ({ label: `Minggu ${index + 1}`, income: 0, expense: 0 })); let openingBalance = 0; let cashIn = 0; let cashOut = 0;
   for (const row of rows) {
@@ -97,15 +99,15 @@ async function getBudgetDashboard(periodKey: string, canReadBudget: boolean, can
   return { periodKey, status: period.status, ...summary, categories: [...categories.values()].map((category) => ({ ...category, remainingAmount: category.allocatedAmount - category.realizedAmount, absorptionPercentage: category.allocatedAmount ? Math.round((category.realizedAmount / category.allocatedAmount) * 10_000) / 100 : 0 })) };
 }
 
-export async function getDashboardSummary(input?: { periodKey?: string }) {
-  const session = await requireAuth(); const permissions = new Set(await getUserPermissions(session.user.id)); const periodKey = validPeriodKey(input?.periodKey); const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
+export async function getDashboardSummary(input?: { periodKey?: string; dateFrom?: string; dateTo?: string }) {
+  const session = await requireAuth(); const permissions = new Set(await getUserPermissions(session.user.id)); const periodKey = validPeriodKey(input?.periodKey ?? input?.dateFrom?.slice(0, 7)); const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
   const canReadOperations = has(permissions, PERMISSIONS.BLOCK_READ) || has(permissions, PERMISSIONS.DAILY_INFO_READ); const canReadBudget = has(permissions, PERMISSIONS.BUDGET_READ); const canReadRealizations = has(permissions, PERMISSIONS.REALIZATION_READ);
   const [operational, finance, dues, budget, report] = await Promise.all([
-    canReadOperations ? getOperationalSummary({ periodKey, assignedBlockIds, userId: session.user.id, tasksMineOnly: !has(permissions, PERMISSIONS.FIELD_ASSIGNMENT_MANAGE) }) : null,
-    has(permissions, PERMISSIONS.FINANCE_READ) ? getPeriodFinance(periodKey) : null,
-    has(permissions, PERMISSIONS.DUES_READ) ? getReceivableReconciliation({ periodKey }) : null,
+    canReadOperations ? getOperationalSummary({ periodKey, dateFrom: input?.dateFrom, dateTo: input?.dateTo, assignedBlockIds, userId: session.user.id, tasksMineOnly: !has(permissions, PERMISSIONS.FIELD_ASSIGNMENT_MANAGE) }) : null,
+    has(permissions, PERMISSIONS.FINANCE_READ) ? getPeriodFinance(periodKey, input?.dateFrom, input?.dateTo) : null,
+    has(permissions, PERMISSIONS.DUES_READ) ? getReceivableReconciliation({ periodKey, dateFrom: input?.dateFrom, dateTo: input?.dateTo }) : null,
     getBudgetDashboard(periodKey, canReadBudget, canReadRealizations),
-    has(permissions, PERMISSIONS.REPORT_READ) ? getMonthlyReportData(periodKey) : null,
+    has(permissions, PERMISSIONS.REPORT_READ) ? getMonthlyReportData(periodKey, { dateFrom: input?.dateFrom, dateTo: input?.dateTo }) : null,
   ]);
   const database = getDb(); const [period] = canReadRealizations || has(permissions, PERMISSIONS.FUND_REQUEST_READ) ? await database.select({ id: budgetPeriod.id }).from(budgetPeriod).where(eq(budgetPeriod.periodKey, periodKey)).limit(1) : [];
   const [realizationRows, requestRows] = await Promise.all([

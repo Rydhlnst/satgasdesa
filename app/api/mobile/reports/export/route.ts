@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       const params = new URL(request.url).searchParams;
       const period = params.get("period") ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).format(new Date());
       const format = params.get("format") === "xlsx" ? "xlsx" : "pdf";
-      const report = await getMonthlyReport(period);
+      const report = await getMonthlyReport(period, { dateFrom: params.get("dateFrom") ?? undefined, dateTo: params.get("dateTo") ?? undefined });
       const data = format === "xlsx" ? await exportMonthlyReportExcel(report) : await exportMonthlyReportPdf(report);
       const session = getRequestSession();
       await recordAuditEvent({ actorUserId: session?.user.id, action: "EXPORT", entityType: "REPORT", entityId: period, metadata: { format } });

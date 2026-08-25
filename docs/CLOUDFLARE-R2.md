@@ -28,7 +28,7 @@ Because inspection photos upload from the browser to a presigned URL, add this p
       "http://localhost:3000",
       "https://satgas.beres.io"
     ],
-    "AllowedMethods": ["PUT", "GET"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["Content-Type"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
@@ -38,7 +38,9 @@ Because inspection photos upload from the browser to a presigned URL, add this p
 
 The application does not make the bucket public. Inspection photos remain private and are opened through short-lived download URLs.
 
-Apply the policy with the deployment credentials by running `pnpm storage:configure-cors` in the app container. Set `STORAGE_CORS_ORIGINS` to a comma-separated list when additional trusted origins are required.
+Apply the policy with deployment credentials by running `pnpm storage:configure-cors` in the app container. The command writes the policy and reads it back; it fails if the required origins, methods, or `Content-Type` header are absent.
+
+Before every production release, run `pnpm storage:verify-cors`. Set `STORAGE_CORS_ORIGINS` to a comma-separated list when additional trusted origins are required. This is required to resolve the browser preflight failure recorded in the production QA report.
 
 ## Image optimization
 

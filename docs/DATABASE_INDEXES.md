@@ -10,6 +10,7 @@ This report documents indexes declared in `src/db/schema`. Keep or remove decisi
 | `account` | `account_user_id_idx` | `user_id` | Better Auth account lookup | Keep |
 | `verification` | `verification_identifier_idx` | `identifier` | Email/password verification lookup | Keep |
 | `audit_log` | `audit_log_actor_user_id_idx` | `actor_user_id` | Audit actor filter | Keep |
+| `audit_log` | `audit_log_actor_created_idx` | `actor_user_id, created_at` | Actor audit history ordered by time | Keep |
 | `audit_log` | `audit_log_entity_created_idx` | `entity_type, entity_id, created_at` | Entity history lookup ordered by time | Keep |
 | `audit_log` | `audit_log_created_at_idx` | `created_at` | Audit time ordering | Keep; consider `(created_at, id)` for keyset pagination |
 | `role` | `role_name_unique` | `name` | Role lookup/seed | Keep |

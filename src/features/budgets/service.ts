@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, like, ne, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, like, lte, ne, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb } from "@/src/db";
@@ -14,6 +14,7 @@ import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { createSystemNotificationOnce, notifyPermissionHolders } from "@/src/features/notifications/service";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
 
+import { assertRealizationAmountAvailable as assertRemainingAllocation } from "./allocation-rules";
 import { BUDGET_PERIOD_STATUSES, INITIAL_BUDGET_GROUPS, REALIZATION_TRANSITIONS } from "./constants";
 import { addBudgetCategoryToPeriodSchema, addBudgetItemAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodFiltersSchema, correctRealizationSchema, createBudgetCategorySchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
 
@@ -164,7 +165,7 @@ async function assertEditableRealization(id: string, actorUserId: string) {
 
 async function assertRealizationAmountAvailable(budgetItemId: string, requestedAmount: number, excludeRealizationId?: string) {
   const snapshot = await getRealizationCalculationSnapshot(budgetItemId, excludeRealizationId);
-  if (requestedAmount > snapshot.remainingAllocation) throw new Error("Realization amount exceeds the remaining allocation. Create an authorized budget adjustment first.");
+  assertRemainingAllocation(snapshot.remainingAllocation, requestedAmount);
   return snapshot;
 }
 
@@ -425,8 +426,9 @@ export async function addBudgetItemAttachment(input: unknown) {
 export async function getBudgetItemAttachmentDownloadUrl(input: unknown) {
   await requirePermission(PERMISSIONS.BUDGET_READ);
   const values = parseInput(budgetItemAttachmentDownloadSchema.safeParse(input));
-  const [attachment] = await getDb().select({ storageKey: budgetItemAttachment.storageKey }).from(budgetItemAttachment).where(eq(budgetItemAttachment.id, values.id)).limit(1);
+  const [attachment] = await getDb().select({ storageKey: budgetItemAttachment.storageKey }).from(budgetItemAttachment).where(and(eq(budgetItemAttachment.id, values.attachmentId), eq(budgetItemAttachment.budgetItemId, values.budgetItemId))).limit(1);
   if (!attachment) throw new Error("Budget attachment was not found.");
+  assertBudgetItemAttachmentKey(values.budgetItemId, attachment.storageKey);
   return { downloadUrl: await getObjectStorage().createDownloadUrl(attachment.storageKey) };
 }
 
@@ -466,6 +468,8 @@ export async function getRealizations(input?: unknown) {
     values.budgetItemId ? eq(realizationRequest.budgetItemId, values.budgetItemId) : undefined,
     values.categoryId ? eq(budgetGroup.categoryId, values.categoryId) : undefined,
     values.periodKey ? eq(budgetPeriod.periodKey, values.periodKey) : undefined,
+    values.dateFrom ? gte(realizationRequest.realizationDate, values.dateFrom) : undefined,
+    values.dateTo ? lte(realizationRequest.realizationDate, values.dateTo) : undefined,
     values.query ? or(like(realizationRequest.description, `%${values.query}%`), like(realizationRequest.activity, `%${values.query}%`), like(realizationRequest.receiptNumber, `%${values.query}%`), like(budgetItem.name, `%${values.query}%`)) : undefined,
   ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
   const where = [...baseConditions, values.status ? eq(realizationRequest.status, values.status) : undefined].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
@@ -493,11 +497,6 @@ export async function getRealizationDetail(id: string) {
     item.realization.fundRequestId ? getDb().select({ id: fundRequest.id, requestNumber: fundRequest.requestNumber, status: fundRequest.status, title: fundRequest.title }).from(fundRequest).where(eq(fundRequest.id, item.realization.fundRequestId)).limit(1).then((rows) => rows[0] ?? null) : Promise.resolve(null),
   ]);
   return { ...item, approvals, transactions, evidence, linkedFundRequest, calculation: await getRealizationCalculationSnapshot(item.realization.budgetItemId, item.realization.status === "SAH" ? item.realization.id : undefined) };
-}
-
-export async function getRealizationCalculation(budgetItemId: string) {
-  await requirePermission(PERMISSIONS.REALIZATION_READ);
-  return getRealizationCalculationSnapshot(z.string().uuid("Invalid budget item ID.").parse(budgetItemId));
 }
 
 export async function createRealization(input: unknown) {
@@ -644,7 +643,8 @@ export async function addRealizationEvidence(input: unknown) {
 export async function getRealizationEvidenceDownloadUrl(input: unknown) {
   await requirePermission(PERMISSIONS.REALIZATION_READ);
   const values = parseInput(realizationEvidenceDownloadSchema.safeParse(input));
-  const [evidence] = await getDb().select({ storageKey: realizationEvidence.storageKey }).from(realizationEvidence).where(eq(realizationEvidence.id, values.id)).limit(1);
+  const [evidence] = await getDb().select({ storageKey: realizationEvidence.storageKey }).from(realizationEvidence).where(and(eq(realizationEvidence.id, values.evidenceId), eq(realizationEvidence.realizationId, values.realizationId))).limit(1);
   if (!evidence) throw new Error("Realization evidence was not found.");
+  assertRealizationEvidenceKey(values.realizationId, evidence.storageKey);
   return { downloadUrl: await getObjectStorage().createDownloadUrl(evidence.storageKey) };
 }

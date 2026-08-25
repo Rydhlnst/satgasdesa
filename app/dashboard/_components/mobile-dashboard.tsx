@@ -28,6 +28,7 @@ type OperationalSummary = {
   excavators: Record<string, number>;
   inspections: number;
   dailyInformation: { open: number };
+  tasks: { items: Array<{ id: string; title: string; status: string; priority: string; dueDate: string | null }> };
 };
 
 type FinanceSummary = { cashBalance: number; cashIn?: number; cashOut?: number; transactionCount: number; approvedCount?: number; draftCount?: number };
@@ -118,7 +119,7 @@ function MobileFieldDashboard({ userName, operational, finance, dues, budget, re
   const excavatorCount = operational ? totalExcavators(operational.excavators) : 0;
   const activeExcavators = operational ? Number(operational.excavators.ACTIVE ?? 0) : 0;
   const openRealizations = Object.entries(realization).filter(([status]) => ["SUBMITTED", "VERIFIED"].includes(status)).reduce((total, [, value]) => total + value, 0);
-  const firstTaskStatus = attention[0]?.severity === "HIGH" ? "Perlu Dicek" : "Belum Dikerjakan";
+  const tasks = operational?.tasks.items ?? [];
 
   return (
     <div className={`-mx-4 -mt-6 min-h-[calc(100vh-4rem)] ${MOBILE_SURFACE.page} pb-4 sm:-mx-6 sm:-mt-8`}>
@@ -143,9 +144,7 @@ function MobileFieldDashboard({ userName, operational, finance, dues, budget, re
         <section aria-labelledby="my-tasks" className="space-y-2.5">
           <div className="flex items-center justify-between"><h2 className="text-sm font-extrabold text-[#142d60]" id="my-tasks">Tugas Saya</h2><Link className="text-[10px] font-bold text-[#1454c4]" href="/dashboard/inspections">Lihat Semua <ArrowRight className="ml-0.5 inline size-3" /></Link></div>
           <div className="overflow-hidden rounded-xl border border-[#dfe4ec] bg-white shadow-[0_2px_8px_rgba(20,45,88,0.05)]">
-            <TaskRow href="/dashboard/inspections/new" icon={ClipboardCheck} status={firstTaskStatus} statusClassName="bg-[#fff0d9] text-[#a96c13]" subtitle="Pemeriksaan kondisi lapangan" title="Pemeriksaan Blok 03" />
-            <TaskRow href="/dashboard/excavators" icon={HardHat} status="Proses" statusClassName="bg-[#e8f0ff] text-[#245cc5]" subtitle="Pencatatan alat berat" title="Cek Excavator Blok 07" />
-            <TaskRow href="/dashboard/information" icon={FileText} status="Selesai" statusClassName="bg-[#e6f6eb] text-[#27834b]" subtitle="Kegiatan gotong royong" title="Informasi Harian" />
+            {tasks.length ? tasks.map((task) => <TaskRow href="/dashboard/blocks" icon={ClipboardCheck} key={task.id} status={task.status.replaceAll("_", " ")} statusClassName={task.priority === "HIGH" || task.priority === "URGENT" ? "bg-[#fff0d9] text-[#a96c13]" : "bg-[#e8f0ff] text-[#245cc5]"} subtitle={task.dueDate ? `Jatuh tempo ${task.dueDate}` : "Tanpa jatuh tempo"} title={task.title} />) : <p className="px-3 py-4 text-[10px] text-[#6e7785]">Tidak ada tugas lapangan aktif.</p>}
           </div>
         </section>
 

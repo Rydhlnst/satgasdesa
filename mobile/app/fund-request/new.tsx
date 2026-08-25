@@ -9,7 +9,7 @@ import { Header, Screen } from "../../src/components/Screen";
 import { DatePicker, SelectField, SubmitButton } from "../../src/components/NativeForm";
 import { addFundRequestAttachment, createFundRequest, createFundRequestAttachmentUploadUrl, getBlocks, getBudgetCategories, getBudgets } from "../../src/lib/api";
 import { text } from "../../src/lib/read";
-import { colors, spacing } from "../../src/theme";
+import { colors } from "../../src/theme";
 
 export default function NewFundRequest() {
   const { role, session } = useAuth(); const router = useRouter();

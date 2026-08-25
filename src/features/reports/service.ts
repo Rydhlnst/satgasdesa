@@ -10,6 +10,7 @@ import { financialTransaction } from "@/src/db/schema/finance";
 import { inspection } from "@/src/db/schema/inspections";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
+import { nextJakartaDay, startOfJakartaDay } from "@/src/lib/date-range";
 
 import { monthlyReportPeriodSchema } from "./schema";
 
@@ -57,13 +58,18 @@ export type MonthlyReport = {
   };
 };
 
-function parsePeriod(periodKey: string) {
+function parsePeriod(periodKey: string, dateRange?: { dateFrom?: string; dateTo?: string }) {
   const validPeriod = monthlyReportPeriodSchema.parse({ periodKey }).periodKey;
   const [year, month] = validPeriod.split("-").map(Number);
-  const start = new Date(Date.UTC(year, month - 1, 1) - JAKARTA_OFFSET_MS);
-  const end = new Date(Date.UTC(year, month, 1) - JAKARTA_OFFSET_MS);
-  return { periodKey: validPeriod, start, end, startDate: `${validPeriod}-01`, endDateExclusive: `${end.getUTCFullYear()}-${String(end.getUTCMonth() + 1).padStart(2, "0")}-01` };
+  const monthlyStart = new Date(Date.UTC(year, month - 1, 1) - JAKARTA_OFFSET_MS);
+  const monthlyEnd = new Date(Date.UTC(year, month, 1) - JAKARTA_OFFSET_MS);
+  const start = dateRange?.dateFrom ? startOfJakartaDay(dateRange.dateFrom) : monthlyStart;
+  const end = dateRange?.dateTo ? nextJakartaDay(dateRange.dateTo) : monthlyEnd;
+  const endDateExclusive = dateRange?.dateTo ? nextCalendarDate(dateRange.dateTo) : `${end.getUTCFullYear()}-${String(end.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  return { periodKey: validPeriod, start, end, startDate: dateRange?.dateFrom ?? `${validPeriod}-01`, endDateExclusive };
 }
+
+function nextCalendarDate(value: string) { const date = new Date(`${value}T00:00:00.000Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); }
 
 function cashImpact(item: { transactionType: string; amount: number }): number {
   return item.transactionType === "CASH_IN" ? item.amount : -item.amount;
@@ -73,9 +79,9 @@ function increment(target: Record<string, number>, key: string): void {
   target[key] = (target[key] ?? 0) + 1;
 }
 
-export async function getMonthlyReportData(periodKey: string): Promise<MonthlyReport> {
+export async function getMonthlyReportData(periodKey: string, dateRange?: { dateFrom?: string; dateTo?: string }): Promise<MonthlyReport> {
   await requirePermission(PERMISSIONS.REPORT_READ);
-  const { periodKey: validPeriodKey, start, end, startDate, endDateExclusive } = parsePeriod(periodKey);
+  const { periodKey: validPeriodKey, start, end, startDate, endDateExclusive } = parsePeriod(periodKey, dateRange);
   const database = getDb();
   const [periodRows, operationalRows, inspectionRows, movementRows, currentTransactions, priorTransactions, paymentRows, duesRows] = await Promise.all([
     database.select().from(budgetPeriod).where(eq(budgetPeriod.periodKey, validPeriodKey)).limit(1),
@@ -162,6 +168,6 @@ export async function getMonthlyReportData(periodKey: string): Promise<MonthlyRe
   };
 }
 
-export async function getMonthlyReport(periodKey: string) {
-  return getMonthlyReportData(periodKey);
+export async function getMonthlyReport(periodKey: string, dateRange?: { dateFrom?: string; dateTo?: string }) {
+  return getMonthlyReportData(periodKey, dateRange);
 }

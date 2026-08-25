@@ -1,0 +1,41 @@
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  1.0% (1/1)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓░░░░░░░░░░░░ 28.0% (120/284)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 46.5% (416/610)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 66.6% (665/815)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 70.1% ( 877/1210)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 70.1% (1195/1593)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 70.1% (1545/1862)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 93.3% (1933/2001)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2295/2296)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2296/2296)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (2850/3893)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (3825/3893)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (4005/4006)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (4006/4006)
+Android Bundled 78141ms ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js (4006 modules)
+Android ..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (4006/4006)
+
+› Assets (24):
+..\node_modules\.pnpm\@react-navigation+elements@_1c8e41bc645f36b68a277663f24208da\node_modules\@react-navigation\elements\lib\module\assets\back-icon-mask.png (653 B)
+..\node_modules\.pnpm\@react-navigation+elements@_1c8e41bc645f36b68a277663f24208da\node_modules\@react-navigation\elements\lib\module\assets\back-icon.png (4 variations | 152 B)
+..\node_modules\.pnpm\@react-navigation+elements@_1c8e41bc645f36b68a277663f24208da\node_modules\@react-navigation\elements\lib\module\assets\clear-icon.png (4 variations | 425 B)
+..\node_modules\.pnpm\@react-navigation+elements@_1c8e41bc645f36b68a277663f24208da\node_modules\@react-navigation\elements\lib\module\assets\close-icon.png (4 variations | 235 B)
+..\node_modules\.pnpm\@react-navigation+elements@_1c8e41bc645f36b68a277663f24208da\node_modules\@react-navigation\elements\lib\module\assets\search-icon.png (4 variations | 599 B)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\arrow_down.png (9.46 kB)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\error.png (469 B)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\file.png (138 B)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\forward.png (188 B)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\pkg.png (364 B)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\sitemap.png (465 B)
+..\node_modules\.pnpm\expo-router@5.1.11_8601331406e39b36b916b39604bb2d7f\node_modules\expo-router\assets\unmatched.png (4.75 kB)
+
+› android bundles (1):
+_expo/static/js/android/entry-a229a4da04588d6160abdc453e751eb4.hbc (8.38 MB)
+
+› Files (1):
+metadata.json (1.81 kB)
+
+Exported: .expo-qa-android

@@ -1,6 +1,8 @@
 "use client";
 
 import { PageContainer } from "@/components/app-shell/page-container";
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
 import { FormErrorToast } from "@/components/shared/action-feedback";
 import { ErrorState } from "@/components/shared/ui-state";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,10 @@ type DashboardErrorProps = {
 };
 
 export default function DashboardError({ error, reset }: DashboardErrorProps) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <PageContainer>
       <FormErrorToast error={error} />

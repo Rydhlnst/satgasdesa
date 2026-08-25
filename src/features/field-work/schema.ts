@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const uuid = z.string().uuid("Invalid ID.");
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD.");
+const dateRangeFields = { dateFrom: date.optional(), dateTo: date.optional() };
 
 export const FIELD_TASK_STATUSES = ["TODO", "IN_PROGRESS", "DONE", "CANCELLED"] as const;
 export const FIELD_TASK_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
@@ -55,9 +56,10 @@ export const taskFiltersSchema = z.object({
   priority: z.enum(FIELD_TASK_PRIORITIES).optional(),
   blockId: uuid.optional(),
   mine: z.coerce.boolean().optional(),
+  ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
-});
+}).superRefine((value, context) => { if (value.dateFrom && value.dateTo && value.dateFrom > value.dateTo) context.addIssue({ code: "custom", path: ["dateTo"], message: "End date must not be before start date." }); });
 
 export const workerFiltersSchema = z.object({
   query: z.string().trim().max(100).optional(),

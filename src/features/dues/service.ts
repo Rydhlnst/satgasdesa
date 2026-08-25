@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, like, lt, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, like, lt, lte, or, sql } from "drizzle-orm";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
@@ -12,6 +12,7 @@ import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
+import { applyDuePayment, hasMatchingPaymentIdentity, reverseDuePayment as reverseDuePaymentState } from "./payment-rules";
 import { createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
 import { getFinanceDefaults } from "../settings/service";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
@@ -41,6 +42,8 @@ function buildDueConditions(filters: ReturnType<typeof duesFiltersSchema.parse>)
   if (filters.dueType) conditions.push(eq(due.dueType, filters.dueType));
   if (filters.blockId) conditions.push(eq(due.blockId, filters.blockId));
   if (filters.periodKey) conditions.push(eq(due.referenceKey, filters.periodKey));
+  if (filters.dateFrom) conditions.push(gte(due.dueDate, filters.dateFrom));
+  if (filters.dateTo) conditions.push(lte(due.dueDate, filters.dateTo));
   if (filters.query) conditions.push(or(like(due.payerName, `%${filters.query}%`), like(due.referenceKey, `%${filters.query}%`)));
   if (filters.overdueOnly) conditions.push(and(inArray(due.status, ["UNPAID", "PARTIAL"]), lt(due.dueDate, jakartaDate())));
   return conditions.length ? and(...conditions) : undefined;
@@ -155,9 +158,9 @@ export async function getDuePaymentsPage(input?: unknown) {
   const filters = duePaymentFiltersSchema.parse(input ?? {});
   const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
   if (assignedBlockIds && !assignedBlockIds.length) return { rows: [], pagination: { page: filters.page, pageSize: filters.pageSize, total: 0, totalPages: 0 } };
-  const monthStart = filters.periodKey ? `${filters.periodKey}-01` : undefined;
+  const monthStart = filters.periodKey ? `${filters.periodKey}-01` : filters.dateFrom;
   const [year, month] = filters.periodKey?.split("-").map(Number) ?? [];
-  const nextMonthStart = monthStart && year && month ? `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, "0")}-01` : undefined;
+  const nextMonthStart = filters.dateTo ? nextDate(filters.dateTo) : monthStart && year && month ? `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, "0")}-01` : undefined;
   const conditions = [
     filters.blockId ? eq(due.blockId, filters.blockId) : undefined,
     assignedBlockIds ? inArray(due.blockId, assignedBlockIds) : undefined,
@@ -180,6 +183,7 @@ export async function getDuePaymentsPage(input?: unknown) {
 
 function sqlDateGte(column: typeof duePayment.paymentDate, value: string) { return sql`${column} >= ${value}`; }
 function sqlDateLt(column: typeof duePayment.paymentDate, value: string) { return sql`${column} < ${value}`; }
+function nextDate(value: string): string { const date = new Date(`${value}T00:00:00.000Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); }
 
 function duePaymentState(item: { amountDue: number; amountPaid: number; dueDate: string }, today = new Date()): "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE" {
   if (item.amountPaid >= item.amountDue) return "PAID";
@@ -299,7 +303,7 @@ export async function recordDuePayment(input: unknown) {
   const result = await database.transaction(async (tx) => {
     const [existingPayment] = await tx.select().from(duePayment).where(eq(duePayment.id, paymentId)).limit(1);
     if (existingPayment) {
-      if (existingPayment.dueId !== values.dueId || existingPayment.amount !== values.amount || existingPayment.paymentDate !== values.paymentDate || existingPayment.method !== values.method) {
+      if (!hasMatchingPaymentIdentity(existingPayment, values)) {
         throw new Error("This payment idempotency key was already used for different payment data.");
       }
       const [cashTransaction] = await tx
@@ -314,12 +318,7 @@ export async function recordDuePayment(input: unknown) {
 
     const [current] = await tx.select().from(due).where(eq(due.id, values.dueId)).limit(1);
     if (!current) throw new Error("Due was not found.");
-    if (current.status === "PAID") throw new Error("This due has already been fully paid.");
-
-    const remaining = current.amountDue - current.amountPaid;
-    if (values.amount > remaining) throw new Error("Payment exceeds the outstanding balance.");
-    const amountPaid = current.amountPaid + values.amount;
-    const status = amountPaid === current.amountDue ? "PAID" : "PARTIAL";
+    const { amountPaid, status } = applyDuePayment(current, values.amount);
     const cashTransactionId = crypto.randomUUID();
     const now = new Date();
     const [updateResult] = await tx
@@ -402,9 +401,7 @@ export async function reverseDuePayment(input: unknown) {
     if (!cashTransaction) throw new Error("Payment cash transaction was not found.");
     if (cashTransaction.status === "REVERSED") return { id: payment.id, dueId: currentDue.id, status: currentDue.status, duplicate: true };
     if (cashTransaction.status !== "SAH") throw new Error("Only approved payment transactions can be reversed.");
-    if (currentDue.amountPaid < payment.amount) throw new Error("Due payment balance is inconsistent and requires reconciliation.");
-    const amountPaid = currentDue.amountPaid - payment.amount;
-    const status = amountPaid === 0 ? "UNPAID" : "PARTIAL";
+    const { amountPaid, status } = reverseDuePaymentState(currentDue, payment.amount);
     const now = new Date();
     const [updateResult] = await tx.update(due).set({ amountPaid, status, updatedAt: now }).where(and(eq(due.id, currentDue.id), eq(due.amountPaid, currentDue.amountPaid), eq(due.status, currentDue.status)));
     if (updateResult.affectedRows !== 1) throw new Error("This due changed before the reversal could be applied.");

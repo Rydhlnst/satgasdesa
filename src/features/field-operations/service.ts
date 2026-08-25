@@ -159,8 +159,3 @@ export async function verifyDuePayment(input: unknown) {
   });
   return { id };
 }
-
-export async function getDuePaymentVerifications(dueId: string) {
-  await requirePermission(PERMISSIONS.DUES_READ);
-  return getDb().select({ verification: duePaymentVerification, payment: duePayment }).from(duePaymentVerification).innerJoin(duePayment, eq(duePayment.id, duePaymentVerification.duePaymentId)).where(eq(duePayment.dueId, dueId)).orderBy(desc(duePaymentVerification.verifiedAt));
-}

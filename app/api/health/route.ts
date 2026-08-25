@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await verifyDatabaseConnection();
-    return NextResponse.json({ status: "ok" });
+    const enabled = process.env.DAILY_AUTOMATION_ENABLED === "true";
+    const configured = Boolean(process.env.CRON_SECRET?.trim() && process.env.AUTOMATION_ACTOR_USER_ID?.trim());
+    return NextResponse.json({ status: "ok", automation: { enabled, configured: enabled && configured } });
   } catch {
     return NextResponse.json({ status: "unavailable" }, { status: 503 });
   }

@@ -16,6 +16,7 @@ function matchesCronSecret(value: string | null, expected: string): boolean {
 }
 
 export async function POST(request: Request) {
+  if (process.env.DAILY_AUTOMATION_ENABLED !== "true") return NextResponse.json({ error: "Scheduled automation is disabled." }, { status: 503 });
   const secret = process.env.CRON_SECRET;
   const actorUserId = process.env.AUTOMATION_ACTOR_USER_ID;
   if (!secret || !actorUserId) return NextResponse.json({ error: "Scheduled automation is not configured." }, { status: 503 });

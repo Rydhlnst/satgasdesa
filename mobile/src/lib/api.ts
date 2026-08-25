@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 
+import { getActiveDateRange } from "../date-range";
 import type { Block, BlockDetails, DashboardResponse, FieldAssignmentItem, NotificationItem, Profile, Session } from "../types";
 
 const TOKEN_KEY = "satgas.mobile.session-token";
@@ -11,7 +12,14 @@ export async function clearToken() { return SecureStore.deleteItemAsync(TOKEN_KE
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken();
-  const response = await fetch(`${baseUrl}${path}`, {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const url = new URL(`${baseUrl}${path}`);
+  if (method === "GET") {
+    const range = getActiveDateRange();
+    url.searchParams.set("dateFrom", range.dateFrom);
+    url.searchParams.set("dateTo", range.dateTo);
+  }
+  const response = await fetch(url, {
     ...init,
     headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
   });
@@ -62,9 +70,12 @@ export function transitionDailyInformation(input: unknown) { return workflow<Rec
 export function addDailyInformationFollowUp(input: unknown) { return workflow<Record<string, unknown>>("addDailyInformationFollowUp", input); }
 export function addDailyInformationAttachment(input: unknown) { return workflow<Record<string, unknown>>("addDailyInformationAttachment", input); }
 export function createDailyInformationAttachmentUploadUrl(input: unknown) { return workflow<Record<string, unknown>>("createDailyInformationAttachmentUploadUrl", input); }
-export function getDailyInformationAttachmentDownloadUrl(input: unknown) { return workflow<Record<string, unknown>>("getDailyInformationAttachmentDownloadUrl", input); }
+export function getDailyInformationAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getDailyInformationAttachmentDownloadUrl", input); }
 export function registerExcavator(input: unknown) { return workflow<Record<string, unknown>>("registerExcavator", input); }
 export function updateExcavator(input: unknown) { return workflow<Record<string, unknown>>("updateExcavator", input); }
+export function createExcavatorPhotoUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string; contentType: string; sizeBytes: number }>("createExcavatorPhotoUploadUrl", input); }
+export function setExcavatorPhoto(input: unknown) { return workflow<{ id: string; photoKey: string }>("setExcavatorPhoto", input); }
+export function getExcavatorPhotoDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getExcavatorPhotoDownloadUrl", input); }
 export function recordExcavatorMovement(input: unknown) { return workflow<Record<string, unknown>>("recordExcavatorMovement", input); }
 export function createRealization(input: unknown) { return workflow<Record<string, unknown>>("createRealization", input); }
 export function updateRealization(input: unknown) { return workflow<Record<string, unknown>>("updateRealization", input); }
@@ -126,6 +137,7 @@ export function requestPasswordReset(email: string) { return request<{ status: b
 export function getNotifications(filters?: { unreadOnly?: boolean; page?: number; pageSize?: number }) { return request<{ items: NotificationItem[]; total: number }>(`/api/mobile/notifications${queryString({ unreadOnly: filters?.unreadOnly ? "true" : "", page: filters?.page ? String(filters.page) : "", pageSize: filters?.pageSize ? String(filters.pageSize) : "" })}`); }
 export function markNotificationRead(id: string) { return request<{ updated: boolean }>(`/api/mobile/notifications/${id}`, { method: "PATCH" }); }
 export function markAllNotificationsRead() { return request<{ updated: number }>("/api/mobile/notifications", { method: "PATCH", body: JSON.stringify({ action: "markAllRead" }) }); }
+export function registerPushDevice(input: { expoPushToken: string; platform: "android" | "ios" }) { return request<{ registered: boolean }>("/api/mobile/push-devices", { method: "POST", body: JSON.stringify(input) }); }
 export function getDashboard(period?: string) { return request<DashboardResponse>(`/api/mobile/dashboard${period ? `?period=${encodeURIComponent(period)}` : ""}`); }
 export function getBlocks(search?: string, status?: string, filters?: { priority?: string; includeArchived?: boolean }) {
   const params = new URLSearchParams();

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { PAYMENT_METHODS } from "./config";
+import { dateRangeFields, validateDateRange } from "@/src/lib/date-range";
 
 const uuid = z.string().uuid("Invalid ID.");
 const calendarDate = z
@@ -62,14 +63,16 @@ export const duesFiltersSchema = z.object({
   periodKey: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
   query: z.string().trim().max(100).optional(),
   overdueOnly: z.coerce.boolean().default(false),
+  ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
-});
+}).superRefine(validateDateRange);
 
 export const duePaymentFiltersSchema = z.object({
   blockId: uuid.optional(),
   periodKey: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
   query: z.string().trim().max(100).optional(),
+  ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
-});
+}).superRefine(validateDateRange);

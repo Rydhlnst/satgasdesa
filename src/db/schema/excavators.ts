@@ -1,5 +1,6 @@
 import {
   date,
+  int,
   index,
   mysqlTable,
   text,
@@ -23,6 +24,9 @@ export const excavator = mysqlTable(
       onDelete: "restrict",
     }),
     operatorName: varchar("operator_name", { length: 160 }),
+    photoKey: varchar("photo_key", { length: 255 }),
+    photoContentType: varchar("photo_content_type", { length: 100 }),
+    photoSizeBytes: int("photo_size_bytes"),
     currentBlockId: varchar("current_block_id", { length: 36 }).references(() => block.id, {
       onDelete: "set null",
     }),

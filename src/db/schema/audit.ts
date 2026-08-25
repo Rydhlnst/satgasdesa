@@ -15,6 +15,7 @@ export const auditLog = mysqlTable(
   },
   (table) => [
     index("audit_log_actor_user_id_idx").on(table.actorUserId),
+    index("audit_log_actor_created_idx").on(table.actorUserId, table.createdAt),
     index("audit_log_entity_created_idx").on(table.entityType, table.entityId, table.createdAt),
     index("audit_log_created_at_idx").on(table.createdAt),
   ],

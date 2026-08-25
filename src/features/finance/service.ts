@@ -10,6 +10,7 @@ import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
+import { nextJakartaDay, startOfJakartaDay } from "@/src/lib/date-range";
 
 import { approveFinancialTransactionSchema, createFinancialTransactionSchema, financeCategoryFiltersSchema, financeCategorySchema, financialTransactionEvidenceDownloadSchema, financialTransactionFiltersSchema, financialTransactionUploadSchema, reverseFinancialTransactionSchema, updateFinanceCategorySchema } from "./schema";
 
@@ -156,7 +157,7 @@ export async function getFinancialTransaction(id: string) {
 export async function getFinancialTransactionsPage(input?: unknown) {
   await requirePermission(PERMISSIONS.FINANCE_READ);
   const values = financialTransactionFiltersSchema.parse(input ?? {});
-  const periodRange = values.periodKey ? { start: new Date(`${values.periodKey}-01T00:00:00.000Z`), end: new Date(`${values.periodKey}-01T00:00:00.000Z`) } : null;
+  const periodRange = values.dateFrom || values.dateTo ? { start: values.dateFrom ? startOfJakartaDay(values.dateFrom) : new Date("1970-01-01T00:00:00.000Z"), end: values.dateTo ? nextJakartaDay(values.dateTo) : new Date("2999-12-31T00:00:00.000Z") } : values.periodKey ? { start: new Date(`${values.periodKey}-01T00:00:00.000Z`), end: new Date(`${values.periodKey}-01T00:00:00.000Z`) } : null;
   if (periodRange) periodRange.end.setUTCMonth(periodRange.end.getUTCMonth() + 1);
   const conditions = [
     values.status ? eq(financialTransaction.status, values.status) : undefined,
@@ -179,24 +180,30 @@ export async function getFinancialTransactionsPage(input?: unknown) {
   return { items, page: values.page, pageSize: values.pageSize, total: Number(total), totalPages: Math.ceil(Number(total) / values.pageSize) };
 }
 
-export async function getFinanceSummary() {
+export async function getFinanceSummary(input?: { dateFrom?: string; dateTo?: string }) {
   await requirePermission(PERMISSIONS.FINANCE_READ);
   const database = getDb();
+  const dateFrom = input?.dateFrom;
+  const dateToExclusive = input?.dateTo ? nextDate(input.dateTo) : undefined;
+  const transactionDate = [dateFrom ? gte(financialTransaction.transactionAt, startOfJakartaDay(dateFrom)) : undefined, dateToExclusive ? lt(financialTransaction.transactionAt, startOfJakartaDay(dateToExclusive)) : undefined].filter(Boolean);
+  const paymentDate = [dateFrom ? gte(duePayment.paymentDate, dateFrom) : undefined, dateToExclusive ? lt(duePayment.paymentDate, dateToExclusive) : undefined].filter(Boolean);
+  const realizationDate = [dateFrom ? gte(realizationRequest.realizationDate, dateFrom) : undefined, dateToExclusive ? lt(realizationRequest.realizationDate, dateToExclusive) : undefined].filter(Boolean);
   const [transactionGroups, [duePaymentTotals], [duePaymentTransactionTotals], [realizationTotals], [realizationTransactionTotals]] = await Promise.all([
     database
       .select({ status: financialTransaction.status, transactionType: financialTransaction.transactionType, total: sum(financialTransaction.amount), totalCount: count() })
       .from(financialTransaction)
+      .where(transactionDate.length ? and(...transactionDate) : undefined)
       .groupBy(financialTransaction.status, financialTransaction.transactionType),
-    database.select({ total: sum(duePayment.amount) }).from(duePayment),
+    database.select({ total: sum(duePayment.amount) }).from(duePayment).where(paymentDate.length ? and(...paymentDate) : undefined),
     database
       .select({ total: sum(financialTransaction.amount) })
       .from(financialTransaction)
-      .where(and(eq(financialTransaction.status, "SAH"), eq(financialTransaction.transactionType, "CASH_IN"), eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"))),
-    database.select({ total: sum(realizationRequest.requestedAmount) }).from(realizationRequest).where(eq(realizationRequest.status, "SAH")),
+      .where(and(eq(financialTransaction.status, "SAH"), eq(financialTransaction.transactionType, "CASH_IN"), eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), ...transactionDate)),
+    database.select({ total: sum(realizationRequest.requestedAmount) }).from(realizationRequest).where(and(eq(realizationRequest.status, "SAH"), ...realizationDate)),
     database
       .select({ total: sum(financialTransaction.amount) })
       .from(financialTransaction)
-      .where(and(eq(financialTransaction.status, "SAH"), eq(financialTransaction.transactionType, "CASH_OUT"), eq(financialTransaction.relatedEntityType, "REALIZATION"))),
+      .where(and(eq(financialTransaction.status, "SAH"), eq(financialTransaction.transactionType, "CASH_OUT"), eq(financialTransaction.relatedEntityType, "REALIZATION"), ...transactionDate)),
   ]);
 
   let cashIn = 0;
@@ -241,6 +248,8 @@ export async function getFinanceSummary() {
     },
   };
 }
+
+function nextDate(value: string): string { const date = new Date(`${value}T00:00:00.000Z`); date.setUTCDate(date.getUTCDate() + 1); return date.toISOString().slice(0, 10); }
 
 export async function getCashBalance() {
   await requirePermission(PERMISSIONS.FINANCE_READ);

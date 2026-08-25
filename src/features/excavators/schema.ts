@@ -38,6 +38,25 @@ export const updateExcavatorSchema = z.object({
   operatorName: z.string().trim().max(160).optional(),
 });
 
+export const excavatorPhotoUploadSchema = z.object({
+  excavatorId: excavatorIdSchema,
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  sizeBytes: z.coerce.number().int().positive().max(10 * 1024 * 1024),
+  originalName: z.string().trim().min(1).max(255),
+});
+
+export const setExcavatorPhotoSchema = z.object({
+  excavatorId: excavatorIdSchema,
+  storageKey: z.string().trim().min(1).max(255),
+  contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  sizeBytes: z.coerce.number().int().positive().max(10 * 1024 * 1024),
+});
+
+export const excavatorPhotoDownloadSchema = z.object({
+  excavatorId: excavatorIdSchema,
+  storageKey: z.string().trim().min(1).max(255),
+});
+
 export const recordExcavatorMovementSchema = z.object({
   excavatorId: excavatorIdSchema,
   movementType: z.enum(EXCAVATOR_MOVEMENT_TYPES),

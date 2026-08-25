@@ -6,9 +6,35 @@
     "orientation": "portrait",
     "scheme": "satgasdesa",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SATGAS DESA SEJOLI to access photos for operational evidence.",
+          "cameraPermission": "Allow SATGAS DESA SEJOLI to take photos for operational evidence."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow SATGAS DESA SEJOLI to use your location for field verification."
+        }
+      ],
+      "expo-document-picker",
+      "expo-asset",
+      "expo-font",
+      "react-native-edge-to-edge",
+      "expo-sharing"
+    ],
     "android": {
-      "package": "id.satgas.desasejoli"
+      "package": "id.satgas.desasejoli",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     }
   }
 }

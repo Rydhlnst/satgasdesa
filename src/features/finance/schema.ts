@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { FINANCIAL_TRANSACTION_STATUSES, FINANCIAL_TRANSACTION_TYPES } from "./constants";
+import { dateRangeFields, validateDateRange } from "@/src/lib/date-range";
 
 const uuid = z.string().uuid("Invalid ID.");
 
@@ -28,9 +29,10 @@ export const financialTransactionFiltersSchema = z.object({
   categoryId: uuid.optional(),
   query: z.string().trim().max(100).optional(),
   periodKey: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
+  ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-});
+}).superRefine(validateDateRange);
 
 export const approveFinancialTransactionSchema = z.object({ id: financialTransactionIdSchema });
 export const reverseFinancialTransactionSchema = z.object({

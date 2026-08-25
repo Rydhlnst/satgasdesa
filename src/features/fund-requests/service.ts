@@ -1,4 +1,4 @@
-import { and, count, desc, eq, like, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb } from "@/src/db";
@@ -12,7 +12,7 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { createSystemNotificationOnce, notifyPermissionHolders } from "@/src/features/notifications/service";
 
-import { FUND_REQUEST_TRANSITIONS } from "./constants";
+import { assertFundRequestActor, assertFundRequestTransition, permissionForFundRequestTransition } from "./policy";
 import { addFundRequestAttachmentSchema, correctFundRequestSchema, createFundRequestSchema, fundRequestAttachmentDownloadSchema, fundRequestAttachmentUploadSchema, fundRequestFiltersSchema, transitionFundRequestSchema, updateFundRequestSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T }): T {
@@ -73,6 +73,8 @@ export async function getFundRequests(input?: unknown) {
     values.categoryId ? eq(fundRequest.budgetCategoryId, values.categoryId) : undefined,
     values.blockId ? eq(fundRequest.blockId, values.blockId) : undefined,
     values.mine ? eq(fundRequest.createdBy, session.user.id) : undefined,
+    values.dateFrom ? gte(fundRequest.requestedAt, values.dateFrom) : undefined,
+    values.dateTo ? lte(fundRequest.requestedAt, values.dateTo) : undefined,
     values.query ? or(like(fundRequest.requestNumber, `%${values.query}%`), like(fundRequest.title, `%${values.query}%`), like(fundRequest.description, `%${values.query}%`)) : undefined,
   ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
   const where = conditions.length ? and(...conditions) : undefined;
@@ -128,13 +130,11 @@ export async function updateFundRequest(input: unknown) {
 export async function transitionFundRequest(input: unknown) {
   const values = parseInput(transitionFundRequestSchema.safeParse(input));
   const current = await getFundRequestOrThrow(values.id);
-  const allowed: readonly string[] = FUND_REQUEST_TRANSITIONS[current.status as keyof typeof FUND_REQUEST_TRANSITIONS] ?? [];
-  if (!allowed.includes(values.status)) throw new Error(`Cannot change fund request from ${current.status} to ${values.status}.`);
+  assertFundRequestTransition(current.status, values.status);
   if (["REVISION_REQUIRED", "REJECTED", "CANCELLED"].includes(values.status) && !values.notes?.trim()) throw new Error("A reason is required for this decision.");
-  const requiredPermission = values.status === "SUBMITTED" || values.status === "CANCELLED" ? PERMISSIONS.FUND_REQUEST_CREATE : values.status === "VERIFIED" || (values.status !== "APPROVED" && current.status === "SUBMITTED") ? PERMISSIONS.FUND_REQUEST_VERIFY : PERMISSIONS.FUND_REQUEST_APPROVE;
+  const requiredPermission = permissionForFundRequestTransition(current.status, values.status);
   const session = await requirePermission(requiredPermission);
-  if (["SUBMITTED", "CANCELLED"].includes(values.status) && current.createdBy !== session.user.id) throw new Error("Only the request creator can submit or cancel this fund request.");
-  if (["VERIFIED", "REVISION_REQUIRED", "REJECTED", "APPROVED"].includes(values.status) && current.createdBy === session.user.id) throw new Error("A fund request cannot be reviewed or approved by its creator.");
+  assertFundRequestActor(current.createdBy, session.user.id, values.status);
   const now = new Date();
   await getDb().transaction(async (tx) => {
     const [result] = await tx.update(fundRequest).set({ status: values.status, cancellationReason: values.status === "CANCELLED" ? optionalValue(values.notes) : current.cancellationReason, submittedAt: values.status === "SUBMITTED" ? now : current.submittedAt, verifiedAt: values.status === "VERIFIED" ? now : current.verifiedAt, approvedAt: values.status === "APPROVED" ? now : current.approvedAt, verifiedBy: values.status === "VERIFIED" ? session.user.id : current.verifiedBy, approvedBy: values.status === "APPROVED" ? session.user.id : current.approvedBy, updatedAt: now }).where(and(eq(fundRequest.id, current.id), eq(fundRequest.status, current.status)));
@@ -193,7 +193,8 @@ export async function addFundRequestAttachment(input: unknown) {
 export async function getFundRequestAttachmentDownloadUrl(input: unknown) {
   await requirePermission(PERMISSIONS.FUND_REQUEST_READ);
   const values = parseInput(fundRequestAttachmentDownloadSchema.safeParse(input));
-  const [attachment] = await getDb().select({ storageKey: fundRequestAttachment.storageKey }).from(fundRequestAttachment).where(eq(fundRequestAttachment.id, values.id)).limit(1);
+  const [attachment] = await getDb().select({ storageKey: fundRequestAttachment.storageKey }).from(fundRequestAttachment).where(and(eq(fundRequestAttachment.id, values.attachmentId), eq(fundRequestAttachment.fundRequestId, values.fundRequestId))).limit(1);
   if (!attachment) throw new Error("Fund request attachment was not found.");
+  assertAttachmentKey(values.fundRequestId, attachment.storageKey);
   return { downloadUrl: await getObjectStorage().createDownloadUrl(attachment.storageKey) };
 }

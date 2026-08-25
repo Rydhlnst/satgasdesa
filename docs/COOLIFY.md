@@ -43,7 +43,18 @@ STORAGE_ENDPOINT=<r2-s3-endpoint>
 STORAGE_REGION=auto
 STORAGE_ACCESS_KEY_ID=<secret>
 STORAGE_SECRET_ACCESS_KEY=<secret>
+PUSH_NOTIFICATIONS_ENABLED=false
+SENTRY_DSN=<server-dsn>
+NEXT_PUBLIC_SENTRY_DSN=<browser-dsn>
+SENTRY_TRACES_SAMPLE_RATE=0.1
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1
+SENTRY_ORG=<organization-slug>
+SENTRY_PROJECT=<project-slug>
+SENTRY_AUTH_TOKEN=<source-map-upload-token>
 ROAD_ENTRY_DUE_AUTOMATION_ENABLED=false
+DAILY_AUTOMATION_ENABLED=false
+AUTOMATION_ACTOR_USER_ID=<active-pimpinan-user-uuid>
+CRON_SECRET=<long-random-secret>
 ```
 
 Set `SEED_RBAC=true` only on the first deployment or when reference roles/permissions need reconciliation. Set the three `BOOTSTRAP_ADMIN_*` variables only for the first deployment to create one verified Pimpinan account; the seed never changes an existing account password. Remove the bootstrap password from Coolify after the first successful deployment. Do not use demo credentials in production.
@@ -55,9 +66,11 @@ Use a URL-safe `MYSQL_PASSWORD` (letters, numbers, `_`, and `-`) or URL-encode r
 - Coolify health check: `GET /api/health`.
 - The health endpoint checks MySQL connectivity and returns no internal error details.
 - Use the Coolify domain over HTTPS; Better Auth cookies and the service worker depend on this.
-- Schedule the daily job externally with `POST /api/jobs/daily` and `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`. Set `MONTHLY_DUE_DAY=7` so the monthly collection window closes on the 7th.
+- Set `DAILY_AUTOMATION_ENABLED=true`, then schedule `POST /api/jobs/daily` once daily with `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`. Set `MONTHLY_DUE_DAY=7` so the monthly collection window closes on the 7th. Confirm `/api/health` reports `automation.enabled` and `automation.configured` as `true` before enabling the scheduler.
 - Back up the MySQL named volume and use the documented logical backup procedure in `docs/BACKUP-RESTORE.md`.
 - Keep R2 private and use signed download URLs only.
+- Configure Expo FCM/APNs credentials and an EAS development/production build before enabling `PUSH_NOTIFICATIONS_ENABLED`; Expo Go cannot receive remote notifications on SDK 53+.
+- Run `PRODUCTION_URL=https://your-domain.example pnpm qa:production` after deployment. It verifies HTTPS, HSTS, and the database-backed health endpoint.
 
 ## First deployment
 

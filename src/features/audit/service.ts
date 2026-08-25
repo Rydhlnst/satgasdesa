@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb } from "@/src/db";
@@ -7,6 +7,7 @@ import { user } from "@/src/db/schema/auth";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { AUDIT_ACTIONS } from "@/src/lib/audit";
+import { dateRangeFields, nextJakartaDay, startOfJakartaDay, validateDateRange } from "@/src/lib/date-range";
 
 const auditActions = Object.values(AUDIT_ACTIONS) as [string, ...string[]];
 
@@ -16,9 +17,10 @@ const auditFiltersSchema = z.object({
   entityType: z.string().trim().max(100).optional(),
   actorUserId: z.string().trim().max(36).optional(),
   entityId: z.string().trim().max(36).optional(),
+  ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
-});
+}).superRefine(validateDateRange);
 
 function buildConditions(filters: z.infer<typeof auditFiltersSchema>) {
   const conditions = [];
@@ -38,6 +40,8 @@ function buildConditions(filters: z.infer<typeof auditFiltersSchema>) {
   if (filters.entityType) conditions.push(eq(auditLog.entityType, filters.entityType));
   if (filters.actorUserId) conditions.push(eq(auditLog.actorUserId, filters.actorUserId));
   if (filters.entityId) conditions.push(eq(auditLog.entityId, filters.entityId));
+  if (filters.dateFrom) conditions.push(gte(auditLog.createdAt, startOfJakartaDay(filters.dateFrom)));
+  if (filters.dateTo) conditions.push(lt(auditLog.createdAt, nextJakartaDay(filters.dateTo)));
 
   return conditions.length ? and(...conditions) : undefined;
 }
@@ -87,29 +91,4 @@ export async function getAuditLogs(input?: unknown) {
       totalPages: Math.ceil(total / filters.pageSize),
     },
   };
-}
-
-export async function getEntityAuditHistory(entityType: string, entityId: string) {
-  await requirePermission(PERMISSIONS.AUDIT_READ);
-  const parsedEntityType = z.string().trim().min(1).max(100).parse(entityType);
-  const parsedEntityId = z.string().trim().min(1).max(36).parse(entityId);
-
-  return getDb()
-    .select({
-      id: auditLog.id,
-      actorUserId: auditLog.actorUserId,
-      actorName: user.name,
-      actorEmail: user.email,
-      action: auditLog.action,
-      entityType: auditLog.entityType,
-      entityId: auditLog.entityId,
-      oldValues: auditLog.oldValues,
-      newValues: auditLog.newValues,
-      metadata: auditLog.metadata,
-      createdAt: auditLog.createdAt,
-    })
-    .from(auditLog)
-    .leftJoin(user, eq(user.id, auditLog.actorUserId))
-    .where(and(eq(auditLog.entityType, parsedEntityType), eq(auditLog.entityId, parsedEntityId)))
-    .orderBy(desc(auditLog.createdAt), asc(auditLog.id));
 }

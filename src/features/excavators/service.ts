@@ -10,11 +10,12 @@ import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
+import { getObjectStorage, validateImageUpload } from "@/src/lib/storage";
 
 import { getFinanceDefaults } from "../settings/service";
 import { notifyPermissionHolders } from "../notifications/service";
 
-import { blockIdSchema, excavatorFiltersSchema, excavatorIdSchema, recordExcavatorMovementSchema, registerExcavatorSchema, updateExcavatorSchema } from "./schema";
+import { blockIdSchema, excavatorFiltersSchema, excavatorIdSchema, excavatorPhotoDownloadSchema, excavatorPhotoUploadSchema, recordExcavatorMovementSchema, registerExcavatorSchema, setExcavatorPhotoSchema, updateExcavatorSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T }): T {
   if (!result.success || !result.data) throw new Error("Please check the excavator details and try again.");
@@ -23,6 +24,14 @@ function parseInput<T>(result: { success: boolean; data?: T }): T {
 
 function optionalValue(value?: string): string | null {
   return value?.trim() ? value.trim() : null;
+}
+
+function excavatorPhotoScope(excavatorId: string): string { return `excavators/${excavatorId}`; }
+
+function assertExcavatorPhotoKey(excavatorId: string, storageKey: string): void {
+  const scope = `${excavatorPhotoScope(excavatorId)}/`;
+  const suffix = storageKey.startsWith(scope) ? storageKey.slice(scope.length) : "";
+  if (!suffix || suffix.includes("/") || suffix.includes("\\") || suffix.includes("..")) throw new Error("Excavator photo key is outside the permitted storage scope.");
 }
 
 function dateFromTimestamp(value: Date): string {
@@ -69,6 +78,9 @@ export async function getExcavators(input?: unknown) {
       businessActorId: excavator.businessActorId,
       businessActorName: businessActor.name,
       operatorName: excavator.operatorName,
+      photoKey: excavator.photoKey,
+      photoContentType: excavator.photoContentType,
+      photoSizeBytes: excavator.photoSizeBytes,
       currentBlockId: excavator.currentBlockId,
       currentBlockCode: block.code,
       currentBlockName: block.name,
@@ -126,21 +138,6 @@ export async function getExcavator(id: string) {
     .orderBy(desc(excavatorMovement.occurredAt));
 
   return { item, movements };
-}
-
-export async function getExcavatorMovementHistory(id: string) {
-  await requirePermission(PERMISSIONS.EXCAVATOR_READ);
-  const validId = parseInput(excavatorIdSchema.safeParse(id));
-  const [scope] = await getDb().select({ currentBlockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.id, validId)).limit(1);
-  if (scope?.currentBlockId) await requireAssignedBlockAccess(scope.currentBlockId);
-  const [item] = await getDb().select({ id: excavator.id }).from(excavator).where(eq(excavator.id, validId)).limit(1);
-  if (!item) return null;
-
-  return getDb()
-    .select()
-    .from(excavatorMovement)
-    .where(eq(excavatorMovement.excavatorId, validId))
-    .orderBy(desc(excavatorMovement.occurredAt), desc(excavatorMovement.createdAt));
 }
 
 export async function registerExcavator(input: unknown) {
@@ -230,6 +227,41 @@ export async function updateExcavator(input: unknown) {
     await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "EXCAVATOR", entityId: current.id, oldValues: { unitCode: current.unitCode, brand: current.brand, model: current.model, operatorName: current.operatorName }, newValues: values }));
   });
   return { id: current.id };
+}
+
+export async function createExcavatorPhotoUploadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.EXCAVATOR_MANAGE);
+  const values = excavatorPhotoUploadSchema.parse(input);
+  const [current] = await getDb().select({ id: excavator.id, currentBlockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.id, values.excavatorId)).limit(1);
+  if (!current) throw new Error("Excavator was not found.");
+  if (current.currentBlockId) await requireAssignedBlockAccess(current.currentBlockId);
+  validateImageUpload({ contentType: values.contentType, size: values.sizeBytes, originalName: values.originalName });
+  const upload = await getObjectStorage().createUploadUrl({ contentType: values.contentType, size: values.sizeBytes, originalName: values.originalName, scope: excavatorPhotoScope(values.excavatorId) });
+  assertExcavatorPhotoKey(values.excavatorId, upload.key);
+  return { key: upload.key, uploadUrl: upload.uploadUrl, contentType: values.contentType, sizeBytes: values.sizeBytes };
+}
+
+export async function setExcavatorPhoto(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.EXCAVATOR_MANAGE);
+  const values = setExcavatorPhotoSchema.parse(input);
+  const [current] = await getDb().select({ id: excavator.id, currentBlockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.id, values.excavatorId)).limit(1);
+  if (!current) throw new Error("Excavator was not found.");
+  if (current.currentBlockId) await requireAssignedBlockAccess(current.currentBlockId);
+  assertExcavatorPhotoKey(values.excavatorId, values.storageKey);
+  await getDb().update(excavator).set({ photoKey: values.storageKey, photoContentType: values.contentType, photoSizeBytes: values.sizeBytes, updatedAt: new Date() }).where(eq(excavator.id, values.excavatorId));
+  await getDb().insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "EXCAVATOR", entityId: values.excavatorId, newValues: { photoKey: values.storageKey, photoContentType: values.contentType, photoSizeBytes: values.sizeBytes } }));
+  return { id: values.excavatorId, photoKey: values.storageKey };
+}
+
+export async function getExcavatorPhotoDownloadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.EXCAVATOR_READ);
+  const values = excavatorPhotoDownloadSchema.parse(input);
+  const [current] = await getDb().select({ photoKey: excavator.photoKey, currentBlockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.id, values.excavatorId)).limit(1);
+  if (!current) throw new Error("Excavator was not found.");
+  if (current.currentBlockId) await requireAssignedBlockAccess(current.currentBlockId);
+  if (current.photoKey !== values.storageKey) throw new Error("Excavator photo was not found.");
+  assertExcavatorPhotoKey(values.excavatorId, values.storageKey);
+  return { downloadUrl: await getObjectStorage().createDownloadUrl(values.storageKey) };
 }
 
 export async function recordExcavatorMovement(input: unknown) {

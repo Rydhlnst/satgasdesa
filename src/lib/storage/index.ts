@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -28,6 +30,55 @@ export type ObjectStorage = {
   createUploadUrl(input: UploadValidationInput & { scope: string }): Promise<StorageUpload>;
   createDownloadUrl(key: string): Promise<string>;
 };
+
+const MEDIA_TOKEN_TTL_SECONDS = 300;
+
+function mediaSecret(): string {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET must be configured for local media storage.");
+  return secret;
+}
+
+function mediaSignature(operation: "upload" | "download", key: string, expiresAt: number, contentType = ""): string {
+  return createHmac("sha256", mediaSecret()).update(`${operation}:${expiresAt}:${contentType}:${key}`).digest("hex");
+}
+
+export function verifyMediaToken(operation: "upload" | "download", key: string, expiresAt: number, signature: string, contentType = ""): boolean {
+  if (!key || !Number.isSafeInteger(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) return false;
+  const expected = mediaSignature(operation, key, expiresAt, contentType);
+  if (expected.length !== signature.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
+
+function localStorageRoot(): string {
+  const configured = process.env.STORAGE_LOCAL_ROOT ?? "public/uploads";
+  return path.resolve(process.cwd(), configured);
+}
+
+export function localStoragePath(key: string): string {
+  const root = localStorageRoot();
+  const resolved = path.resolve(root, key);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) throw new Error("Invalid media storage key.");
+  return resolved;
+}
+
+export async function writeLocalStorageObject(key: string, body: Uint8Array): Promise<void> {
+  const target = localStoragePath(key);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, body);
+}
+
+export async function readLocalStorageObject(key: string): Promise<Buffer> {
+  return readFile(localStoragePath(key));
+}
+
+function localMediaUrl(operation: "upload" | "download", key: string, contentType = ""): string {
+  const expiresAt = Math.floor(Date.now() / 1000) + MEDIA_TOKEN_TTL_SECONDS;
+  const signature = mediaSignature(operation, key, expiresAt, contentType);
+  const params = new URLSearchParams({ key, expires: String(expiresAt), signature });
+  if (contentType) params.set("contentType", contentType);
+  return `/api/media/${operation}?${params.toString()}`;
+}
 
 export function validateUpload(input: UploadValidationInput): void {
   if (!ALLOWED_FILE_TYPES.has(input.contentType)) {
@@ -105,6 +156,19 @@ class R2ObjectStorage implements ObjectStorage {
   }
 }
 
+class FileSystemObjectStorage implements ObjectStorage {
+  async createUploadUrl(input: UploadValidationInput & { scope: string }): Promise<StorageUpload> {
+    validateUpload(input);
+    const key = createStorageKey(input.scope, input.contentType);
+    return { key, uploadUrl: localMediaUrl("upload", key, input.contentType) };
+  }
+
+  async createDownloadUrl(key: string): Promise<string> {
+    localStoragePath(key);
+    return localMediaUrl("download", key);
+  }
+}
+
 export function getObjectStorage(): ObjectStorage {
   const provider = process.env.STORAGE_PROVIDER ?? "disabled";
 
@@ -112,6 +176,7 @@ export function getObjectStorage(): ObjectStorage {
     return new UnconfiguredObjectStorage();
   }
   if (provider === "r2") return new R2ObjectStorage();
+  if (provider === "filesystem" || provider === "cpanel") return new FileSystemObjectStorage();
 
   throw new Error(`Unsupported storage provider: ${provider}`);
 }

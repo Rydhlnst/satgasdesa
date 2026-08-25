@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
 import { financialTransaction } from "@/src/db/schema/finance";
-import { blockHistory, realizationApproval, realizationEvidence, transactionEvidence } from "@/src/db/schema/history-evidence";
+import { realizationApproval, realizationEvidence, transactionEvidence } from "@/src/db/schema/history-evidence";
 import { realizationRequest } from "@/src/db/schema/budgets";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
@@ -30,11 +30,6 @@ function assertScopedStorageKey(scope: string, storageKey: string): void {
 
 function validateEvidenceMetadata(storageKey: string, values: z.infer<typeof evidenceMetadataSchema>): void {
   validateUpload({ contentType: values.contentType, size: values.sizeBytes, originalName: storageKey });
-}
-
-export async function getBlockHistory(blockId: string) {
-  await requirePermission(PERMISSIONS.BLOCK_READ);
-  return getDb().select().from(blockHistory).where(eq(blockHistory.blockId, uuid.parse(blockId))).orderBy(desc(blockHistory.createdAt));
 }
 
 export async function createTransactionEvidenceUploadUrl(input: unknown) {

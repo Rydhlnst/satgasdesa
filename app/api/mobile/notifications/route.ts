@@ -10,6 +10,8 @@ export async function GET(request: Request) {
       return Response.json(await getMyNotifications({
         unreadOnly: params.get("unreadOnly") === "true",
         query: params.get("query") || undefined,
+        dateFrom: params.get("dateFrom") || undefined,
+        dateTo: params.get("dateTo") || undefined,
         page: params.get("page") || undefined,
         pageSize: params.get("pageSize") || undefined,
       }));

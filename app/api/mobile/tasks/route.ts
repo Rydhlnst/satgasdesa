@@ -13,6 +13,8 @@ export async function GET(request: Request) {
         priority: params.get("priority") ?? undefined,
         blockId: params.get("blockId") ?? undefined,
         mine: params.get("mine") ?? undefined,
+        dateFrom: params.get("dateFrom") ?? undefined,
+        dateTo: params.get("dateTo") ?? undefined,
         page: params.get("page") ?? undefined,
         pageSize: params.get("pageSize") ?? undefined,
       }));

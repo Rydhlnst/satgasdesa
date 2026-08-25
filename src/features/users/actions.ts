@@ -33,6 +33,7 @@ const createUserSchema = z.object({
   email: z.string().trim().email("Enter a valid email address.").max(255),
   roleId: z.enum([ROLES.PIMPINAN, ROLES.BENDAHARA, ROLES.PETUGAS_LAPANGAN]),
 });
+const userIdSchema = z.string().uuid("Invalid user ID.");
 
 function readRequiredString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -85,6 +86,7 @@ export async function getRoles() {
 
 export async function getUserById(userId: string) {
   await requirePermission(PERMISSIONS.USER_READ);
+  const validUserId = userIdSchema.parse(userId);
 
   const [item] = await getDb()
     .select({
@@ -101,7 +103,7 @@ export async function getUserById(userId: string) {
     .from(user)
     .leftJoin(userRole, eq(userRole.userId, user.id))
     .leftJoin(role, eq(role.id, userRole.roleId))
-    .where(eq(user.id, userId))
+    .where(eq(user.id, validUserId))
     .limit(1);
 
   return item ?? null;
@@ -194,7 +196,7 @@ export async function createInvitedUser(
 
 export async function updateUserStatus(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.USER_MANAGE);
-  const userId = readRequiredString(formData, "userId");
+  const userId = userIdSchema.parse(readRequiredString(formData, "userId"));
   const status = readStatus(formData);
 
   if (userId === session.user.id && status === "INACTIVE") {
@@ -229,7 +231,7 @@ export async function updateUserStatus(formData: FormData) {
 
 export async function assignUserRole(formData: FormData) {
   const session = await requirePermission(PERMISSIONS.USER_MANAGE);
-  const userId = readRequiredString(formData, "userId");
+  const userId = userIdSchema.parse(readRequiredString(formData, "userId"));
   const roleId = readRequiredString(formData, "roleId");
 
   if (!Object.values(ROLES).includes(roleId as RoleName)) {
