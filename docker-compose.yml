@@ -70,3 +70,6 @@ services:
 
 volumes:
   satgas_mysql_data:
+    # Change MYSQL_DATA_VOLUME_NAME only for an intentional fresh-database reset.
+    # The existing volume is retained for recovery.
+    name: ${MYSQL_DATA_VOLUME_NAME:-satgasdesa_mysql_data_v2}

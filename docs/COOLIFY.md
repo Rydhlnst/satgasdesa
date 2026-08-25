@@ -66,29 +66,13 @@ Use a URL-safe `MYSQL_PASSWORD` (letters, numbers, `_`, and `-`) or URL-encode r
 
 ## Intentional application-database reset
 
-This reset is destructive: it removes all application tables and data in `MYSQL_DATABASE`, including users and migration history. It retains the named MySQL volume and MySQL system accounts. It never runs as part of a normal deployment.
+To intentionally start with an empty application database without deleting the previous one, set a new unique `MYSQL_DATA_VOLUME_NAME` in Coolify, then redeploy. For example:
 
-1. Confirm that losing all application data is intended.
-2. Find the running MySQL container and stop the app service so it cannot write during the reset:
-
-```bash
-PROJECT_ID=<coolify-application-uuid>
-MYSQL=$(sudo docker ps -q \
-  --filter "label=com.docker.compose.project=$PROJECT_ID" \
-  --filter "label=com.docker.compose.service=mysql" | head -n 1)
-sudo docker stop $(sudo docker ps -q \
-  --filter "label=com.docker.compose.project=$PROJECT_ID" \
-  --filter "label=com.docker.compose.service=app")
+```text
+MYSQL_DATA_VOLUME_NAME=satgasdesa_mysql_data_v3
 ```
 
-3. Run the destructive reset once. This command uses the local MySQL root account and does not print its password:
-
-```bash
-sudo docker exec -it "$MYSQL" sh -lc \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket --socket=/var/run/mysqld/mysqld.sock -uroot -e "DROP DATABASE IF EXISTS \`$MYSQL_DATABASE\`; CREATE DATABASE \`$MYSQL_DATABASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"'
-```
-
-4. Redeploy. MySQL reconciles the app account and the app applies all Drizzle migrations to the empty database.
+The old volume remains on the server for recovery, but the deployment uses a new empty MySQL database. MySQL creates the requested user, then the app applies all Drizzle migrations on redeploy. Do not change this value during normal deployments.
 
 Do not use `docker compose down -v` or remove the MySQL volume unless a full, irreversible database-server reset is explicitly required.
 
