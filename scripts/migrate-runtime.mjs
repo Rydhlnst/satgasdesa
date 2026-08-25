@@ -12,6 +12,21 @@ function isConnectionFailure(error) {
   return ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "PROTOCOL_CONNECTION_LOST"].includes(error?.code);
 }
 
+function redactSecrets(value) {
+  return String(value ?? "")
+    .replace(/(mysql(?:\+[^:]+)?:\/\/[^:]+:)[^@]+@/gi, "$1[REDACTED]@")
+    .replace(/((?:password|secret|token|api[_-]?key)\s*[=:]\s*)[^\s,}]+/gi, "$1[REDACTED]");
+}
+
+function migrationErrorDetails(error) {
+  return {
+    code: error?.code,
+    errno: error?.errno,
+    sqlState: error?.sqlState,
+    message: redactSecrets(error?.sqlMessage ?? error?.message),
+  };
+}
+
 for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
   const pool = mysql.createPool({ uri: databaseUrl, connectionLimit: 1 });
   try {
@@ -22,7 +37,10 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
   } catch (error) {
     await pool.end().catch(() => undefined);
     if (!isConnectionFailure(error)) {
-      console.error("Database migration failed. Review the migration SQL and database state.");
+      console.error(
+        "Database migration failed. Review the migration SQL and database state.",
+        migrationErrorDetails(error),
+      );
       process.exit(1);
     }
     if (attempt === maxAttempts) {
