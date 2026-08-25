@@ -6,6 +6,25 @@ import type { Block, BlockDetails, DashboardResponse, FieldAssignmentItem, Notif
 const TOKEN_KEY = "satgas.mobile.session-token";
 const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
+type ErrorBody = { message?: string };
+
+async function readJson(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) return null;
+  return response.json().catch(() => null);
+}
+
+function apiError(response: Response, body: ErrorBody | null): Error {
+  const message = body?.message ?? (response.status === 401
+    ? "Sesi Anda telah berakhir."
+    : response.status === 404
+      ? "API route tidak ditemukan. Periksa deployment dan EXPO_PUBLIC_API_URL."
+      : "Tidak dapat terhubung ke server.");
+  const error = new Error(message);
+  Object.assign(error, { status: response.status });
+  return error;
+}
+
 export async function getToken() { return SecureStore.getItemAsync(TOKEN_KEY); }
 export async function saveToken(token: string) { return SecureStore.setItemAsync(TOKEN_KEY, token); }
 export async function clearToken() { return SecureStore.deleteItemAsync(TOKEN_KEY); }
@@ -25,12 +44,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     if (response.status === 401) await clearToken();
-    const body = await response.json().catch(() => null) as { message?: string } | null;
-    const error = new Error(body?.message ?? (response.status === 401 ? "Sesi Anda telah berakhir." : "Tidak dapat terhubung ke server."));
-    Object.assign(error, { status: response.status });
-    throw error;
+    throw apiError(response, await readJson(response) as ErrorBody | null);
   }
-  return response.json() as Promise<T>;
+  const body = await readJson(response);
+  if (body === null) throw new Error("Server mengembalikan respons tidak valid. Periksa deployment dan EXPO_PUBLIC_API_URL.");
+  return body as T;
 }
 
 export function workflow<T>(action: string, input: unknown) {
@@ -119,10 +137,21 @@ export function getDue(id: string) { return request<{ due: Record<string, unknow
 export async function login(email: string, password: string) {
   const response = await fetch(`${baseUrl}/api/auth/sign-in/email`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ email, password }) });
   const token = response.headers.get("set-auth-token");
-  const body = await response.json().catch(() => null) as { message?: string } | null;
-  if (!response.ok || !token) throw new Error(body?.message ?? "Email atau kata sandi tidak valid.");
+  const body = await readJson(response) as ErrorBody | null;
+  if (!response.ok) throw apiError(response, body);
+  if (!token) throw new Error(body?.message ?? "Server login tidak mengembalikan sesi yang valid.");
   await saveToken(token);
   return getSession();
+}
+
+export type ApiHealth = { status: "ok" | "unavailable"; automation?: { enabled: boolean; configured: boolean } };
+
+export async function getApiHealth(): Promise<ApiHealth> {
+  const response = await fetch(`${baseUrl}/api/health`, { headers: { Accept: "application/json" } });
+  const body = await readJson(response);
+  if (!response.ok) throw apiError(response, body as ErrorBody | null);
+  if (!body || typeof body !== "object" || !("status" in body)) throw new Error("Health endpoint mengembalikan respons tidak valid.");
+  return body as ApiHealth;
 }
 
 export function getSession() { return request<Session>("/api/mobile/session"); }

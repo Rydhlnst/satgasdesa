@@ -2,6 +2,17 @@
 .next
 node_modules
 .pnpm-local
+.expo
+.playwright-cli
+.playwright-mcp
+.docker-local
+output
+coverage
+test-results
+mobile/android
+mobile/ios
+mobile/dist
+*.tsbuildinfo
 .env*
 !.env.example
 *.log

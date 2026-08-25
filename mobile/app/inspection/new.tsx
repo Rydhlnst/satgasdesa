@@ -12,7 +12,7 @@ import { useAuth } from "../../src/auth";
 import { Header, Screen } from "../../src/components/Screen";
 import { DateField, InputField, SelectField, SubmitButton } from "../../src/components/NativeForm";
 import { clearInspectionDraftLocally, loadInspectionDraft, saveInspectionDraftLocally } from "../../src/lib/drafts";
-import { createInspection, createInspectionUploadUrl, getBlocks, getInspection, saveInspectionDraft } from "../../src/lib/api";
+import { createInspection, createInspectionUploadUrl, finalizeInspection, getBlocks, getInspection, saveInspectionDraft } from "../../src/lib/api";
 import { queueInspectionSubmission } from "../../src/offline/sync";
 import { colors, spacing } from "../../src/theme";
 
@@ -72,7 +72,8 @@ export default function NewInspection() {
 
       try {
         const uploaded = await uploadPhotos(inspectionId);
-        await createInspection({ ...baseInput, id: inspectionId, photos: [...storedPhotos, ...uploaded] });
+        const submitInspection = draftId ? finalizeInspection : createInspection;
+        await submitInspection({ ...baseInput, id: inspectionId, photos: [...storedPhotos, ...uploaded] });
         await clearInspectionDraftLocally();
         Alert.alert("Berhasil", "Pemeriksaan berhasil dikirim.", [{ text: "OK", onPress: () => router.replace("/inspections") }]);
       } catch {

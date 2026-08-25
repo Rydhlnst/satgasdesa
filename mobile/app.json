@@ -35,6 +35,12 @@
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2f0b8e7b-5ff4-44a2-b6da-db88cc673200"
+      }
     }
   }
 }
