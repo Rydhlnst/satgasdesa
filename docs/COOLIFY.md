@@ -10,12 +10,15 @@ For Docker Desktop local access, use the local override so the app is available 
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-The app container automatically:
+The Compose deployment automatically:
 
-1. validates required environment variables;
-2. waits for MySQL and applies Drizzle migrations;
-3. optionally seeds roles and permissions when `SEED_RBAC=true`;
-4. starts the Next.js standalone server.
+1. waits for MySQL;
+2. reconciles the `MYSQL_USER` account with `MYSQL_PASSWORD` inside the MySQL container;
+3. validates required environment variables and applies Drizzle migrations;
+4. optionally seeds roles and permissions when `SEED_RBAC=true`;
+5. starts the Next.js standalone server.
+
+MySQL is not reported healthy until account reconciliation finishes. This prevents the app migrations from starting with a stale application password.
 
 ## Required Coolify variables
 
@@ -60,6 +63,34 @@ CRON_SECRET=<long-random-secret>
 Set `SEED_RBAC=true` only on the first deployment or when reference roles/permissions need reconciliation. Set the three `BOOTSTRAP_ADMIN_*` variables only for the first deployment to create one verified Pimpinan account; the seed never changes an existing account password. Remove the bootstrap password from Coolify after the first successful deployment. Do not use demo credentials in production.
 
 Use a URL-safe `MYSQL_PASSWORD` (letters, numbers, `_`, and `-`) or URL-encode reserved characters when constructing `DATABASE_URL` manually. The Compose file uses the password as a MySQL URL component.
+
+## Intentional application-database reset
+
+This reset is destructive: it removes all application tables and data in `MYSQL_DATABASE`, including users and migration history. It retains the named MySQL volume and MySQL system accounts. It never runs as part of a normal deployment.
+
+1. Confirm that losing all application data is intended.
+2. Find the running MySQL container and stop the app service so it cannot write during the reset:
+
+```bash
+PROJECT_ID=<coolify-application-uuid>
+MYSQL=$(sudo docker ps -q \
+  --filter "label=com.docker.compose.project=$PROJECT_ID" \
+  --filter "label=com.docker.compose.service=mysql" | head -n 1)
+sudo docker stop $(sudo docker ps -q \
+  --filter "label=com.docker.compose.project=$PROJECT_ID" \
+  --filter "label=com.docker.compose.service=app")
+```
+
+3. Run the destructive reset once. This command uses the local MySQL root account and does not print its password:
+
+```bash
+sudo docker exec -it "$MYSQL" sh -lc \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket --socket=/var/run/mysqld/mysqld.sock -uroot -e "DROP DATABASE IF EXISTS \`$MYSQL_DATABASE\`; CREATE DATABASE \`$MYSQL_DATABASE\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"'
+```
+
+4. Redeploy. MySQL reconciles the app account and the app applies all Drizzle migrations to the empty database.
+
+Do not use `docker compose down -v` or remove the MySQL volume unless a full, irreversible database-server reset is explicitly required.
 
 ## Health and operations
 
