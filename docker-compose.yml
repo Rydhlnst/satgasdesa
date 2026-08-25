@@ -12,10 +12,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
     volumes:
       - satgas_mysql_data:/var/lib/mysql
-      - ./deploy/mysql/entrypoint.sh:/usr/local/bin/satgas-mysql-entrypoint.sh:ro
-    entrypoint: ["/bin/sh", "/usr/local/bin/satgas-mysql-entrypoint.sh"]
     healthcheck:
-      test: ["CMD-SHELL", "test -f /var/run/mysqld/.satgas-app-user-ready && mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 5s
       timeout: 5s
       retries: 30

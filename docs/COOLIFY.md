@@ -10,15 +10,12 @@ For Docker Desktop local access, use the local override so the app is available 
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-The Compose deployment automatically:
+The app container automatically:
 
 1. waits for MySQL;
-2. reconciles the `MYSQL_USER` account with `MYSQL_PASSWORD` inside the MySQL container;
-3. validates required environment variables and applies Drizzle migrations;
-4. optionally seeds roles and permissions when `SEED_RBAC=true`;
-5. starts the Next.js standalone server.
-
-MySQL is not reported healthy until account reconciliation finishes. This prevents the app migrations from starting with a stale application password.
+2. validates required environment variables and applies Drizzle migrations;
+3. optionally seeds roles and permissions when `SEED_RBAC=true`;
+4. starts the Next.js standalone server.
 
 ## Required Coolify variables
 
@@ -72,7 +69,7 @@ To intentionally start with an empty application database without deleting the p
 MYSQL_DATA_VOLUME_NAME=satgasdesa_mysql_data_v3
 ```
 
-The old volume remains on the server for recovery, but the deployment uses a new empty MySQL database. MySQL creates the requested user, then the app applies all Drizzle migrations on redeploy. Do not change this value during normal deployments.
+The old volume remains on the server for recovery, but the deployment uses a new empty MySQL database. MySQL creates the requested user from `MYSQL_USER` and `MYSQL_PASSWORD`, then the app applies all Drizzle migrations on redeploy. Do not change this value during normal deployments.
 
 Do not use `docker compose down -v` or remove the MySQL volume unless a full, irreversible database-server reset is explicitly required.
 
