@@ -18,12 +18,24 @@ function redactSecrets(value) {
     .replace(/((?:password|secret|token|api[_-]?key)\s*[=:]\s*)[^\s,}]+/gi, "$1[REDACTED]");
 }
 
+function getRootCause(error) {
+  const seen = new Set();
+  let current = error;
+
+  while (current?.cause && !seen.has(current)) {
+    seen.add(current);
+    current = current.cause;
+  }
+
+  return current;
+}
+
 function migrationErrorDetails(error) {
   return {
-    code: error?.code,
-    errno: error?.errno,
-    sqlState: error?.sqlState,
-    message: redactSecrets(error?.sqlMessage ?? error?.message),
+    code: getRootCause(error)?.code ?? error?.code,
+    errno: getRootCause(error)?.errno ?? error?.errno,
+    sqlState: getRootCause(error)?.sqlState ?? error?.sqlState,
+    message: redactSecrets(getRootCause(error)?.sqlMessage ?? getRootCause(error)?.message ?? error?.message),
   };
 }
 
