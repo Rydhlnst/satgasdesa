@@ -4,7 +4,7 @@
 
 Use this repository's `docker-compose.yml` as a Docker Compose resource in Coolify. Expose only the `app` service through the Coolify domain on internal port `3000`. The production Compose file uses `expose` instead of publishing a host port, so it will not conflict with another service already using port 3000. Keep the `mysql` service on the private Compose network and do not publish port 3306.
 
-The Compose services use `restart: on-failure:5`. A crashed deployment is retried at most five times and then stays stopped for diagnosis; it does not enter an endless restart loop. Database migration readiness also has a finite 30-attempt limit.
+The Compose services explicitly use `restart: "no"`. A crashed deployment stops immediately so the original container error remains available for diagnosis. Startup migration runs once; automatic migration retries are disabled.
 
 For Docker Desktop local access, use the local override so the app is available at `http://localhost:3000`:
 
@@ -14,10 +14,12 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 
 The app container automatically:
 
-1. waits for MySQL;
+1. starts after MySQL reports healthy;
 2. validates required environment variables and applies Drizzle migrations;
 3. optionally seeds roles and permissions when `SEED_RBAC=true`;
 4. starts the Next.js standalone server.
+
+For startup diagnosis, run `docker compose ps` and `docker compose logs --no-color app mysql`. Do not add a restart policy while investigating a failure.
 
 ## Required Coolify variables
 
