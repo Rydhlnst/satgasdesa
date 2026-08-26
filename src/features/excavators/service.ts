@@ -11,15 +11,15 @@ import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { getObjectStorage, validateImageUpload } from "@/src/lib/storage";
+import { parseValidatedInput } from "@/src/lib/validation";
 
 import { getFinanceDefaults } from "../settings/service";
 import { notifyPermissionHolders } from "../notifications/service";
 
 import { blockIdSchema, excavatorFiltersSchema, excavatorIdSchema, excavatorPhotoDownloadSchema, excavatorPhotoUploadSchema, recordExcavatorMovementSchema, registerExcavatorSchema, setExcavatorPhotoSchema, updateExcavatorSchema } from "./schema";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the excavator details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the excavator details and try again.");
 }
 
 function optionalValue(value?: string): string | null {

@@ -8,11 +8,13 @@ import {
 } from "../lib/api";
 
 import { persistQueuedMedia, removeQueuedMedia, type MediaAsset, type QueuedMedia } from "./media";
+import { classifySyncError } from "./errors";
 import {
   claimOutboxItem,
   enqueueOutbox,
   getSyncableOutbox,
   initializeOfflineStore,
+  markOutboxBlocked,
   markOutboxFailed,
   markOutboxSynced,
   type OutboxItem,
@@ -106,7 +108,9 @@ export async function syncOutbox(force = false): Promise<SyncRunResult> {
       await removeQueuedMedia(item.id);
       synced += 1;
     } catch (error) {
-      await markOutboxFailed(item.id, error instanceof Error ? error.message : "Sync failed.", item.retryCount + 1);
+      const failure = classifySyncError(error);
+      if (failure.retryable) await markOutboxFailed(item.id, failure, item.retryCount + 1);
+      else await markOutboxBlocked(item.id, failure);
       failed += 1;
     }
   }

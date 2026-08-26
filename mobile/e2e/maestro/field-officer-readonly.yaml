@@ -1,0 +1,53 @@
+appId: id.satgas.desasejoli
+name: Field officer read-only journey
+tags:
+  - role-field-officer
+env:
+  FIELD_EMAIL: ${FIELD_EMAIL}
+  FIELD_PASSWORD: ${FIELD_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn: "nama@contoh.id"
+- inputText: ${FIELD_EMAIL}
+- tapOn: "Kata sandi"
+- inputText: ${FIELD_PASSWORD}
+- tapOn:
+    point: "50%, 68%"
+- extendedWaitUntil:
+    visible: "Dashboard Petugas"
+    timeout: 15000
+- assertVisible: "Pemeriksaan"
+- assertVisible: "Monitoring Blok"
+- tapOn: "Pemeriksaan"
+- extendedWaitUntil:
+    visible: "PEMERIKSAAN BLOK"
+    timeout: 10000
+- assertVisible: "Semua"
+- assertVisible: "Draft"
+- assertVisible: "Terkirim"
+- tapOn: "Tambah Pemeriksaan"
+- extendedWaitUntil:
+    visible: "PEMERIKSAAN BARU"
+    timeout: 10000
+- assertVisible: "Data Pemeriksaan"
+- assertVisible: "Jumlah excavator"
+- assertVisible: "Jumlah pekerja"
+- assertVisible: "Lanjut ke Dokumentasi"
+- tapOn: "Lanjut ke Dokumentasi"
+- assertVisible: "Pilih blok."
+- tapOn: "Monitoring Blok"
+- extendedWaitUntil:
+    visible: "MONITORING BLOK"
+    timeout: 10000
+- tapOn: "Profil"
+- extendedWaitUntil:
+    visible: "PROFILE"
+    timeout: 10000
+- assertVisible: "Password and sessions"
+- takeScreenshot: field-officer-readonly
+- tapOn: "Sign out"
+- assertVisible: "Masuk"

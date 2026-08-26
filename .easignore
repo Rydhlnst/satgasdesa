@@ -1,0 +1,43 @@
+# EAS is building the Expo project in /mobile. Keep the repository-level
+# web/backend workspace out of the mobile archive so pnpm uses mobile/pnpm-lock.yaml.
+/app/
+/components/
+/deploy/
+/docs/
+/drizzle/
+/hooks/
+/lib/
+/public/
+/scripts/
+/src/
+/tests/
+/node_modules/
+/.next/
+/.git/
+/.expo/
+/coverage/
+/output/
+/test-results/
+/.playwright-cli/
+/.playwright-mcp/
+/.docker-local/
+
+/Dockerfile
+/docker-compose*.yml
+/package.json
+/pnpm-lock.yaml
+/pnpm-workspace.yaml
+/eas.json
+*.tsbuildinfo
+*.log
+*.md
+
+# Mobile build outputs and local configuration are not uploaded.
+mobile/node_modules/
+mobile/android/
+mobile/ios/
+mobile/.expo/
+mobile/dist/
+mobile/.env
+mobile/.env.*
+!mobile/.env.example

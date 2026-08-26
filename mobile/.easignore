@@ -1,0 +1,19 @@
+# Keep the EAS upload limited to files needed to build the Expo app.
+node_modules/
+.expo/
+.expo-qa-android/
+android/
+ios/
+dist/
+coverage/
+test-results/
+*.log
+*.tsbuildinfo
+.git/
+.github/
+.vscode/
+
+# Use EAS production variables for cloud builds instead of uploading local values.
+.env
+.env.*
+!.env.example

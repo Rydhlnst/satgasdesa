@@ -7,12 +7,12 @@ import { block } from "@/src/db/schema/blocks";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
+import { parseValidatedInput } from "@/src/lib/validation";
 
 import { assignBlockManagerSchema, blockIdSchema, closeBlockManagerSchema } from "./schema";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the manager assignment and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the manager assignment and try again.");
 }
 
 function optionalValue(value?: string): string | null {

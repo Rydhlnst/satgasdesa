@@ -26,7 +26,8 @@ Because inspection photos upload from the browser to a presigned URL, add this p
   {
     "AllowedOrigins": [
       "http://localhost:3000",
-      "https://satgas.beres.io"
+      "https://satgas.beres.io",
+      "https://satgasimage.beres.io"
     ],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["Content-Type"],
@@ -36,7 +37,7 @@ Because inspection photos upload from the browser to a presigned URL, add this p
 ]
 ```
 
-The application does not make the bucket public. Inspection photos remain private and are opened through short-lived download URLs.
+The application does not make the bucket public. Inspection photos remain private and are opened through short-lived download URLs. `https://satgas.beres.io` remains the app/API origin; `https://satgasimage.beres.io` is the trusted media origin.
 
 Apply the policy with deployment credentials by running `pnpm storage:configure-cors` in the app container. The command writes the policy and reads it back; it fails if the required origins, methods, or `Content-Type` header are absent.
 

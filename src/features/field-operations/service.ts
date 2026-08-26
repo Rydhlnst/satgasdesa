@@ -12,17 +12,13 @@ import { getRequestSession } from "@/src/lib/auth/request-context";
 import { hasPermission, requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateImageUpload } from "@/src/lib/storage";
+import { parseValidatedInput } from "@/src/lib/validation";
 
 import { businessActorFiltersSchema, businessActorSchema, endFieldAssignmentSchema, fieldAssignmentSchema, paymentVerificationSchema, paymentVerificationUploadSchema, updateBusinessActorSchema } from "./schema";
 
 function optionalValue(value?: string): string | null { return value?.trim() || null; }
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) {
-    const error = new Error("Please check the submitted details and try again.");
-    Object.assign(error, { code: "VALIDATION_FAILED", status: 400 });
-    throw error;
-  }
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the submitted details and try again.");
 }
 
 function jakartaDate(date = new Date()): string {
@@ -152,6 +148,7 @@ export async function verifyDuePayment(input: unknown) {
   if (values.evidenceKey && !values.evidenceKey.startsWith(`${verificationScope(values.duePaymentId)}/`)) {
     const error = new Error("Evidence is outside the permitted payment verification scope."); Object.assign(error, { code: "VALIDATION_FAILED", status: 400 }); throw error;
   }
+  if (values.evidenceKey) await getObjectStorage().verifyObject(values.evidenceKey);
   const id = crypto.randomUUID(); const now = new Date(); const verifiedAt = values.verifiedAt ?? now;
   await getDb().transaction(async (tx) => {
     await tx.insert(duePaymentVerification).values({ id, duePaymentId: values.duePaymentId, verifiedBy: session.user.id, verificationStatus: values.verificationStatus, verifiedAt, latitude: values.latitude?.toFixed(7) ?? null, longitude: values.longitude?.toFixed(7) ?? null, gpsAccuracy: values.gpsAccuracy?.toFixed(2) ?? null, evidenceKey: optionalValue(values.evidenceKey), notes: optionalValue(values.notes), createdAt: now });

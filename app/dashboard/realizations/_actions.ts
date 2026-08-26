@@ -10,7 +10,7 @@ function value(formData: FormData, key: string): string { const item = formData.
 function optional(valueToCheck: string): string | undefined { return valueToCheck || undefined; }
 
 export async function createRealizationAction(formData: FormData) {
-  const result = await createRealization({ budgetItemId: value(formData, "budgetItemId"), requestedAmount: value(formData, "requestedAmount"), description: value(formData, "description"), evidenceKey: optional(value(formData, "evidenceKey")) });
+  const result = await createRealization({ budgetItemId: value(formData, "budgetItemId"), fundRequestId: optional(value(formData, "fundRequestId")), activity: value(formData, "activity"), realizationDate: value(formData, "realizationDate"), requestedAmount: value(formData, "requestedAmount"), description: value(formData, "description"), evidenceKey: optional(value(formData, "evidenceKey")) });
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/realizations");
   redirect(`/dashboard/realizations/${result.id}`);

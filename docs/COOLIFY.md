@@ -4,6 +4,8 @@
 
 Use this repository's `docker-compose.yml` as a Docker Compose resource in Coolify. Expose only the `app` service through the Coolify domain on internal port `3000`. The production Compose file uses `expose` instead of publishing a host port, so it will not conflict with another service already using port 3000. Keep the `mysql` service on the private Compose network and do not publish port 3306.
 
+The Compose services use `restart: on-failure:5`. A crashed deployment is retried at most five times and then stays stopped for diagnosis; it does not enter an endless restart loop. Database migration readiness also has a finite 30-attempt limit.
+
 For Docker Desktop local access, use the local override so the app is available at `http://localhost:3000`:
 
 ```bash
@@ -78,7 +80,7 @@ Do not use `docker compose down -v` or remove the MySQL volume unless a full, ir
 - Coolify health check: `GET /api/health`.
 - The health endpoint checks MySQL connectivity and returns no internal error details.
 - Use the Coolify domain over HTTPS; Better Auth cookies and the service worker depend on this.
-- Set `DAILY_AUTOMATION_ENABLED=true`, then schedule `POST /api/jobs/daily` once daily with `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`. Set `MONTHLY_DUE_DAY=7` so the monthly collection window closes on the 7th. Confirm `/api/health` reports `automation.enabled` and `automation.configured` as `true` before enabling the scheduler.
+- Set `DAILY_AUTOMATION_ENABLED=true`, then schedule `POST /api/jobs/daily` once daily with `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`. Set `MONTHLY_DUE_DAY=10` so the monthly collection window closes on the 10th. Confirm `/api/health` reports `automation.enabled` and `automation.configured` as `true` before enabling the scheduler.
 - Back up the MySQL named volume and use the documented logical backup procedure in `docs/BACKUP-RESTORE.md`.
 - Keep R2 private and use signed download URLs only.
 - Configure Expo FCM/APNs credentials and an EAS development/production build before enabling `PUSH_NOTIFICATIONS_ENABLED`; Expo Go cannot receive remote notifications on SDK 53+.

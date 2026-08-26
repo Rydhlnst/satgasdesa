@@ -11,12 +11,13 @@ import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { nextJakartaDay, startOfJakartaDay } from "@/src/lib/date-range";
+import { parseValidatedInput } from "@/src/lib/validation";
 
 import { approveFinancialTransactionSchema, createFinancialTransactionSchema, financeCategoryFiltersSchema, financeCategorySchema, financialTransactionEvidenceDownloadSchema, financialTransactionFiltersSchema, financialTransactionUploadSchema, reverseFinancialTransactionSchema, updateFinanceCategorySchema } from "./schema";
+import { FINANCIAL_TRANSACTION_TYPES } from "./constants";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the financial transaction details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the financial transaction details and try again.");
 }
 
 function optionalValue(value?: string): string | null {
@@ -49,6 +50,88 @@ function sameTransactionPayload(current: typeof financialTransaction.$inferSelec
     && current.relatedEntityType === optionalValue(values.relatedEntityType)
     && current.relatedEntityId === (values.relatedEntityId ?? null)
     && current.evidenceKey === optionalValue(values.evidenceKey);
+}
+
+type ImportedTransaction = z.infer<typeof createFinancialTransactionSchema>;
+
+function parseCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === "," && !quoted) {
+      cells.push(cell.trim());
+      cell = "";
+    } else {
+      cell += character;
+    }
+  }
+  if (quoted) throw new Error("CSV contains an unclosed quoted value.");
+  cells.push(cell.trim());
+  return cells;
+}
+
+function parseFinanceImport(csv: string): ImportedTransaction[] {
+  const lines = csv.replace(/^\uFEFF/, "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 2) throw new Error("CSV must contain a header and at least one transaction row.");
+  if (csv.length > 500_000) throw new Error("CSV import is limited to 500 KB.");
+
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const requiredHeaders = ["transactiontype", "amount", "description"];
+  for (const header of requiredHeaders) if (!headers.includes(header)) throw new Error(`CSV is missing the ${header} column.`);
+  if (lines.length - 1 > 200) throw new Error("CSV import is limited to 200 transactions at a time.");
+
+  const rowSchema = z.object({
+    idempotencyKey: z.string().uuid().optional(),
+    transactionType: z.enum(FINANCIAL_TRANSACTION_TYPES),
+    amount: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    transactionAt: z.string().trim().optional(),
+    description: z.string().trim().min(1).max(10_000),
+    categoryId: z.string().uuid().optional(),
+    relatedEntityType: z.string().trim().max(64).optional(),
+    relatedEntityId: z.string().uuid().optional(),
+  }).superRefine((value, context) => {
+    if (value.transactionAt && Number.isNaN(new Date(value.transactionAt).getTime())) context.addIssue({ code: "custom", path: ["transactionAt"], message: "Invalid transaction date." });
+    if (Boolean(value.relatedEntityType) !== Boolean(value.relatedEntityId)) context.addIssue({ code: "custom", path: [value.relatedEntityType ? "relatedEntityId" : "relatedEntityType"], message: "Related entity type and ID must be provided together." });
+  });
+
+  return lines.slice(1).map((line, index) => {
+    const cells = parseCsvLine(line);
+    const row = Object.fromEntries(headers.map((header, cellIndex) => [header, cells[cellIndex] ?? ""]));
+    const parsed = rowSchema.safeParse({
+      idempotencyKey: row.idempotencykey || undefined,
+      transactionType: row.transactiontype,
+      amount: row.amount,
+      transactionAt: row.transactionat || undefined,
+      description: row.description,
+      categoryId: row.categoryid || undefined,
+      relatedEntityType: row.relatedentitytype || undefined,
+      relatedEntityId: row.relatedentityid || undefined,
+    });
+    if (!parsed.success) throw new Error(`CSV row ${index + 2} is invalid: ${parsed.error.issues[0]?.message ?? "check the values"}`);
+    return {
+      idempotencyKey: parsed.data.idempotencyKey ?? crypto.randomUUID(),
+      transactionType: parsed.data.transactionType,
+      amount: parsed.data.amount,
+      transactionAt: parsed.data.transactionAt ? new Date(parsed.data.transactionAt) : undefined,
+      description: parsed.data.description,
+      categoryId: parsed.data.categoryId,
+      relatedEntityType: parsed.data.relatedEntityType,
+      relatedEntityId: parsed.data.relatedEntityId,
+    };
+  });
+}
+
+export function assertFinancialTransactionApprover(createdBy: string, approverId: string): void {
+  if (createdBy === approverId) throw new Error("A financial transaction cannot be approved by its creator.");
 }
 
 async function assertActiveFinanceCategory(categoryId: string | undefined, transactionType: "CASH_IN" | "CASH_OUT"): Promise<void> {
@@ -267,6 +350,7 @@ export async function createFinancialTransaction(input: unknown) {
   const values = parseInput(createFinancialTransactionSchema.safeParse(input));
   await assertActiveFinanceCategory(values.categoryId, values.transactionType);
   if (values.evidenceKey) assertFinancialEvidenceKey(values.idempotencyKey, values.evidenceKey);
+  if (values.evidenceKey) await getObjectStorage().verifyObject(values.evidenceKey);
   const transactionCode = idempotentTransactionCode(values.idempotencyKey);
   const id = crypto.randomUUID();
   const now = new Date();
@@ -308,6 +392,54 @@ export async function createFinancialTransaction(input: unknown) {
   return { id: existing?.id ?? id, status: existing?.status ?? "DRAFT", duplicate: existing?.id !== id };
 }
 
+export async function importFinancialTransactions(csv: string) {
+  const session = await requirePermission(PERMISSIONS.FINANCE_CREATE);
+  const rows = parseFinanceImport(csv);
+  const categoryIds = [...new Set(rows.map((row) => row.categoryId).filter((id): id is string => Boolean(id)))];
+  const categories = categoryIds.length
+    ? await getDb().select({ id: financeCategory.id, transactionType: financeCategory.transactionType, isActive: financeCategory.isActive }).from(financeCategory).where(inArray(financeCategory.id, categoryIds))
+    : [];
+  const categoryMap = new Map(categories.map((category) => [category.id, category]));
+  const database = getDb();
+  const now = new Date();
+
+  await database.transaction(async (tx) => {
+    for (const row of rows) {
+      if (row.categoryId) {
+        const category = categoryMap.get(row.categoryId);
+        if (!category || !category.isActive || category.transactionType !== row.transactionType) throw new Error(`CSV category is invalid for ${row.description}.`);
+      }
+      const transactionCode = idempotentTransactionCode(row.idempotencyKey);
+      const [existing] = await tx.select().from(financialTransaction).where(eq(financialTransaction.transactionCode, transactionCode)).limit(1);
+      if (existing) {
+        if (!sameTransactionPayload(existing, row)) throw new Error(`CSV idempotency key is already used for different data: ${row.idempotencyKey}.`);
+        continue;
+      }
+      const id = crypto.randomUUID();
+      await tx.insert(financialTransaction).values({
+        id,
+        transactionCode,
+        transactionAt: row.transactionAt ?? now,
+        transactionType: row.transactionType,
+        amount: row.amount,
+        description: row.description,
+        categoryId: row.categoryId ?? null,
+        relatedEntityType: optionalValue(row.relatedEntityType),
+        relatedEntityId: row.relatedEntityId ?? null,
+        evidenceKey: null,
+        status: "DRAFT",
+        createdBy: session.user.id,
+        approvedBy: null,
+        reversedTransactionId: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "FINANCIAL_TRANSACTION", entityId: id, newValues: { imported: true, transactionCode, transactionType: row.transactionType, amount: row.amount } }));
+    }
+  });
+  return { imported: rows.length };
+}
+
 export async function approveFinancialTransaction(input: unknown) {
   const session = await requirePermission(PERMISSIONS.FINANCE_APPROVE);
   const values = parseInput(approveFinancialTransactionSchema.safeParse(input));
@@ -319,6 +451,7 @@ export async function approveFinancialTransaction(input: unknown) {
     .limit(1);
   if (!current) throw new Error("Financial transaction was not found.");
   if (current.status !== "DRAFT") throw new Error("Only draft financial transactions can be approved.");
+  assertFinancialTransactionApprover(current.createdBy, session.user.id);
 
   await database.transaction(async (tx) => {
     const [updateResult] = await tx

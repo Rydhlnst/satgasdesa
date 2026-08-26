@@ -7,6 +7,10 @@ function rupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 }
 
+function pdfList(document: PDFKit.PDFDocument, values: string[]): void {
+  for (const value of values) document.text(`• ${value}`);
+}
+
 export async function exportMonthlyReportExcel(report: MonthlyReport): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "SATGAS DESA SEJOLI";
@@ -37,11 +41,11 @@ export async function exportMonthlyReportPdf(report: MonthlyReport): Promise<Buf
     document.fontSize(18).text("SATGAS DESA SEJOLI — Monthly Report");
     document.moveDown(0.4).fontSize(11).text(`Period: ${report.periodKey}`);
     document.moveDown().fontSize(13).text("Operational");
-    document.fontSize(10).list([`Inspections: ${report.operational.inspections}`, `Excavator movements: ${report.operational.excavatorMovements}`, `Daily information: ${report.operational.totalInformation}`, `Open information: ${report.operational.openInformation}`, `Complaints: ${report.operational.complaints}`, `Incidents: ${report.operational.incidents}`, `Prospective managers: ${report.operational.prospectiveManagers}`, `Notices: ${report.operational.notices}`]);
+    document.fontSize(10); pdfList(document, [`Inspections: ${report.operational.inspections}`, `Excavator movements: ${report.operational.excavatorMovements}`, `Daily information: ${report.operational.totalInformation}`, `Open information: ${report.operational.openInformation}`, `Complaints: ${report.operational.complaints}`, `Incidents: ${report.operational.incidents}`, `Prospective managers: ${report.operational.prospectiveManagers}`, `Notices: ${report.operational.notices}`]);
     document.moveDown().fontSize(13).text("Financial");
-    document.fontSize(10).list([`Opening balance: ${rupiah(report.financial.openingBalance)}`, `Income: ${rupiah(report.financial.income)}`, `Expenses: ${rupiah(report.financial.expenses)}`, `Payments received: ${rupiah(report.financial.paymentsReceived)}`, `Dues obligation: ${rupiah(report.financial.duesObligation)}`, `Receivables: ${rupiah(report.financial.receivables)}`, `Closing balance: ${rupiah(report.financial.closingBalance)}`, `Source reconciliation: ${report.financial.reconciliation.reconciled ? "Reconciled" : "Mismatch"}`]);
+    document.fontSize(10); pdfList(document, [`Opening balance: ${rupiah(report.financial.openingBalance)}`, `Income: ${rupiah(report.financial.income)}`, `Expenses: ${rupiah(report.financial.expenses)}`, `Payments received: ${rupiah(report.financial.paymentsReceived)}`, `Dues obligation: ${rupiah(report.financial.duesObligation)}`, `Receivables: ${rupiah(report.financial.receivables)}`, `Closing balance: ${rupiah(report.financial.closingBalance)}`, `Source reconciliation: ${report.financial.reconciliation.reconciled ? "Reconciled" : "Mismatch"}`]);
     document.moveDown().fontSize(13).text("Budget");
-    document.fontSize(10).list([`Allocation: ${rupiah(report.budget.allocation)}`, `Approved realization: ${rupiah(report.budget.realization)}`, `Remaining allocation: ${rupiah(report.budget.remainingAllocation)}`, `Absorption: ${report.budget.absorptionPercentage}%`, `Over-allocated realizations: ${report.budget.overAllocatedRealizations}`]);
+    document.fontSize(10); pdfList(document, [`Allocation: ${rupiah(report.budget.allocation)}`, `Approved realization: ${rupiah(report.budget.realization)}`, `Remaining allocation: ${rupiah(report.budget.remainingAllocation)}`, `Absorption: ${report.budget.absorptionPercentage}%`, `Over-allocated realizations: ${report.budget.overAllocatedRealizations}`]);
     if (report.operational.byBlock.length) {
       document.moveDown().fontSize(13).text("Block Summary");
       document.fontSize(10);

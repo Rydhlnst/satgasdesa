@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 import { FUND_REQUEST_STATUSES } from "./constants";
-import { dateRangeFields, validateDateRange } from "@/src/lib/date-range";
+import { calendarDate, dateRangeFields, validateDateRange } from "@/src/lib/date-range";
 
 const uuid = z.string().uuid("Invalid ID.");
 const money = z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.");
+const date = calendarDate("Use YYYY-MM-DD.", "Invalid date.");
 
 const requestFields = z.object({
   budgetPeriodId: uuid,

@@ -31,7 +31,7 @@ describe("mobile API error responses", () => {
     expect(syntaxResponse.status).toBe(400);
     expect(await json(syntaxResponse)).toEqual({ error: "VALIDATION_FAILED", message: "Invalid request data." });
     expect(zodResponse.status).toBe(400);
-    expect(await json(zodResponse)).toEqual({ error: "VALIDATION_FAILED", message: "Invalid request data." });
+    expect(await json(zodResponse)).toEqual({ error: "VALIDATION_FAILED", message: "id: Invalid UUID", fields: { id: "Invalid UUID" } });
   });
 
   it("returns the stable unauthorized contract", async () => {

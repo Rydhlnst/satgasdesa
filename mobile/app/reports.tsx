@@ -11,6 +11,7 @@ import { useDateRange } from "../src/date-range-provider";
 import { apiBaseUrl, getReport, getToken } from "../src/lib/api";
 import { money } from "../src/lib/format";
 import { numberValue, text } from "../src/lib/read";
+import { showActionError } from "../src/lib/feedback";
 import { colors, spacing } from "../src/theme";
 
 type Section = "finance" | "dues" | "blocks" | "realization" | "information";
@@ -42,13 +43,20 @@ export default function Reports() {
     try {
       const token = await getToken();
       const params = new URLSearchParams({ format, period: text(report, "periodKey", ""), dateFrom: range.dateFrom, dateTo: range.dateTo });
-      const response = await fetch(`${apiBaseUrl()}/api/mobile/reports/export?${params.toString()}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const mimeType = format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      const response = await fetch(`${apiBaseUrl()}/api/mobile/reports/export?${params.toString()}`, { headers: { Accept: mimeType, ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
       if (!response.ok) throw new Error("Laporan tidak dapat diekspor.");
-      const file = new File(Paths.cache, `satgas-${text(report, "periodKey", "laporan")}.${format}`);
+      const contentType = (response.headers.get("content-type") ?? "").split(";", 1)[0].toLowerCase();
+      if (contentType && contentType !== mimeType) throw new Error("Server mengembalikan format laporan yang tidak sesuai.");
+      const period = text(report, "periodKey", "laporan").replace(/[^a-zA-Z0-9-]/g, "-");
+      const file = new File(Paths.cache, `satgas-${period}.${format}`);
       if (file.exists) file.delete();
       file.create({ intermediates: true });
       file.write(new Uint8Array(await response.arrayBuffer()));
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri);
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { dialogTitle: `Bagikan laporan ${period}`, mimeType, UTI: format === "pdf" ? "com.adobe.pdf" : "org.openxmlformats.spreadsheetml.sheet" });
+      else throw new Error("Fitur berbagi file tidak tersedia di perangkat ini.");
+    } catch (error) {
+      showActionError(error, "Laporan tidak dapat diekspor. Periksa koneksi lalu coba lagi.");
     } finally {
       setExporting(false);
     }

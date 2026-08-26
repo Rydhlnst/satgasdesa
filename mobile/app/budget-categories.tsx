@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../src/auth";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
-import { SelectField, SubmitButton } from "../src/components/NativeForm";
+import { SelectField, SubmitButton, TextInputField } from "../src/components/NativeForm";
 import { createBudgetCategory, createBudgetSubcategory, getBudgetCategories, updateBudgetCategory, updateBudgetSubcategory } from "../src/lib/api";
 import { text } from "../src/lib/read";
 import { colors, spacing } from "../src/theme";
+import { budgetCategoryFormSchema, budgetSubcategoryFormSchema } from "../src/form-schemas";
 
 type Category = Record<string, unknown> & { subcategories?: Array<Record<string, unknown>> };
 
@@ -21,6 +22,8 @@ export default function BudgetCategories() {
   const [subcategoryCategoryId, setSubcategoryCategoryId] = useState("");
   const [subcategoryName, setSubcategoryName] = useState("");
   const [subcategorySort, setSubcategorySort] = useState("0");
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const query = useQuery({ queryKey: ["budget-categories", "all"], queryFn: () => getBudgetCategories({ includeInactive: "true" }), enabled: Boolean(role) });
   if (!role) return null;
 
@@ -28,27 +31,31 @@ export default function BudgetCategories() {
   const categories = (query.data?.categories ?? []) as Category[];
   const activeCategoryOptions = categories.filter((item) => Number(item.isActive) === 1).map((item) => ({ label: text(item, "name"), value: text(item, "id") }));
   const refresh = () => client.invalidateQueries({ queryKey: ["budget-categories"] });
-  const resetCategory = () => { setCategoryId(""); setCategoryName(""); setCategorySort("0"); };
-  const resetSubcategory = () => { setSubcategoryId(""); setSubcategoryCategoryId(""); setSubcategoryName(""); setSubcategorySort("0"); };
+  const resetCategory = () => { setCategoryId(""); setCategoryName(""); setCategorySort("0"); setErrors((current) => ({ ...current, categoryName: "", categorySort: "" })); };
+  const resetSubcategory = () => { setSubcategoryId(""); setSubcategoryCategoryId(""); setSubcategoryName(""); setSubcategorySort("0"); setErrors((current) => ({ ...current, subcategoryCategoryId: "", subcategoryName: "", subcategorySort: "" })); };
   const editCategory = (item: Category) => { setCategoryId(text(item, "id")); setCategoryName(text(item, "name")); setCategorySort(String(item.sortOrder ?? 0)); };
   const editSubcategory = (item: Record<string, unknown>) => { setSubcategoryId(text(item, "id")); setSubcategoryCategoryId(text(item, "categoryId")); setSubcategoryName(text(item, "name")); setSubcategorySort(String(item.sortOrder ?? 0)); };
 
   async function saveCategory() {
-    if (!categoryName.trim()) return Alert.alert("Nama diperlukan", "Masukkan nama kategori anggaran.");
+    const parsed = budgetCategoryFormSchema.safeParse({ name: categoryName, sortOrder: categorySort });
+    if (!parsed.success) { const issue = parsed.error.issues[0]; setErrors((current) => ({ ...current, [issue?.path[0] === "name" ? "categoryName" : "categorySort"]: issue?.message ?? "Periksa data kategori." })); return Alert.alert("Periksa data kategori", issue?.message ?? "Lengkapi nama dan urutan."); }
+    setSaving(true);
     try {
-      if (categoryId) await updateBudgetCategory({ id: categoryId, name: categoryName, sortOrder: Number(categorySort) || 0, isActive: true });
-      else await createBudgetCategory({ name: categoryName, sortOrder: Number(categorySort) || 0 });
+      if (categoryId) await updateBudgetCategory({ id: categoryId, ...parsed.data, isActive: true });
+      else await createBudgetCategory(parsed.data);
       resetCategory(); await refresh();
-    } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Coba lagi."); }
+    } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
   }
 
   async function saveSubcategory() {
-    if (!subcategoryCategoryId || !subcategoryName.trim()) return Alert.alert("Lengkapi data", "Pilih kategori dan masukkan nama subkategori.");
+    const parsed = budgetSubcategoryFormSchema.safeParse({ categoryId: subcategoryCategoryId, name: subcategoryName, sortOrder: subcategorySort });
+    if (!parsed.success) { const issue = parsed.error.issues[0]; const field = issue?.path[0] === "categoryId" ? "subcategoryCategoryId" : issue?.path[0] === "name" ? "subcategoryName" : "subcategorySort"; setErrors((current) => ({ ...current, [field]: issue?.message ?? "Periksa data subkategori." })); return Alert.alert("Periksa data subkategori", issue?.message ?? "Lengkapi kategori, nama, dan urutan."); }
+    setSaving(true);
     try {
-      if (subcategoryId) await updateBudgetSubcategory({ id: subcategoryId, categoryId: subcategoryCategoryId, name: subcategoryName, sortOrder: Number(subcategorySort) || 0, isActive: true });
-      else await createBudgetSubcategory({ categoryId: subcategoryCategoryId, name: subcategoryName, sortOrder: Number(subcategorySort) || 0 });
+      if (subcategoryId) await updateBudgetSubcategory({ id: subcategoryId, ...parsed.data, isActive: true });
+      else await createBudgetSubcategory(parsed.data);
       resetSubcategory(); await refresh();
-    } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Coba lagi."); }
+    } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
   }
 
   async function toggleCategory(item: Category) {
@@ -64,16 +71,16 @@ export default function BudgetCategories() {
   return <><Header role={role} title="Kategori Anggaran" subtitle="Master kategori dan subkategori alokasi" /><Screen>
     {canManage ? <><View style={styles.form}>
       <Text style={styles.formTitle}>{categoryId ? "Ubah Kategori" : "Kategori Baru"}</Text>
-      <TextInput value={categoryName} onChangeText={setCategoryName} placeholder="Nama kategori" placeholderTextColor={colors.textMuted} style={styles.input} />
-      <TextInput value={categorySort} onChangeText={setCategorySort} keyboardType="numeric" placeholder="Urutan" placeholderTextColor={colors.textMuted} style={styles.input} />
-      <SubmitButton label={categoryId ? "Simpan Kategori" : "Tambah Kategori"} loading={false} onPress={() => void saveCategory()} />
+      <TextInputField label="Nama kategori" required error={errors.categoryName} value={categoryName} onChange={(value) => { setCategoryName(value); setErrors((current) => ({ ...current, categoryName: "" })); }} placeholder="Contoh: Operasional" />
+      <TextInputField label="Urutan" required error={errors.categorySort} value={categorySort} onChange={(value) => { setCategorySort(value); setErrors((current) => ({ ...current, categorySort: "" })); }} keyboardType="numeric" placeholder="0 sampai 10.000" />
+      <SubmitButton label={categoryId ? "Simpan Kategori" : "Tambah Kategori"} loading={saving} onPress={() => void saveCategory()} />
       {categoryId ? <Pressable onPress={resetCategory}><Text style={styles.cancel}>Batal ubah kategori</Text></Pressable> : null}
     </View><View style={styles.form}>
       <Text style={styles.formTitle}>{subcategoryId ? "Ubah Subkategori" : "Subkategori Baru"}</Text>
-      <SelectField label="Kategori" value={subcategoryCategoryId} onChange={setSubcategoryCategoryId} options={activeCategoryOptions} />
-      <TextInput value={subcategoryName} onChangeText={setSubcategoryName} placeholder="Nama subkategori" placeholderTextColor={colors.textMuted} style={styles.input} />
-      <TextInput value={subcategorySort} onChangeText={setSubcategorySort} keyboardType="numeric" placeholder="Urutan" placeholderTextColor={colors.textMuted} style={styles.input} />
-      <SubmitButton label={subcategoryId ? "Simpan Subkategori" : "Tambah Subkategori"} loading={false} onPress={() => void saveSubcategory()} />
+      <SelectField label="Kategori" required error={errors.subcategoryCategoryId} value={subcategoryCategoryId} onChange={(value) => { setSubcategoryCategoryId(value); setErrors((current) => ({ ...current, subcategoryCategoryId: "" })); }} options={activeCategoryOptions} />
+      <TextInputField label="Nama subkategori" required error={errors.subcategoryName} value={subcategoryName} onChange={(value) => { setSubcategoryName(value); setErrors((current) => ({ ...current, subcategoryName: "" })); }} placeholder="Contoh: Transportasi" />
+      <TextInputField label="Urutan" required error={errors.subcategorySort} value={subcategorySort} onChange={(value) => { setSubcategorySort(value); setErrors((current) => ({ ...current, subcategorySort: "" })); }} keyboardType="numeric" placeholder="0 sampai 10.000" />
+      <SubmitButton label={subcategoryId ? "Simpan Subkategori" : "Tambah Subkategori"} loading={saving} onPress={() => void saveSubcategory()} />
       {subcategoryId ? <Pressable onPress={resetSubcategory}><Text style={styles.cancel}>Batal ubah subkategori</Text></Pressable> : null}
     </View></> : null}
     {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Kategori anggaran tidak dapat dimuat." onRetry={() => query.refetch()} /> : categories.length ? categories.map((item) => <View key={text(item, "id")} style={styles.category}>

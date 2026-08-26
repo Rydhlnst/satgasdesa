@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 import { EXCAVATOR_MOVEMENT_TYPES } from "./constants";
-
-const calendarDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD.")
-  .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)), "Invalid date.");
+import { calendarDate } from "@/src/lib/date-range";
 
 export const excavatorIdSchema = z.string().uuid("Invalid excavator ID.");
 export const blockIdSchema = z.string().uuid("Invalid block ID.");
@@ -18,7 +14,7 @@ export const registerExcavatorSchema = z
     businessActorId: z.string().uuid("Business actor is required."),
     operatorName: z.string().trim().max(160).optional(),
     currentBlockId: blockIdSchema.optional(),
-    entryDate: calendarDate.optional(),
+    entryDate: calendarDate().optional(),
     notes: z.string().trim().max(5000).optional(),
   })
   .superRefine((value, context) => {

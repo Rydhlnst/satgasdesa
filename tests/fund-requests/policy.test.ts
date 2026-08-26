@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assertFundRequestActor, assertFundRequestTransition, permissionForFundRequestTransition } from "@/src/features/fund-requests/policy";
+import { assertFundRequestActor, assertFundRequestTransition, decideFundRequestApproval, permissionForFundRequestTransition } from "@/src/features/fund-requests/policy";
 import { PERMISSIONS, ROLE_PERMISSIONS, ROLES } from "@/src/lib/permissions/constants";
 
 describe("fund request authorization policy", () => {
@@ -22,5 +22,13 @@ describe("fund request authorization policy", () => {
     expect(ROLE_PERMISSIONS[ROLES.PETUGAS_LAPANGAN]).not.toContain(PERMISSIONS.FUND_REQUEST_APPROVE);
     expect(ROLE_PERMISSIONS[ROLES.BENDAHARA]).not.toContain(PERMISSIONS.FUND_REQUEST_APPROVE);
     expect(ROLE_PERMISSIONS[ROLES.PIMPINAN]).toContain(PERMISSIONS.FUND_REQUEST_APPROVE);
+  });
+
+  it("requires every eligible approver before final approval", () => {
+    const approvers = ["admin-1", "admin-2", "admin-3"];
+    expect(decideFundRequestApproval(approvers, [], "admin-1")).toEqual({ isFinalApproval: false, approvedCount: 1, requiredCount: 3 });
+    expect(decideFundRequestApproval(approvers, ["admin-1"], "admin-2")).toEqual({ isFinalApproval: false, approvedCount: 2, requiredCount: 3 });
+    expect(decideFundRequestApproval(approvers, ["admin-1", "admin-2"], "admin-3")).toEqual({ isFinalApproval: true, approvedCount: 3, requiredCount: 3 });
+    expect(() => decideFundRequestApproval(approvers, ["admin-1"], "admin-1")).toThrow("already approved");
   });
 });

@@ -6,8 +6,16 @@ vi.mock("@/src/lib/mobile-api", () => ({
 }));
 
 import { POST } from "@/app/api/mobile/workflows/route";
+import { workflowPermissions } from "@/src/lib/mobile-workflow-policy";
 
 describe("mobile workflow CRUD contract", () => {
+  it("requires permission metadata for every registered workflow action", () => {
+    expect(Object.keys(workflowPermissions).length).toBeGreaterThan(60);
+    for (const permission of Object.values(workflowPermissions)) {
+      expect(permission).toMatch(/^[A-Z][A-Z0-9_]+$/);
+    }
+  });
+
   it.each([
     ["malformed JSON", "not-json"],
     ["missing action", JSON.stringify({ input: {} })],

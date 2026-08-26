@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       const data = format === "xlsx" ? await exportMonthlyReportExcel(report) : await exportMonthlyReportPdf(report);
       const session = getRequestSession();
       await recordAuditEvent({ actorUserId: session?.user.id, action: "EXPORT", entityType: "REPORT", entityId: period, metadata: { format } });
-      return new Response(new Uint8Array(data), { headers: { "Content-Type": format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf", "Content-Disposition": `attachment; filename="satgas-${period}.${format}"` } });
+      return new Response(new Uint8Array(data), { headers: { "Cache-Control": "private, no-store", "Content-Length": String(data.byteLength), "Content-Type": format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf", "Content-Disposition": `attachment; filename="satgas-${period}.${format}"` } });
     } catch (error) { return apiErrorResponse(error); }
   });
 }

@@ -11,6 +11,7 @@ import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
+import { parseValidatedInput } from "@/src/lib/validation";
 import { createSystemNotificationOnce, notifyPermissionHolders } from "@/src/features/notifications/service";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
 
@@ -18,9 +19,8 @@ import { assertRealizationAmountAvailable as assertRemainingAllocation } from ".
 import { BUDGET_PERIOD_STATUSES, INITIAL_BUDGET_GROUPS, REALIZATION_TRANSITIONS } from "./constants";
 import { addBudgetCategoryToPeriodSchema, addBudgetItemAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodFiltersSchema, correctRealizationSchema, createBudgetCategorySchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the budget details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the budget details and try again.");
 }
 
 function optionalValue(value?: string): string | null { return value?.trim() ? value.trim() : null; }
@@ -414,6 +414,7 @@ export async function addBudgetItemAttachment(input: unknown) {
   const values = parseInput(addBudgetItemAttachmentSchema.safeParse(input));
   const { item, group } = await getDraftBudgetItem(values.budgetItemId);
   assertBudgetItemAttachmentKey(item.id, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "attachment" });
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(budgetItemAttachment).values({ id, budgetItemId: item.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });
@@ -631,6 +632,7 @@ export async function addRealizationEvidence(input: unknown) {
   const values = parseInput(addRealizationEvidenceSchema.safeParse(input));
   const realization = await assertEditableRealization(values.realizationId, session.user.id);
   assertRealizationEvidenceKey(realization.id, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "attachment" });
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(realizationEvidence).values({ id, realizationId: realization.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });

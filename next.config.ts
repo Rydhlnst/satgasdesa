@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
   experimental: {
     cpus: 2,
     memoryBasedWorkersCount: true,
+    proxyClientMaxBodySize: "10mb",
   },
   async headers() {
     return [
@@ -30,7 +31,9 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          { key: "X-DNS-Prefetch-Control", value: "off" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=()" },
           { key: "Content-Security-Policy", value: "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://static.cloudflareinsights.com; connect-src 'self' https://maps.googleapis.com https://*.googleapis.com https://*.r2.cloudflarestorage.com https://cloudflareinsights.com; frame-src https://www.google.com https://maps.google.com;" },
         ],

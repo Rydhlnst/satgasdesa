@@ -10,13 +10,13 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { notifyPermissionHolders } from "@/src/features/notifications/service";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
+import { parseValidatedInput } from "@/src/lib/validation";
 
 import { DAILY_INFORMATION_TRANSITIONS, type DailyInformationStatus } from "./constants";
 import { addDailyInformationAttachmentSchema, addDailyInformationFollowUpSchema, createDailyInformationSchema, dailyInformationAttachmentDownloadSchema, dailyInformationAttachmentUploadSchema, dailyInformationFiltersSchema, dailyInformationIdSchema, transitionDailyInformationSchema } from "./schema";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the daily information details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the daily information details and try again.");
 }
 
 function optionalValue(value?: string): string | null {
@@ -151,6 +151,7 @@ export async function addDailyInformationAttachment(input: unknown) {
   if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(values.contentType)) {
     throw new Error("Unsupported attachment type.");
   }
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "attachment" });
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(dailyInformationAttachment).values({ id, dailyInformationId: item.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, createdBy: session.user.id, createdAt: now });

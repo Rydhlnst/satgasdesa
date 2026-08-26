@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import { getDb } from "@/src/db";
@@ -14,7 +14,6 @@ export async function getMobileSession(request: Request) {
 
   const session = await createAuth().api.getSession({ headers: request.headers });
   if (!session) return null;
-  setRequestSession(session);
 
   const [currentUser] = await getDb()
     .select({ status: user.status })
@@ -22,6 +21,7 @@ export async function getMobileSession(request: Request) {
     .where(eq(user.id, session.user.id))
     .limit(1);
   if (currentUser?.status !== "ACTIVE") return null;
+  setRequestSession(session);
 
   const permissions = await getUserPermissions(session.user.id);
   const [assignment] = await getDb()
@@ -29,6 +29,7 @@ export async function getMobileSession(request: Request) {
     .from(userRole)
     .innerJoin(role, eq(role.id, userRole.roleId))
     .where(eq(userRole.userId, session.user.id))
+    .orderBy(asc(role.name))
     .limit(1);
   return { ...session, permissions, role: assignment?.roleName ?? null };
 }
@@ -44,7 +45,11 @@ export async function withMobileSession<T>(request: Request, callback: () => Pro
 }
 
 export function apiErrorResponse(error: unknown) {
-  const message = error instanceof Error ? error.message : "Unable to load the requested data.";
+  const validationIssues = error instanceof ZodError ? error.issues.slice(0, 10) : [];
+  const validationMessage = validationIssues.length
+    ? validationIssues.map((issue) => `${issue.path.length ? `${issue.path.join(".")}: ` : ""}${issue.message}`).join(" ")
+    : undefined;
+  const message = validationMessage || (error instanceof Error ? error.message : "Unable to load the requested data.");
   const explicitStatus = typeof error === "object" && error && "status" in error && typeof error.status === "number" ? error.status : undefined;
   const inferredStatus = error instanceof ZodError || error instanceof SyntaxError
     ? 400
@@ -62,5 +67,9 @@ export function apiErrorResponse(error: unknown) {
   const candidateCode = typeof error === "object" && error && "code" in error && typeof error.code === "string" ? error.code : "";
   const code = /^[A-Z][A-Z0-9_]{1,63}$/.test(candidateCode) ? candidateCode : codeByStatus[status] ?? "REQUEST_FAILED";
   const safeMessages: Record<number, string> = { 400: "Invalid request data.", 401: "Your session is invalid or expired.", 403: "You do not have permission to perform this action.", 404: "The requested resource was not found.", 409: "The request conflicts with current data.", 422: "The request could not be processed.", 429: "Too many requests. Try again later.", 500: "Unable to process the request.", 503: "The service is temporarily unavailable." };
-  return Response.json({ error: code, message: safeMessages[status] ?? safeMessages[500] }, { status });
+  const response = { error: code, message: status === 400 && validationMessage ? validationMessage : safeMessages[status] ?? safeMessages[500] } as { error: string; message: string; fields?: Record<string, string> };
+  if (status === 400 && validationIssues.length) {
+    response.fields = Object.fromEntries(validationIssues.filter((issue) => issue.path.length).map((issue) => [issue.path.join("."), issue.message]));
+  }
+  return Response.json(response, { status });
 }

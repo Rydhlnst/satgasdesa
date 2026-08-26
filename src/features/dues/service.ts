@@ -14,12 +14,13 @@ import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { applyDuePayment, hasMatchingPaymentIdentity, reverseDuePayment as reverseDuePaymentState } from "./payment-rules";
 import { createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
+import { assertMonthlyPaymentDate } from "./config";
 import { getFinanceDefaults } from "../settings/service";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
+import { parseValidatedInput } from "@/src/lib/validation";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the dues details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the dues details and try again.");
 }
 
 function optionalValue(value?: string): string | null {
@@ -298,6 +299,7 @@ export async function recordDuePayment(input: unknown) {
   const session = await requirePermission(PERMISSIONS.PAYMENT_CREATE);
   const values = parseInput(recordDuePaymentSchema.safeParse(input));
   if (values.evidenceKey) assertDuePaymentEvidenceKey(values.idempotencyKey, values.evidenceKey);
+  if (values.evidenceKey) await getObjectStorage().verifyObject(values.evidenceKey);
   const database = getDb();
   const paymentId = values.idempotencyKey;
   const result = await database.transaction(async (tx) => {
@@ -318,6 +320,7 @@ export async function recordDuePayment(input: unknown) {
 
     const [current] = await tx.select().from(due).where(eq(due.id, values.dueId)).limit(1);
     if (!current) throw new Error("Due was not found.");
+    if (current.dueType === "MONTHLY") assertMonthlyPaymentDate(values.paymentDate);
     const { amountPaid, status } = applyDuePayment(current, values.amount);
     const cashTransactionId = crypto.randomUUID();
     const now = new Date();

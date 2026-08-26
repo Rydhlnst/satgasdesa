@@ -40,6 +40,8 @@ export default async function BlockEditPage({ params }: BlockEditPageProps) {
             locationPicName: item.locationPicName,
             fieldPicName: item.fieldPicName,
             contact: item.contact,
+            areaHectares: item.areaHectares,
+            priority: item.priority,
             workerCount: item.workerCount,
             operationalCondition: item.operationalCondition,
             startDate: item.startDate,

@@ -4,9 +4,15 @@ import { getActiveDateRange } from "../date-range";
 import type { Block, BlockDetails, DashboardResponse, FieldAssignmentItem, NotificationItem, Profile, Session } from "../types";
 
 const TOKEN_KEY = "satgas.mobile.session-token";
-const baseUrl = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const DEFAULT_API_URL = "https://satgas.beres.io";
+const REQUEST_TIMEOUT_MS = 15_000;
+const isProductionEasBuild = Boolean(process.env.EAS_BUILD && ["production-apk", "production"].includes(process.env.EAS_BUILD_PROFILE ?? ""));
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+const baseUrl = (isProductionEasBuild ? DEFAULT_API_URL : (configuredApiUrl || DEFAULT_API_URL)).replace(/\/+$/, "");
+const authOrigin = (isProductionEasBuild ? DEFAULT_API_URL : (process.env.EXPO_PUBLIC_AUTH_ORIGIN?.trim() || baseUrl)).replace(/\/+$/, "");
 
-type ErrorBody = { message?: string };
+type ErrorBody = { error?: string; message?: string; fields?: Record<string, string> };
+type AuthResponse = ErrorBody & { token?: string | null };
 
 async function readJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -21,8 +27,21 @@ function apiError(response: Response, body: ErrorBody | null): Error {
       ? "API route tidak ditemukan. Periksa deployment dan EXPO_PUBLIC_API_URL."
       : "Tidak dapat terhubung ke server.");
   const error = new Error(message);
-  Object.assign(error, { status: response.status });
+  Object.assign(error, { status: response.status, code: body?.error, fields: body?.fields });
   return error;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: init?.signal ?? controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("Koneksi ke API timeout. Periksa internet dan coba lagi.");
+    throw new Error("Tidak dapat terhubung ke API. Periksa internet dan alamat server.");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function getToken() { return SecureStore.getItemAsync(TOKEN_KEY); }
@@ -38,7 +57,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     url.searchParams.set("dateFrom", range.dateFrom);
     url.searchParams.set("dateTo", range.dateTo);
   }
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     ...init,
     headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
   });
@@ -105,7 +124,7 @@ export function addRealizationEvidence(input: unknown) { return workflow<{ id: s
 export function getRealizationEvidenceDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getRealizationEvidenceDownloadUrl", input); }
 export function createFundRequest(input: unknown) { return workflow<{ id: string; requestNumber: string }>("createFundRequest", input); }
 export function updateFundRequest(input: unknown) { return workflow<{ id: string; status: string }>("updateFundRequest", input); }
-export function transitionFundRequest(input: unknown) { return workflow<{ id: string; status: string }>("transitionFundRequest", input); }
+export function transitionFundRequest(input: unknown) { return workflow<{ id: string; status: string; approval?: { approvedCount: number; requiredCount: number; remainingCount: number; approvedUserIds: string[]; isComplete: boolean } }>("transitionFundRequest", input); }
 export function correctFundRequest(input: unknown) { return workflow<{ id: string; requestNumber: string; revisionOfId: string }>("correctFundRequest", input); }
 export function createFundRequestAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createFundRequestAttachmentUploadUrl", input); }
 export function addFundRequestAttachment(input: unknown) { return workflow<{ id: string }>("addFundRequestAttachment", input); }
@@ -135,9 +154,9 @@ export function updateFinanceCategory(input: unknown) { return workflow<{ id: st
 export function getDue(id: string) { return request<{ due: Record<string, unknown> }>(`/api/mobile/dues/${id}`); }
 
 export async function login(email: string, password: string) {
-  const response = await fetch(`${baseUrl}/api/auth/sign-in/email`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ email, password }) });
-  const token = response.headers.get("set-auth-token");
-  const body = await readJson(response) as ErrorBody | null;
+  const response = await fetchWithTimeout(`${baseUrl}/api/auth/sign-in/email`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", Origin: authOrigin }, body: JSON.stringify({ email, password }) });
+  const body = await readJson(response) as AuthResponse | null;
+  const token = response.headers.get("set-auth-token") || body?.token;
   if (!response.ok) throw apiError(response, body);
   if (!token) throw new Error(body?.message ?? "Server login tidak mengembalikan sesi yang valid.");
   await saveToken(token);
@@ -147,7 +166,7 @@ export async function login(email: string, password: string) {
 export type ApiHealth = { status: "ok" | "unavailable"; automation?: { enabled: boolean; configured: boolean } };
 
 export async function getApiHealth(): Promise<ApiHealth> {
-  const response = await fetch(`${baseUrl}/api/health`, { headers: { Accept: "application/json" } });
+  const response = await fetchWithTimeout(`${baseUrl}/api/health`, { headers: { Accept: "application/json" } });
   const body = await readJson(response);
   if (!response.ok) throw apiError(response, body as ErrorBody | null);
   if (!body || typeof body !== "object" || !("status" in body)) throw new Error("Health endpoint mengembalikan respons tidak valid.");
@@ -214,6 +233,9 @@ export function updateAdminUser(id: string, input: { status?: string; roleId?: s
 export function getSystemSettings() { return request<{ settings: Record<string, unknown> }>("/api/mobile/admin/settings"); }
 export function updateSystemSettings(input: Record<string, unknown>) { return request<{ settings: Record<string, unknown> }>("/api/mobile/admin/settings", { method: "PATCH", body: JSON.stringify(input) }); }
 export function apiBaseUrl() { return baseUrl; }
+export function apiHost() {
+  try { return new URL(baseUrl).host; } catch { return baseUrl; }
+}
 export function getInspections(filters?: Record<string, string>) { return request<{ inspections: Array<Record<string, unknown>> }>(`/api/mobile/inspections${queryString(filters)}`); }
 export function getTransactions() { return request<{ transactions: Array<Record<string, unknown>>; pagination?: Record<string, unknown> }>("/api/mobile/transactions"); }
 export function getTransactionsFiltered(filters: Record<string, string>) { return request<{ transactions: Array<Record<string, unknown>>; pagination?: Record<string, unknown> }>(`/api/mobile/transactions${queryString(filters)}`); }

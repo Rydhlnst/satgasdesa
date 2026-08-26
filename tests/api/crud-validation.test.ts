@@ -38,4 +38,30 @@ describe("CRUD server-side validation", () => {
     expect(createBudgetCategorySchema.safeParse({ name: " ", sortOrder: -1 }).success).toBe(false);
     expect(updateMyProfileSchema.safeParse({ name: "A", phone: "1" }).success).toBe(false);
   });
+
+  it("accepts a complete block record with blank optional fields", () => {
+    const result = blockFormSchema.safeParse({
+      code: "BLK-001",
+      name: "Blok Utara",
+      status: "NOT_OPERATING",
+      latitude: "-6.2",
+      longitude: "106.8166667",
+      areaHectares: "",
+      workerCount: "",
+      operationalCondition: "Belum beroperasi",
+      startDate: "",
+      notes: "",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.workerCount).toBe(0);
+  });
+
+  it("rejects invalid block location and operational condition values", () => {
+    const base = { code: "BLK-001", name: "Blok Utara", status: "ACTIVE", latitude: "-6.2", longitude: "106.8", workerCount: "0", operationalCondition: "Normal" };
+    expect(blockFormSchema.safeParse({ ...base, latitude: "" }).success).toBe(false);
+    expect(blockFormSchema.safeParse({ ...base, longitude: "181" }).success).toBe(false);
+    expect(blockFormSchema.safeParse({ ...base, operationalCondition: "   " }).success).toBe(false);
+    expect(blockFormSchema.safeParse({ ...base, startDate: "2026/01/01" }).success).toBe(false);
+  });
 });

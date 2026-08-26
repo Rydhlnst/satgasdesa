@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { DAILY_INFORMATION_CATEGORIES, DAILY_INFORMATION_PRIORITIES, DAILY_INFORMATION_STATUSES } from "./constants";
-import { dateRangeFields, validateDateRange } from "@/src/lib/date-range";
+import { calendarDate, dateRangeFields, validateDateRange } from "@/src/lib/date-range";
 
 const uuid = z.string().uuid("Invalid ID.");
 const locationSchema = z.object({
@@ -18,7 +18,7 @@ export const dailyInformationFiltersSchema = z.object({
   category: z.enum(DAILY_INFORMATION_CATEGORIES).optional(),
   priority: z.enum(DAILY_INFORMATION_PRIORITIES).optional(),
   status: z.enum(DAILY_INFORMATION_STATUSES).optional(),
-  reportedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD.").optional(),
+  reportedDate: calendarDate("Date must use YYYY-MM-DD.", "Invalid date.").optional(),
   mine: z.coerce.boolean().default(false),
   ...dateRangeFields,
   page: z.coerce.number().int().min(1).default(1),

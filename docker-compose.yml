@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:8.4
-    restart: unless-stopped
+    restart: on-failure:5
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: unless-stopped
+    restart: on-failure:5
     init: true
     depends_on:
       mysql:
@@ -51,7 +51,7 @@ services:
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
       ROAD_ENTRY_DUE_AUTOMATION_ENABLED: ${ROAD_ENTRY_DUE_AUTOMATION_ENABLED:-false}
       DAILY_AUTOMATION_ENABLED: ${DAILY_AUTOMATION_ENABLED:-false}
-      MONTHLY_DUE_DAY: ${MONTHLY_DUE_DAY:-7}
+      MONTHLY_DUE_DAY: ${MONTHLY_DUE_DAY:-10}
       AUTOMATION_ACTOR_USER_ID: ${AUTOMATION_ACTOR_USER_ID:-}
       CRON_SECRET: ${CRON_SECRET:-}
       PUSH_NOTIFICATIONS_ENABLED: ${PUSH_NOTIFICATIONS_ENABLED:-false}

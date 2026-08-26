@@ -32,6 +32,11 @@ if (!new Set(["disabled", "r2", "filesystem", "cpanel"]).has(process.env.STORAGE
   process.exit(1);
 }
 
+if (process.env.NODE_ENV === "production" && process.env.STORAGE_PROVIDER === "disabled") {
+  console.error("STORAGE_PROVIDER must be r2, filesystem, or cpanel in production so image and evidence uploads are available.");
+  process.exit(1);
+}
+
 if (!new Set(["true", "false"]).has(process.env.PUSH_NOTIFICATIONS_ENABLED ?? "false")) {
   console.error("PUSH_NOTIFICATIONS_ENABLED must be true or false.");
   process.exit(1);

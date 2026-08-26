@@ -1,0 +1,22 @@
+appId: id.satgas.desasejoli
+name: Login form validation only
+tags:
+  - validation
+  - read-only
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn:
+    point: "50%, 68%"
+- assertVisible: "Masukkan email yang valid."
+- assertVisible: "Masukkan kata sandi."
+- tapOn: "Kata sandi"
+- inputText: "temporary-invalid-password"
+- tapOn: "Show password"
+- assertVisible: "Hide password"
+- tapOn: "Hide password"
+- assertVisible: "Show password"
+- takeScreenshot: login-validation-only

@@ -1,0 +1,51 @@
+appId: id.satgas.desasejoli
+name: Pimpinan read-only journey
+tags:
+  - role-pimpinan
+env:
+  PIMPINAN_EMAIL: ${PIMPINAN_EMAIL}
+  PIMPINAN_PASSWORD: ${PIMPINAN_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn: "nama@contoh.id"
+- inputText: ${PIMPINAN_EMAIL}
+- tapOn: "Kata sandi"
+- inputText: ${PIMPINAN_PASSWORD}
+- tapOn:
+    point: "50%, 68%"
+- extendedWaitUntil:
+    visible: "Dashboard Utama"
+    timeout: 15000
+- assertVisible: "MONITORING BLOK"
+- tapOn: "Monitoring Blok"
+- extendedWaitUntil:
+    visible: "MONITORING BLOK"
+    timeout: 10000
+- assertVisible: "Daftar Blok"
+- assertVisible: "Peta"
+- assertVisible: "Pemeriksaan"
+- tapOn: "Peta"
+- extendedWaitUntil:
+    visible: "MAP"
+    timeout: 10000
+- tapOn: "Laporan"
+- extendedWaitUntil:
+    visible: "LAPORAN"
+    timeout: 10000
+- tapOn: "Open notifications"
+- extendedWaitUntil:
+    visible: "NOTIFICATIONS"
+    timeout: 10000
+- tapOn: "Open profile"
+- extendedWaitUntil:
+    visible: "PROFILE"
+    timeout: 10000
+- assertVisible: "Administration"
+- assertVisible: "Password and sessions"
+- takeScreenshot: pimpinan-readonly
+- tapOn: "Sign out"
+- assertVisible: "Masuk"

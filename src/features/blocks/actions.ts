@@ -18,6 +18,7 @@ import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateImageUpload } from "@/src/lib/storage";
+import { parseValidatedInput } from "@/src/lib/validation";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 
 import { addBlockPhotoSchema, blockArchiveSchema, blockFormSchema, blockIdSchema, blockPhotoDownloadSchema, blockPhotoUploadSchema, type BlockFormValues } from "./schema";
@@ -29,8 +30,7 @@ function readString(formData: FormData, key: string): string {
 
 function parseBlockForm(formData: FormData): BlockFormValues {
   const parsed = blockFormSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) throw new Error("Please check the block details and try again.");
-  return parsed.data;
+  return parseValidatedInput(parsed, "Please check the block details and try again.");
 }
 
 function optionalValue(value: string): string | null {
@@ -160,6 +160,7 @@ export async function addBlockPhoto(input: unknown) {
   const values = addBlockPhotoSchema.parse(input);
   await requireAssignedBlockAccess(values.blockId);
   assertBlockPhotoKey(values.blockId, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "photo" });
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(blockPhoto).values({ id, blockId: values.blockId, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption ?? ""), createdBy: session.user.id, createdAt: now });
@@ -201,8 +202,7 @@ export async function createBlock(formData: FormData) {
 export async function createBlockRecord(input: unknown) {
   const session = await requirePermission(PERMISSIONS.BLOCK_CREATE);
   const parsed = blockFormSchema.safeParse(input);
-  if (!parsed.success) throw new Error("Please check the block details and try again.");
-  const values = parsed.data;
+  const values = parseValidatedInput(parsed, "Please check the block details and try again.");
   const [duplicate] = await getDb().select({ id: block.id }).from(block).where(eq(block.code, values.code)).limit(1);
   if (duplicate) throw new Error("A block with this code already exists.");
   const id = crypto.randomUUID(); const now = new Date();
@@ -217,8 +217,7 @@ export async function createBlockRecord(input: unknown) {
 export async function updateBlockRecord(input: unknown) {
   const session = await requirePermission(PERMISSIONS.BLOCK_UPDATE);
   const parsed = blockFormSchema.extend({ id: blockIdSchema }).safeParse(input);
-  if (!parsed.success) throw new Error("Please check the block details.");
-  const { id, ...values } = parsed.data;
+  const { id, ...values } = parseValidatedInput(parsed, "Please check the block details.");
   const [existing] = await getDb().select().from(block).where(eq(block.id, id)).limit(1);
   if (!existing) throw new Error("Block was not found.");
   const [duplicate] = await getDb().select({ id: block.id }).from(block).where(and(eq(block.code, values.code), ne(block.id, id))).limit(1);

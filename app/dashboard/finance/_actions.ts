@@ -9,7 +9,7 @@ import {
   getTransactionEvidenceDownloadUrl,
   getTransactionEvidence,
 } from "@/src/features/evidence/service";
-import { approveFinancialTransaction, createFinancialTransaction, reverseFinancialTransaction } from "@/src/features/finance/service";
+import { approveFinancialTransaction, createFinancialTransaction, importFinancialTransactions, reverseFinancialTransaction } from "@/src/features/finance/service";
 import { getActionErrorMessage } from "@/components/shared/action-form";
 
 function value(formData: FormData, key: string): string { const item = formData.get(key); return typeof item === "string" ? item.trim() : ""; }
@@ -35,6 +35,20 @@ export async function createFinancialTransactionAction(formData: FormData) {
   revalidatePath("/dashboard/finance");
   revalidatePath("/dashboard/finance/transactions");
   redirect(`/dashboard/finance/transactions/${result.id}`);
+}
+
+export async function importFinancialTransactionsAction(formData: FormData) {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) redirect(`/dashboard/finance/transactions?actionError=${encodeURIComponent("Select a CSV file to import.")}`);
+  try {
+    await importFinancialTransactions(await file.text());
+  } catch (error) {
+    redirect(`/dashboard/finance/transactions?actionError=${encodeURIComponent(getActionErrorMessage(error))}`);
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/finance");
+  revalidatePath("/dashboard/finance/transactions");
+  redirect("/dashboard/finance/transactions");
 }
 
 export async function approveFinancialTransactionAction(formData: FormData) {

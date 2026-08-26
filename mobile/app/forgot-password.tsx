@@ -2,7 +2,9 @@ import { Link } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { forgotPasswordSchema } from "../src/form-schemas";
 import { requestPasswordReset } from "../src/lib/api";
+import { showActionError } from "../src/lib/feedback";
 import { colors, spacing } from "../src/theme";
 
 export default function ForgotPassword() {
@@ -11,10 +13,12 @@ export default function ForgotPassword() {
   const [message, setMessage] = useState<string | null>(null);
 
   async function submit() {
-    if (!/^\S+@\S+\.\S+$/.test(email)) { setMessage("Enter a valid email address."); return; }
+    const normalizedEmail = email.trim();
+    const parsed = forgotPasswordSchema.safeParse({ email: normalizedEmail });
+    if (!parsed.success) { setMessage(parsed.error.issues[0]?.message ?? "Masukkan email yang valid, misalnya nama@contoh.id."); return; }
     setLoading(true); setMessage(null);
-    try { await requestPasswordReset(email.trim()); setMessage("If the account exists, a reset link has been sent."); }
-    catch { setMessage("Unable to request a reset link. Try again shortly."); }
+    try { await requestPasswordReset(normalizedEmail); setMessage("Jika akun tersedia, tautan reset sudah dikirim."); }
+    catch (error) { const message = "Tautan reset tidak dapat diminta. Periksa koneksi lalu coba lagi."; setMessage(message); showActionError(error, message); }
     finally { setLoading(false); }
   }
 

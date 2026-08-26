@@ -9,11 +9,16 @@ import { addDailyInformationAttachment, addDailyInformationFollowUp, createDaily
 import { assignWorkerToBlock, createFieldTask, createFieldWorker, endWorkerBlockAssignment, updateFieldTask, updateFieldWorker } from "@/src/features/field-work/service";
 import { addFundRequestAttachment, correctFundRequest, createFundRequest, createFundRequestAttachmentUploadUrl, getFundRequestAttachmentDownloadUrl, transitionFundRequest, updateFundRequest } from "@/src/features/fund-requests/service";
 import { apiErrorResponse, withMobileSession } from "@/src/lib/mobile-api";
+import { getRequestSession } from "@/src/lib/auth/request-context";
+import { hasPermission } from "@/src/lib/permissions/authorize";
+import { type Permission } from "@/src/lib/permissions/constants";
+import { workflowPermissions } from "@/src/lib/mobile-workflow-policy";
+import { checkRateLimit, rateLimitedResponse, requestAddress } from "@/src/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
-const actions: Record<string, (input: unknown) => Promise<unknown>> = {
+const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
   createBlock: createBlockRecord,
   updateBlock: updateBlockRecord,
   archiveBlock: archiveBlockRecord,
@@ -92,6 +97,20 @@ const actions: Record<string, (input: unknown) => Promise<unknown>> = {
   addFundRequestAttachment,
   getFundRequestAttachmentDownloadUrl,
 };
+
+type WorkflowAction = {
+  handler: (input: unknown) => Promise<unknown>;
+  inputSchema: z.ZodType;
+  requiredPermission: Permission;
+  operation: "command" | "media";
+};
+
+const workflowInputSchema = z.record(z.string(), z.unknown());
+const actions: Record<string, WorkflowAction> = Object.fromEntries(Object.entries(handlers).map(([name, handler]) => {
+  const requiredPermission = workflowPermissions[name];
+  if (!requiredPermission) throw new Error(`Missing workflow permission metadata for ${name}.`);
+  return [name, { handler, inputSchema: workflowInputSchema, requiredPermission, operation: name.includes("UploadUrl") || name.includes("DownloadUrl") ? "media" : "command" }];
+}));
 const workflowRequestSchema = z.object({ action: z.string().trim().min(1).max(100), input: z.unknown().optional() });
 
 function normalizeMediaUrls(value: unknown, requestUrl: string): unknown {
@@ -106,10 +125,17 @@ function normalizeMediaUrls(value: unknown, requestUrl: string): unknown {
 export async function POST(request: Request) {
   return withMobileSession(request, async () => {
     try {
+      const session = getRequestSession();
+      const rate = checkRateLimit(`workflow:${session?.user.id ?? requestAddress(request)}`, 120, 60_000);
+      if (!rate.allowed) return rateLimitedResponse(rate.retryAfterSeconds);
       const body = workflowRequestSchema.parse(await request.json());
-      const handler = Object.prototype.hasOwnProperty.call(actions, body.action) ? actions[body.action] : undefined;
-      if (!handler) return Response.json({ error: "VALIDATION_FAILED", message: "Unsupported workflow action." }, { status: 400 });
-      return Response.json({ data: normalizeMediaUrls(await handler(body.input), request.url) });
+      const action = Object.prototype.hasOwnProperty.call(actions, body.action) ? actions[body.action] : undefined;
+      if (!action) return Response.json({ error: "VALIDATION_FAILED", message: "Unsupported workflow action." }, { status: 400 });
+      if (!session || !(await hasPermission(session.user.id, action.requiredPermission))) {
+        return Response.json({ error: "FORBIDDEN", message: "You do not have permission to perform this action." }, { status: 403 });
+      }
+      const input = action.inputSchema.parse(body.input ?? {});
+      return Response.json({ data: normalizeMediaUrls(await action.handler(input), request.url) });
     } catch (error) { return apiErrorResponse(error); }
   });
 }

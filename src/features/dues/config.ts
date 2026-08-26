@@ -5,11 +5,20 @@ export const DUE_AMOUNTS_RUPIAH = {
 
 export const PAYMENT_METHODS = ["CASH", "BANK_TRANSFER", "QRIS", "OTHER"] as const;
 
+export const MONTHLY_PAYMENT_WINDOW = { startDay: 1, endDay: 10 } as const;
+
+export function assertMonthlyPaymentDate(paymentDate: string): void {
+  const day = Number(paymentDate.slice(-2));
+  if (!Number.isInteger(day) || day < MONTHLY_PAYMENT_WINDOW.startDay || day > MONTHLY_PAYMENT_WINDOW.endDay) {
+    throw new Error("Monthly payments can only be recorded from day 1 through day 10 of the month.");
+  }
+}
+
 export function isRoadEntryDueAutomationEnabled(): boolean {
   return process.env.ROAD_ENTRY_DUE_AUTOMATION_ENABLED === "true";
 }
 
 export function getMonthlyDueDay(): number {
-  const configured = Number.parseInt(process.env.MONTHLY_DUE_DAY ?? "7", 10);
-  return Number.isInteger(configured) && configured >= 1 && configured <= 31 ? configured : 7;
+  const configured = Number.parseInt(process.env.MONTHLY_DUE_DAY ?? "10", 10);
+  return Number.isInteger(configured) && configured >= MONTHLY_PAYMENT_WINDOW.startDay && configured <= MONTHLY_PAYMENT_WINDOW.endDay ? configured : MONTHLY_PAYMENT_WINDOW.endDay;
 }

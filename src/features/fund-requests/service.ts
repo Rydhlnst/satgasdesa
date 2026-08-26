@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, like, lte, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, like, lte, ne, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb } from "@/src/db";
@@ -6,18 +6,20 @@ import { auditLog } from "@/src/db/schema/audit";
 import { block } from "@/src/db/schema/blocks";
 import { budgetCategory, budgetPeriod, budgetSubcategory } from "@/src/db/schema/budgets";
 import { fundRequest, fundRequestAttachment, fundRequestEvent } from "@/src/db/schema/fund-requests";
+import { permission, rolePermission, userRole } from "@/src/db/schema/rbac";
+import { user } from "@/src/db/schema/auth";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
+import { parseValidatedInput } from "@/src/lib/validation";
 import { createSystemNotificationOnce, notifyPermissionHolders } from "@/src/features/notifications/service";
 
-import { assertFundRequestActor, assertFundRequestTransition, permissionForFundRequestTransition } from "./policy";
+import { assertFundRequestActor, assertFundRequestTransition, decideFundRequestApproval, permissionForFundRequestTransition } from "./policy";
 import { addFundRequestAttachmentSchema, correctFundRequestSchema, createFundRequestSchema, fundRequestAttachmentDownloadSchema, fundRequestAttachmentUploadSchema, fundRequestFiltersSchema, transitionFundRequestSchema, updateFundRequestSchema } from "./schema";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the fund request details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the fund request details and try again.");
 }
 
 function optionalValue(value?: string): string | null { return value?.trim() ? value.trim() : null; }
@@ -32,6 +34,27 @@ async function getFundRequestOrThrow(id: string) {
   const [request] = await getDb().select().from(fundRequest).where(eq(fundRequest.id, id)).limit(1);
   if (!request) throw new Error("Fund request was not found.");
   return request;
+}
+
+type ApprovalQueryDatabase = Pick<ReturnType<typeof getDb>, "select">;
+
+async function getFundRequestApprovalProgress(database: ApprovalQueryDatabase, request: { id: string; createdBy: string; status: string }) {
+  const [approverRows, approvalRows] = await Promise.all([
+    database.select({ userId: user.id }).from(user).innerJoin(userRole, eq(userRole.userId, user.id)).innerJoin(rolePermission, eq(rolePermission.roleId, userRole.roleId)).innerJoin(permission, eq(permission.id, rolePermission.permissionId)).where(and(eq(user.status, "ACTIVE"), eq(permission.name, PERMISSIONS.FUND_REQUEST_APPROVE), ne(user.id, request.createdBy))),
+    database.select({ actorUserId: fundRequestEvent.actorUserId }).from(fundRequestEvent).where(and(eq(fundRequestEvent.fundRequestId, request.id), inArray(fundRequestEvent.action, ["APPROVAL_RECORDED", "APPROVED"]))),
+  ]);
+  const requiredApproverIds = [...new Set(approverRows.map((row) => row.userId))];
+  const approvedSet = new Set(approvalRows.map((row) => row.actorUserId));
+  const approvedUserIds = requiredApproverIds.filter((id) => approvedSet.has(id));
+  const isComplete = request.status === "APPROVED";
+  return {
+    eligibleApproverIds: requiredApproverIds,
+    requiredCount: requiredApproverIds.length,
+    approvedCount: isComplete ? requiredApproverIds.length : approvedUserIds.length,
+    remainingCount: isComplete ? 0 : Math.max(requiredApproverIds.length - approvedUserIds.length, 0),
+    approvedUserIds,
+    isComplete,
+  };
 }
 
 async function assertEditableRequest(id: string, actorUserId: string) {
@@ -90,14 +113,17 @@ export async function getFundRequests(input?: unknown) {
 export async function getFundRequestDetail(id: string) {
   await requirePermission(PERMISSIONS.FUND_REQUEST_READ);
   const validId = z.string().uuid("Invalid fund request ID.").parse(id);
-  const [item] = await getDb().select({ request: fundRequest, period: budgetPeriod, category: budgetCategory, subcategory: budgetSubcategory, block }).from(fundRequest).innerJoin(budgetPeriod, eq(budgetPeriod.id, fundRequest.budgetPeriodId)).innerJoin(budgetCategory, eq(budgetCategory.id, fundRequest.budgetCategoryId)).leftJoin(budgetSubcategory, eq(budgetSubcategory.id, fundRequest.budgetSubcategoryId)).leftJoin(block, eq(block.id, fundRequest.blockId)).where(eq(fundRequest.id, validId)).limit(1);
+  const database = getDb();
+  const [item] = await database.select({ request: fundRequest, period: budgetPeriod, category: budgetCategory, subcategory: budgetSubcategory, block }).from(fundRequest).innerJoin(budgetPeriod, eq(budgetPeriod.id, fundRequest.budgetPeriodId)).innerJoin(budgetCategory, eq(budgetCategory.id, fundRequest.budgetCategoryId)).leftJoin(budgetSubcategory, eq(budgetSubcategory.id, fundRequest.budgetSubcategoryId)).leftJoin(block, eq(block.id, fundRequest.blockId)).where(eq(fundRequest.id, validId)).limit(1);
   if (!item) throw new Error("Fund request was not found.");
   const [attachments, events, corrections] = await Promise.all([
-    getDb().select().from(fundRequestAttachment).where(eq(fundRequestAttachment.fundRequestId, validId)).orderBy(desc(fundRequestAttachment.createdAt)),
-    getDb().select().from(fundRequestEvent).where(eq(fundRequestEvent.fundRequestId, validId)).orderBy(desc(fundRequestEvent.createdAt)),
-    getDb().select({ id: fundRequest.id, requestNumber: fundRequest.requestNumber, status: fundRequest.status, amount: fundRequest.amount, createdAt: fundRequest.createdAt }).from(fundRequest).where(eq(fundRequest.revisionOfId, validId)).orderBy(desc(fundRequest.createdAt)),
+    database.select().from(fundRequestAttachment).where(eq(fundRequestAttachment.fundRequestId, validId)).orderBy(desc(fundRequestAttachment.createdAt)),
+    database.select().from(fundRequestEvent).where(eq(fundRequestEvent.fundRequestId, validId)).orderBy(desc(fundRequestEvent.createdAt)),
+    database.select({ id: fundRequest.id, requestNumber: fundRequest.requestNumber, status: fundRequest.status, amount: fundRequest.amount, createdAt: fundRequest.createdAt }).from(fundRequest).where(eq(fundRequest.revisionOfId, validId)).orderBy(desc(fundRequest.createdAt)),
   ]);
-  return { ...item, attachments, events, corrections };
+  const progress = await getFundRequestApprovalProgress(database, item.request);
+  const approval = { requiredCount: progress.requiredCount, approvedCount: progress.approvedCount, remainingCount: progress.remainingCount, approvedUserIds: progress.approvedUserIds, isComplete: progress.isComplete };
+  return { ...item, attachments, events, corrections, approval };
 }
 
 export async function createFundRequest(input: unknown) {
@@ -135,6 +161,28 @@ export async function transitionFundRequest(input: unknown) {
   const requiredPermission = permissionForFundRequestTransition(current.status, values.status);
   const session = await requirePermission(requiredPermission);
   assertFundRequestActor(current.createdBy, session.user.id, values.status);
+
+  if (values.status === "APPROVED") {
+    const result = await getDb().transaction(async (tx) => {
+      const [locked] = await tx.select().from(fundRequest).where(eq(fundRequest.id, current.id)).for("update").limit(1);
+      if (!locked) throw new Error("Fund request was not found.");
+      assertFundRequestTransition(locked.status, values.status);
+      assertFundRequestActor(locked.createdBy, session.user.id, values.status);
+      const progress = await getFundRequestApprovalProgress(tx, locked);
+      const decision = decideFundRequestApproval(progress.eligibleApproverIds, progress.approvedUserIds, session.user.id);
+      const now = new Date();
+      if (decision.isFinalApproval) {
+        const [updateResult] = await tx.update(fundRequest).set({ status: "APPROVED", approvedAt: now, approvedBy: session.user.id, updatedAt: now }).where(and(eq(fundRequest.id, locked.id), eq(fundRequest.status, locked.status)));
+        if (updateResult.affectedRows !== 1) throw new Error("This fund request was changed by another user. Refresh and try again.");
+      }
+      await tx.insert(fundRequestEvent).values({ id: crypto.randomUUID(), fundRequestId: locked.id, action: decision.isFinalApproval ? "APPROVED" : "APPROVAL_RECORDED", notes: optionalValue(values.notes), actorUserId: session.user.id, createdAt: now });
+      await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.APPROVE, entityType: "FUND_REQUEST", entityId: locked.id, oldValues: { status: locked.status, approvedCount: progress.approvedCount, requiredCount: progress.requiredCount }, newValues: { status: decision.isFinalApproval ? "APPROVED" : locked.status, approvedCount: decision.approvedCount, requiredCount: decision.requiredCount, notes: optionalValue(values.notes) } }));
+      return { status: decision.isFinalApproval ? "APPROVED" : locked.status, approval: { ...progress, approvedCount: decision.approvedCount, remainingCount: Math.max(decision.requiredCount - decision.approvedCount, 0), approvedUserIds: [...progress.approvedUserIds, session.user.id], isComplete: decision.isFinalApproval } };
+    });
+    if (result.status === "APPROVED") await createSystemNotificationOnce({ recipientUserId: current.createdBy, ruleKey: "FUND_REQUEST_APPROVED", targetKey: current.id, type: "FUND_REQUEST_APPROVED", title: "Fund request approved", body: `${current.requestNumber} was approved by all required Pimpinan/Admin approvers.`, relatedEntityType: "FUND_REQUEST", relatedEntityId: current.id });
+    return { id: current.id, status: result.status, approval: result.approval };
+  }
+
   const now = new Date();
   await getDb().transaction(async (tx) => {
     const [result] = await tx.update(fundRequest).set({ status: values.status, cancellationReason: values.status === "CANCELLED" ? optionalValue(values.notes) : current.cancellationReason, submittedAt: values.status === "SUBMITTED" ? now : current.submittedAt, verifiedAt: values.status === "VERIFIED" ? now : current.verifiedAt, approvedAt: values.status === "APPROVED" ? now : current.approvedAt, verifiedBy: values.status === "VERIFIED" ? session.user.id : current.verifiedBy, approvedBy: values.status === "APPROVED" ? session.user.id : current.approvedBy, updatedAt: now }).where(and(eq(fundRequest.id, current.id), eq(fundRequest.status, current.status)));
@@ -181,6 +229,7 @@ export async function addFundRequestAttachment(input: unknown) {
   const values = parseInput(addFundRequestAttachmentSchema.safeParse(input));
   const request = await assertEditableRequest(values.fundRequestId, session.user.id);
   assertAttachmentKey(request.id, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "attachment" });
   const id = crypto.randomUUID(); const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.insert(fundRequestAttachment).values({ id, fundRequestId: request.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });

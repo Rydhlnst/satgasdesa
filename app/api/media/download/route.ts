@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { readLocalStorageObject, verifyMediaToken } from "@/src/lib/storage";
+import { checkRateLimit, rateLimitedResponse, requestAddress } from "@/src/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,8 @@ function contentTypeFor(key: string): string {
 }
 
 export async function GET(request: Request) {
+  const rate = checkRateLimit(`media-download:${requestAddress(request)}`, 120, 60_000);
+  if (!rate.allowed) return rateLimitedResponse(rate.retryAfterSeconds);
   const url = new URL(request.url);
   const key = url.searchParams.get("key") ?? "";
   const expiresAt = Number(url.searchParams.get("expires"));

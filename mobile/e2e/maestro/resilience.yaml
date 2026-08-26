@@ -1,0 +1,28 @@
+appId: id.satgas.desasejoli
+name: Read-only resilience states
+tags:
+  - resilience
+env:
+  TEST_EMAIL: ${TEST_EMAIL}
+  TEST_PASSWORD: ${TEST_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn: "nama@contoh.id"
+- inputText: ${TEST_EMAIL}
+- tapOn: "Kata sandi"
+- inputText: ${TEST_PASSWORD}
+- tapOn:
+    point: "50%, 68%"
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 15000
+- pressKey: HOME
+- launchApp
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 10000
+- takeScreenshot: relaunch-after-login

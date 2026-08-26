@@ -1,0 +1,16 @@
+appId: id.satgas.desasejoli
+name: Invalid email validation
+tags:
+  - validation
+  - read-only
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn: "nama@contoh.id"
+- inputText: "invalid-email"
+- tapOn:
+    point: "50%, 68%"
+- assertVisible: "Masukkan email yang valid."

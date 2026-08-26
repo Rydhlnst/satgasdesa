@@ -54,6 +54,11 @@ export async function addTransactionEvidence(input: unknown) {
   const [transaction] = await database.select({ id: financialTransaction.id, status: financialTransaction.status }).from(financialTransaction).where(eq(financialTransaction.id, value.transactionId)).limit(1);
   if (!transaction) throw new Error("Financial transaction was not found.");
   if (transaction.status !== "DRAFT") throw new Error("Evidence can only be added to draft financial transactions.");
+  await getObjectStorage().verifyObject(value.storageKey, {
+    contentType: value.contentType,
+    size: value.sizeBytes,
+    originalName: value.storageKey.split("/").at(-1) ?? "evidence",
+  });
   const id = crypto.randomUUID();
   await database.transaction(async (tx) => {
     await tx.insert(transactionEvidence).values({ id, transactionId: value.transactionId, storageKey: value.storageKey, contentType: value.contentType, sizeBytes: value.sizeBytes, createdBy: session.user.id, createdAt: new Date() });
@@ -100,6 +105,11 @@ export async function addRealizationEvidence(input: unknown) {
   const [realization] = await getDb().select({ id: realizationRequest.id, status: realizationRequest.status }).from(realizationRequest).where(eq(realizationRequest.id, value.realizationId)).limit(1);
   if (!realization) throw new Error("Realization was not found.");
   if (["SAH", "REJECTED"].includes(realization.status)) throw new Error("Evidence cannot be added for this realization status.");
+  await getObjectStorage().verifyObject(value.storageKey, {
+    contentType: value.contentType,
+    size: value.sizeBytes,
+    originalName: value.storageKey.split("/").at(-1) ?? "evidence",
+  });
   const id = crypto.randomUUID();
   await getDb().transaction(async (tx) => {
     await tx.insert(realizationEvidence).values({ id, realizationId: value.realizationId, storageKey: value.storageKey, contentType: value.contentType, sizeBytes: value.sizeBytes, createdBy: session.user.id, createdAt: new Date() });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { BUDGET_PERIOD_STATUSES } from "./constants";
-import { dateRangeFields, validateDateRange } from "@/src/lib/date-range";
+import { calendarDate, dateRangeFields, validateDateRange } from "@/src/lib/date-range";
 
 const uuid = z.string().uuid("Invalid ID.");
 const money = z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
@@ -38,7 +38,7 @@ export const addBudgetItemAttachmentSchema = z.object({ budgetItemId: budgetItem
 export const budgetItemAttachmentDownloadSchema = z.object({ budgetItemId: budgetItemIdSchema, attachmentId: uuid });
 export const approveBudgetPeriodSchema = z.object({ id: uuid, approvalNotes: z.string().trim().max(5000).optional() });
 export const verifyBudgetPeriodSchema = z.object({ id: budgetPeriodIdSchema, notes: z.string().trim().max(5000).optional() });
-const realizationFields = z.object({ budgetItemId: uuid, fundRequestId: uuid.optional(), activity: z.string().trim().min(1).max(255), realizationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD."), requestedAmount: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER), description: z.string().trim().min(1).max(10000), receiptNumber: z.string().trim().max(100).optional(), evidenceKey: z.string().trim().max(255).optional() });
+const realizationFields = z.object({ budgetItemId: uuid, fundRequestId: uuid.optional(), activity: z.string().trim().min(1).max(255), realizationDate: calendarDate("Use YYYY-MM-DD.", "Invalid date."), requestedAmount: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER), description: z.string().trim().min(1).max(10000), receiptNumber: z.string().trim().max(100).optional(), evidenceKey: z.string().trim().max(255).optional() });
 export const createRealizationSchema = realizationFields;
 export const updateRealizationSchema = realizationFields.extend({ id: uuid });
 export const realizationFiltersSchema = z.object({

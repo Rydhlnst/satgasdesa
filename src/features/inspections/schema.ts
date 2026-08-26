@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { calendarDate } from "@/src/lib/date-range";
+
 const uuid = z.string().uuid("Invalid ID.");
 export const MAX_INSPECTION_PHOTOS = 3;
 export const MAX_INSPECTION_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -16,7 +18,7 @@ export const inspectionUploadSchema = z.object({
 export const inspectionPhotoInputSchema = z.object({
   storageKey: z.string().trim().min(1).max(255),
   contentType: z.string().trim().min(1).max(100),
-  size: z.coerce.number().int().positive(),
+  size: z.coerce.number().int().positive().max(MAX_INSPECTION_PHOTO_BYTES),
   originalName: z.string().trim().min(1).max(255).optional(),
   capturedAt: z.coerce.date().optional(),
 });
@@ -50,8 +52,8 @@ export const inspectionFiltersSchema = z.object({
   status: z.enum(INSPECTION_STATUSES).optional(),
   mine: z.coerce.boolean().default(false),
   query: z.string().trim().max(100).optional(),
-  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateFrom: calendarDate().optional(),
+  dateTo: calendarDate().optional(),
 }).superRefine((value, context) => {
   if (value.dateFrom && value.dateTo && value.dateFrom > value.dateTo) {
     context.addIssue({ code: "custom", path: ["dateTo"], message: "End date must not be before start date." });

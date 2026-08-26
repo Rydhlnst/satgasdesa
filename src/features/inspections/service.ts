@@ -10,12 +10,12 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateImageUpload } from "@/src/lib/storage";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { notifyPermissionHolders } from "@/src/features/notifications/service";
+import { parseValidatedInput } from "@/src/lib/validation";
 
 import { createInspectionSchema, inspectionFiltersSchema, inspectionIdSchema, inspectionPhotoDownloadSchema, inspectionUploadSchema } from "./schema";
 
-function parseInput<T>(result: { success: boolean; data?: T }): T {
-  if (!result.success || !result.data) throw new Error("Please check the inspection details and try again.");
-  return result.data;
+function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
+  return parseValidatedInput(result, "Please check the inspection details and try again.");
 }
 
 function optionalValue(value?: string): string | null {
@@ -131,6 +131,7 @@ async function saveInspection(input: unknown, status: "DRAFT" | "SUBMITTED") {
   for (const photo of values.photos) {
     validateImageUpload({ ...photo, originalName: photo.originalName ?? "inspection-photo" });
     assertInspectionPhotoKey(id, photo.storageKey);
+    await getObjectStorage().verifyObject(photo.storageKey, { contentType: photo.contentType, size: photo.size, originalName: photo.originalName ?? photo.storageKey.split("/").at(-1) ?? "inspection-photo" });
   }
 
   const [existing] = await getDb().select().from(inspection).where(eq(inspection.id, id)).limit(1);

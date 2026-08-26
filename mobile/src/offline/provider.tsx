@@ -16,7 +16,7 @@ type OfflineSyncContextValue = {
 };
 
 const OfflineSyncContext = createContext<OfflineSyncContextValue | null>(null);
-const emptySummary: OutboxSummary = { PENDING: 0, SYNCING: 0, SYNCED: 0, FAILED: 0 };
+const emptySummary: OutboxSummary = { PENDING: 0, SYNCING: 0, SYNCED: 0, FAILED: 0, BLOCKED: 0 };
 
 export function OfflineSyncProvider({ children }: PropsWithChildren) {
   const queryClient = useQueryClient();

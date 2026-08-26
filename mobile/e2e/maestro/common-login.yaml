@@ -1,0 +1,38 @@
+appId: id.satgas.desasejoli
+name: Common login and validation
+tags:
+  - smoke
+env:
+  TEST_EMAIL: ${TEST_EMAIL}
+  TEST_PASSWORD: ${TEST_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn:
+    point: "50%, 68%"
+- assertVisible: "Masukkan email yang valid."
+- tapOn: "nama@contoh.id"
+- inputText: "invalid-email"
+- tapOn:
+    point: "50%, 68%"
+- assertVisible: "Masukkan email yang valid."
+- tapOn: "nama@contoh.id"
+- eraseText: 100
+- inputText: ${TEST_EMAIL}
+- tapOn: "Kata sandi"
+- tapOn:
+    point: "50%, 68%"
+- assertVisible: "Masukkan kata sandi."
+- tapOn: "Kata sandi"
+- inputText: ${TEST_PASSWORD}
+- tapOn: "Show password"
+- assertVisible: "Hide password"
+- tapOn:
+    point: "50%, 68%"
+- extendedWaitUntil:
+    visible: "Dashboard"
+    timeout: 15000
+- takeScreenshot: common-login-success

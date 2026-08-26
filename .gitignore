@@ -4,6 +4,7 @@
 /node_modules
 /mobile/node_modules
 .expo/
+/mobile/.expo/
 /.pnp
 .pnp.*
 .yarn/*
@@ -34,6 +35,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/.codex-*.log
+
+# local mobile QA artifacts
+/mobile/.expo-qa-android/
+/mobile/e2e/results/
 
 # env files (can opt-in for committing if needed)
 .env*

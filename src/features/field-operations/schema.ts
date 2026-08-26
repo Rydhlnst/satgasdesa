@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-const uuid = z.string().uuid("Invalid ID.");
-const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD.").refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)), "Invalid date.");
+import { calendarDate } from "@/src/lib/date-range";
 
+const uuid = z.string().uuid("Invalid ID.");
 export const businessActorSchema = z.object({
   actorType: z.enum(["INDIVIDUAL", "COMPANY"]),
   name: z.string().trim().min(1, "Business actor name is required.").max(160),
@@ -22,13 +22,13 @@ export const businessActorFiltersSchema = z.object({
 export const fieldAssignmentSchema = z.object({
   blockId: uuid,
   fieldOfficerId: uuid,
-  startedAt: calendarDate,
-  endedAt: calendarDate.optional(),
+  startedAt: calendarDate(),
+  endedAt: calendarDate().optional(),
   notes: z.string().trim().max(5000).optional(),
 }).superRefine((value, context) => {
   if (value.endedAt && value.endedAt < value.startedAt) context.addIssue({ code: "custom", path: ["endedAt"], message: "End date must not be before start date." });
 });
-export const endFieldAssignmentSchema = z.object({ id: uuid, endedAt: calendarDate, notes: z.string().trim().max(5000).optional() });
+export const endFieldAssignmentSchema = z.object({ id: uuid, endedAt: calendarDate(), notes: z.string().trim().max(5000).optional() });
 
 export const paymentVerificationSchema = z.object({
   duePaymentId: uuid,

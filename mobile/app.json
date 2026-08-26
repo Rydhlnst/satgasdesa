@@ -5,6 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "satgasdesa",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-router",
@@ -25,13 +26,15 @@
         }
       ],
       "expo-document-picker",
-      "expo-asset",
-      "expo-font",
       "react-native-edge-to-edge",
       "expo-sharing"
     ],
     "android": {
       "package": "id.satgas.desasejoli",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#12304A"
+      },
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
