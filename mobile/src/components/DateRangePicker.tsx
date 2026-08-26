@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { CalendarDays, ChevronDown } from "lucide-react-native";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatDate, isValidDate, type DateRange } from "../date-range";
 import { useDateRange } from "../date-range-provider";
 import { colors, spacing } from "../theme";
+import { Button, ButtonText } from "./ui/button";
+import { Input, InputField } from "./ui/input";
+import { Modal, ModalBackdrop, ModalBody, ModalContent, ModalFooter, ModalHeader } from "./ui/modal";
 
 export function DateRangePicker() {
   const { range, setRange } = useDateRange();
@@ -23,16 +26,21 @@ export function DateRangePicker() {
     <Pressable accessibilityLabel="Change date range" accessibilityRole="button" onPress={openPicker} style={styles.bar}>
       <View style={styles.labelRow}><View style={styles.iconBubble}><CalendarDays color={colors.primary} size={15} /></View><View><Text style={styles.label}>DATE RANGE</Text><Text style={styles.value}>{range.dateFrom} — {range.dateTo}</Text></View></View><ChevronDown color={colors.textMuted} size={17} />
     </Pressable>
-    <Modal animationType="slide" transparent visible={open} onRequestClose={() => setOpen(false)}>
-      <View style={styles.backdrop}><View style={styles.sheet}>
-        <Text style={styles.title}>Filter date range</Text>
-        <Text style={styles.hint}>All dated lists and summaries use this range.</Text>
-        <Text style={styles.fieldLabel}>From</Text><TextInput autoFocus keyboardType="numbers-and-punctuation" maxLength={10} onChangeText={(value) => setDraft((current) => ({ ...current, dateFrom: value }))} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textMuted} style={styles.input} value={draft.dateFrom} />
-        <Text style={styles.fieldLabel}>To</Text><TextInput keyboardType="numbers-and-punctuation" maxLength={10} onChangeText={(value) => setDraft((current) => ({ ...current, dateTo: value }))} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textMuted} style={styles.input} value={draft.dateTo} />
-        {draft.dateFrom > draft.dateTo || !isValidDate(draft.dateFrom) || !isValidDate(draft.dateTo) ? <Text style={styles.error}>Use valid dates with From before To.</Text> : null}
-        <Pressable onPress={setCurrentMonth} style={styles.quick}><Text style={styles.quickText}>Use current month</Text></Pressable>
-        <View style={styles.actions}><Pressable onPress={() => setOpen(false)} style={styles.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable onPress={apply} style={styles.apply}><Text style={styles.applyText}>Apply range</Text></Pressable></View>
-      </View></View>
+    <Modal isOpen={open} onClose={() => setOpen(false)} size="full">
+      <ModalBackdrop />
+      <ModalContent className="mt-auto w-full rounded-t-3xl rounded-b-none p-5">
+        <ModalHeader><Text className="text-lg font-black text-[#0F234D]">Filter date range</Text></ModalHeader>
+        <ModalBody>
+          <Text className="mb-3 text-xs text-[#6E7785]">All dated lists and summaries use this range.</Text>
+          <Text className="mb-1 text-xs font-extrabold text-[#0F234D]">From</Text>
+          <Input className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField autoFocus keyboardType="numbers-and-punctuation" maxLength={10} onChangeText={(value) => setDraft((current) => ({ ...current, dateFrom: value }))} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textMuted} value={draft.dateFrom} className="py-3" /></Input>
+          <Text className="mb-1 mt-3 text-xs font-extrabold text-[#0F234D]">To</Text>
+          <Input className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField keyboardType="numbers-and-punctuation" maxLength={10} onChangeText={(value) => setDraft((current) => ({ ...current, dateTo: value }))} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textMuted} value={draft.dateTo} className="py-3" /></Input>
+          {draft.dateFrom > draft.dateTo || !isValidDate(draft.dateFrom) || !isValidDate(draft.dateTo) ? <Text className="mt-2 text-xs text-[#C5312C]">Use valid dates with From before To.</Text> : null}
+          <Button onPress={setCurrentMonth} variant="outline" className="mt-3 min-h-11 rounded-xl border-[#1454C4]"><ButtonText className="text-[#1454C4]">Use current month</ButtonText></Button>
+        </ModalBody>
+        <ModalFooter><Button onPress={() => setOpen(false)} variant="outline" className="min-h-11 rounded-xl border-[#DFE4EC]"><ButtonText className="text-[#0F234D]">Cancel</ButtonText></Button><Button onPress={apply} className="min-h-11 rounded-xl bg-[#1454C4]"><ButtonText>Apply range</ButtonText></Button></ModalFooter>
+      </ModalContent>
     </Modal>
   </>;
 }

@@ -1,6 +1,7 @@
 import { Link } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../src/components/ui/TextInput";
 
 import { forgotPasswordSchema } from "../src/form-schemas";
 import { requestPasswordReset } from "../src/lib/api";

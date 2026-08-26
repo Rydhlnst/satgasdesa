@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import "uniwind";
+
+@layer theme {
+  :root,
+  :where(.light, .light *) {
+    --primary: 20 84 196;
+    --primary-foreground: 255 255 255;
+    --card: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 15 35 77;
+    --background: 247 248 250;
+    --popover: 255 255 255;
+    --popover-foreground: 15 35 77;
+    --muted: 241 245 249;
+    --muted-foreground: 110 119 133;
+    --destructive: 197 49 44;
+    --foreground: 15 35 77;
+    --border: 223 228 236;
+    --input: 223 228 236;
+    --ring: 20 84 196;
+    --accent: 231 240 255;
+    --accent-foreground: 20 84 196;
+    --finance: 22 131 74;
+    --finance-soft: 231 247 238;
+    --warning: 216 121 20;
+    --warning-soft: 255 243 223;
+    --danger-soft: 253 236 236;
+  }
+
+  :where(.dark, .dark *) {
+    --primary: 69 127 232;
+    --primary-foreground: 255 255 255;
+    --card: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 15 35 77;
+    --background: 247 248 250;
+    --popover: 255 255 255;
+    --popover-foreground: 15 35 77;
+    --muted: 241 245 249;
+    --muted-foreground: 110 119 133;
+    --destructive: 197 49 44;
+    --foreground: 15 35 77;
+    --border: 223 228 236;
+    --input: 223 228 236;
+    --ring: 69 127 232;
+    --accent: 231 240 255;
+    --accent-foreground: 20 84 196;
+    --finance: 22 131 74;
+    --finance-soft: 231 247 238;
+    --warning: 216 121 20;
+    --warning-soft: 255 243 223;
+    --danger-soft: 253 236 236;
+  }
+}
+
+@theme inline {
+  --color-primary: rgb(var(--primary));
+  --color-primary-foreground: rgb(var(--primary-foreground));
+  --color-card: rgb(var(--card));
+  --color-secondary: rgb(var(--secondary));
+  --color-secondary-foreground: rgb(var(--secondary-foreground));
+  --color-background: rgb(var(--background));
+  --color-popover: rgb(var(--popover));
+  --color-popover-foreground: rgb(var(--popover-foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-destructive: rgb(var(--destructive));
+  --color-foreground: rgb(var(--foreground));
+  --color-border: rgb(var(--border));
+  --color-input: rgb(var(--input));
+  --color-ring: rgb(var(--ring));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-finance: rgb(var(--finance));
+  --color-finance-soft: rgb(var(--finance-soft));
+  --color-warning: rgb(var(--warning));
+  --color-warning-soft: rgb(var(--warning-soft));
+  --color-danger-soft: rgb(var(--danger-soft));
+}

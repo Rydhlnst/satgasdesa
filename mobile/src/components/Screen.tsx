@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ReactNode } from "react";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,8 @@ import { useOfflineSync } from "../offline/provider";
 import { DateRangePicker } from "./DateRangePicker";
 import { colors, radii, roleTheme, shadows, spacing, typography, type Role } from "../theme";
 import { showActionError } from "../lib/feedback";
+import { Button, ButtonText } from "./ui/button";
+import { Spinner } from "./ui/spinner";
 
 export function Screen({ children, refreshing, onRefresh, scroll = true }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean }) {
   const router = useRouter();
@@ -47,10 +49,10 @@ function renderPageIcon(title: string, color: string) {
   return <Activity {...props} />;
 }
 
-export function LoadingState() { return <View style={styles.state}><View style={styles.stateIcon}><ActivityIndicator color={colors.primary} /><Activity color={colors.primary} size={18} /></View><Text style={styles.muted}>Memuat data…</Text></View>; }
+export function LoadingState() { return <View style={styles.state}><View style={styles.stateIcon}><Spinner color={colors.primary} size="small" /><Activity color={colors.primary} size={18} /></View><Text style={styles.muted}>Memuat data…</Text></View>; }
 export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void | Promise<unknown> }) {
   async function retry() { try { await onRetry(); } catch (error) { showActionError(error, "Data belum dapat dimuat. Periksa koneksi lalu coba lagi."); } }
-  return <View style={styles.state}><View style={[styles.stateIcon, styles.stateIconError]}><CloudOff color={colors.danger} size={22} /></View><Text style={styles.errorTitle}>Terjadi masalah</Text><Text style={styles.muted}>{message}</Text><Pressable onPress={() => void retry()} style={styles.retry}><Text style={styles.retryText}>Coba lagi</Text></Pressable></View>;
+  return <View style={styles.state}><View style={[styles.stateIcon, styles.stateIconError]}><CloudOff color={colors.danger} size={22} /></View><Text style={styles.errorTitle}>Terjadi masalah</Text><Text style={styles.muted}>{message}</Text><Button onPress={() => void retry()} className="min-h-12 rounded-xl bg-[#1454C4] px-4"><ButtonText>Coba lagi</ButtonText></Button></View>;
 }
 export function EmptyState({ message }: { message: string }) { return <View style={styles.state}><View style={styles.stateIcon}><Inbox color={colors.textSubtle} size={22} /></View><Text style={styles.muted}>{message}</Text></View>; }
 export function BottomNav({ role, current }: { role: Role; current: string }) {

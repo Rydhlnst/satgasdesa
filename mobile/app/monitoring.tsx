@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../src/components/ui/TextInput";
 import { MapPin } from "lucide-react-native";
 
 import { useAuth } from "../src/auth";

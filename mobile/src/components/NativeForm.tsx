@@ -1,51 +1,106 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Controller, type Control, type FieldErrors, type FieldValues, type UseFormRegister } from "react-hook-form";
-import { Eye, EyeOff } from "lucide-react-native";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ChevronDown, Eye, EyeOff } from "lucide-react-native";
+import { Text } from "react-native";
 
-import { colors, radii, shadows, spacing, typography } from "../theme";
+import { Button, ButtonSpinner, ButtonText } from "./ui/button";
+import { FormControl, FormControlError, FormControlErrorText, FormControlHelper, FormControlHelperText, FormControlLabel, FormControlLabelText } from "./ui/form-control";
+import { Input, InputField, InputSlot } from "./ui/input";
+import { Modal, ModalBackdrop, ModalBody, ModalContent, ModalFooter, ModalHeader } from "./ui/modal";
+import { Select, SelectBackdrop, SelectContent, SelectIcon, SelectInput, SelectItem, SelectPortal, SelectTrigger } from "./ui/select";
 import { isValidCalendarDate } from "../date-validation";
 import { showActionError } from "../lib/feedback";
 
-export function InputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder, secureTextEntry = false, required = false }: { name: string; label: string; register: UseFormRegister<T>; errors: FieldErrors<T>; multiline?: boolean; keyboardType?: "default" | "numeric" | "phone-pad" | "email-address"; placeholder?: string; secureTextEntry?: boolean; required?: boolean }) {
-  const [visible, setVisible] = useState(false);
-  const error = errors[name as keyof T]?.message;
-  return <View style={styles.field}><Text style={styles.label}>{label}{required ? " *" : ""}</Text><View style={secureTextEntry ? styles.inputWrap : undefined}><TextInput {...register(name as never)} accessibilityLabel={label} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} placeholder={placeholder} placeholderTextColor={colors.textMuted} secureTextEntry={secureTextEntry && !visible} style={[styles.input, secureTextEntry && styles.inputWithAction, multiline && styles.textarea, error ? styles.invalid : undefined]} />{secureTextEntry ? <Pressable accessibilityLabel={visible ? `Hide ${label}` : `Show ${label}`} accessibilityRole="button" hitSlop={8} onPress={() => setVisible((current) => !current)} style={styles.inputAction}>{visible ? <EyeOff color={colors.textMuted} size={19} /> : <Eye color={colors.textMuted} size={19} />}</Pressable> : null}</View><ErrorText value={error} /></View>;
+type KeyboardType = "default" | "numeric" | "phone-pad" | "email-address";
+export type SelectOption = { label: string; value: string };
+
+function errorMessage(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    return message ? String(message) : undefined;
+  }
+  return String(value);
 }
 
-export function TextInputField({ label, value, onChange, error, multiline = false, keyboardType = "default", placeholder, required = false }: { label: string; value: string; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: "default" | "numeric" | "phone-pad" | "email-address"; placeholder?: string; required?: boolean }) {
-  return <View style={styles.field}><Text style={styles.label}>{label}{required ? " *" : ""}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={onChange} multiline={multiline} keyboardType={keyboardType} placeholder={placeholder} placeholderTextColor={colors.textMuted} style={[styles.input, multiline && styles.textarea, error ? styles.invalid : undefined]} /><ErrorText value={error} /></View>;
+function normalizedOptions(options: SelectOption[]): SelectOption[] {
+  const seen = new Set<string>();
+  return (options ?? []).reduce<SelectOption[]>((result, option) => {
+    const value = String(option?.value ?? "");
+    if (seen.has(value)) return result;
+    seen.add(value);
+    result.push({ label: String(option?.label ?? value), value });
+    return result;
+  }, []);
+}
+
+function FieldShell({ label, required, error, helper, children }: { label: string; required?: boolean; error?: unknown; helper?: string; children: React.ReactNode }) {
+  const message = errorMessage(error);
+  return <FormControl isInvalid={Boolean(message)} isRequired={required} className="gap-1">
+    <FormControlLabel className="mb-0.5"><FormControlLabelText className="text-xs font-extrabold text-[#0F234D]">{label}</FormControlLabelText></FormControlLabel>
+    {children}
+    {message ? <FormControlError className="mt-1"><FormControlErrorText className="text-xs text-[#C5312C]">{message}</FormControlErrorText></FormControlError> : helper ? <FormControlHelper className="mt-1"><FormControlHelperText className="text-xs text-[#6E7785]">{helper}</FormControlHelperText></FormControlHelper> : null}
+  </FormControl>;
+}
+
+function RHFInputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder, secureTextEntry = false, required = false }: { name: string; label: string; register: UseFormRegister<T>; errors: FieldErrors<T>; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; secureTextEntry?: boolean; required?: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const registered = register(name as never);
+  const message = errorMessage(errors[name as keyof T]);
+  return <FieldShell label={label} required={required} error={message}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={registered.onBlur} onChangeText={(value) => void registered.onChange({ target: { name, value }, type: "change" })} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+}
+
+export function TextInputField({ label, value, onChange, error, multiline = false, keyboardType = "default", placeholder, required = false, helper }: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string }) {
+  const message = errorMessage(error);
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="#8A96A8" value={String(value ?? "")} className={multiline ? "min-h-28 py-3" : "py-3"} /></Input></FieldShell>;
 }
 
 export function DateField<T extends FieldValues>({ name, label, control, errors, required = false }: { name: string; label: string; control: Control<T>; errors: FieldErrors<T>; required?: boolean }) {
-  const error = errors[name as keyof T]?.message;
-  return <Controller control={control} name={name as never} render={({ field: { value, onChange } }) => <DatePicker value={String(value ?? "")} onChange={onChange} label={`${label}${required ? " *" : ""}`} error={error} />} />;
+  const error = errors[name as keyof T];
+  return <Controller control={control} name={name as never} render={({ field: { value, onChange } }) => <DatePicker value={String(value ?? "")} onChange={onChange} label={label} error={error} required={required} />} />;
 }
 
-export function DatePicker({ value, onChange, label, error }: { value: string; onChange: (value: string) => void; label: string; error?: unknown }) {
-  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(value || new Date().toISOString().slice(0, 10)); const [draftError, setDraftError] = useState("");
-  function save() { if (isValidCalendarDate(draft)) { onChange(draft); setDraftError(""); setOpen(false); } else setDraftError("Masukkan tanggal kalender yang valid dengan format YYYY-MM-DD."); }
-  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable accessibilityRole="button" onPress={() => { setDraft(value || new Date().toISOString().slice(0, 10)); setDraftError(""); setOpen(true); }} style={[styles.input, error ? styles.invalid : undefined]}><Text style={value ? styles.value : styles.placeholder}>{value || "Pilih tanggal (YYYY-MM-DD)"}</Text></Pressable><ErrorText value={error} /><Modal animationType="slide" transparent visible={open} onRequestClose={() => setOpen(false)}><View style={styles.backdrop}><View style={styles.sheet}><Text style={styles.sheetTitle}>Pilih Tanggal</Text><Text style={styles.sheetHint}>Gunakan format YYYY-MM-DD</Text><TextInput autoFocus keyboardType="numeric" onChangeText={(next) => { setDraft(next); setDraftError(""); }} value={draft} style={[styles.input, draftError ? styles.invalid : undefined]} /><ErrorText value={draftError} /><View style={styles.actions}><Pressable onPress={() => setOpen(false)} style={styles.cancel}><Text>Batal</Text></Pressable><Pressable onPress={save} style={styles.confirm}><Text style={styles.confirmText}>Gunakan</Text></Pressable></View></View></View></Modal></View>;
+export function DatePicker({ value, onChange, label, error, required = false }: { value: string; onChange: (value: string) => void; label: string; error?: unknown; required?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value || new Date().toISOString().slice(0, 10));
+  const [draftError, setDraftError] = useState("");
+  const message = errorMessage(error);
+  function openPicker() { setDraft(value || new Date().toISOString().slice(0, 10)); setDraftError(""); setOpen(true); }
+  function save() { if (!isValidCalendarDate(draft)) { setDraftError("Masukkan tanggal kalender yang valid dengan format YYYY-MM-DD."); return; } onChange(draft); setDraftError(""); setOpen(false); }
+  return <FieldShell label={label} required={required} error={message || draftError}><Button accessibilityLabel={label} onPress={openPicker} variant="outline" className="min-h-12 justify-start rounded-xl border-[#DFE4EC] bg-white px-3"><ButtonText className={value ? "text-sm font-semibold text-[#0F234D]" : "text-sm font-normal text-[#8A96A8]"}>{value || "Pilih tanggal (YYYY-MM-DD)"}</ButtonText></Button><Modal isOpen={open} onClose={() => setOpen(false)} size="full"><ModalBackdrop /><ModalContent className="mt-auto w-full rounded-t-3xl rounded-b-none p-5"><ModalHeader><Text className="text-lg font-black text-[#0F234D]">Pilih Tanggal</Text></ModalHeader><ModalBody><Text className="mb-2 text-xs text-[#6E7785]">Gunakan format YYYY-MM-DD</Text><Input isInvalid={Boolean(draftError)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField autoFocus accessibilityLabel="Tanggal" keyboardType="numeric" onChangeText={(next) => { setDraft(next); setDraftError(""); }} value={draft} className="py-3" /></Input>{draftError ? <Text className="mt-1 text-xs text-[#C5312C]">{draftError}</Text> : null}</ModalBody><ModalFooter><Button onPress={() => setOpen(false)} variant="outline" className="min-h-11 rounded-xl border-[#DFE4EC]"><ButtonText className="text-[#0F234D]">Batal</ButtonText></Button><Button onPress={save} className="min-h-11 rounded-xl bg-[#1454C4]"><ButtonText>Gunakan</ButtonText></Button></ModalFooter></ModalContent></Modal></FieldShell>;
 }
 
 export function MonthField<T extends FieldValues>({ name, label, control, errors }: { name: string; label: string; control: Control<T>; errors: FieldErrors<T> }) {
-  const error = errors[name as keyof T]?.message;
+  const error = errors[name as keyof T];
   return <Controller control={control} name={name as never} render={({ field: { value, onChange } }) => <MonthPicker value={String(value ?? "")} onChange={onChange} label={label} error={error} />} />;
 }
 
 export function MonthPicker({ value, onChange, label, error }: { value: string; onChange: (value: string) => void; label: string; error?: unknown }) {
-  const [open, setOpen] = useState(false); const [draft, setDraft] = useState(value || new Date().toISOString().slice(0, 7)); const [draftError, setDraftError] = useState("");
-  function save() { if (/^\d{4}-(0[1-9]|1[0-2])$/.test(draft)) { onChange(draft); setDraftError(""); setOpen(false); } else setDraftError("Masukkan periode dengan format YYYY-MM."); }
-  return <View style={styles.field}><Text style={styles.label}>{label}</Text><Pressable accessibilityRole="button" onPress={() => { setDraft(value || new Date().toISOString().slice(0, 7)); setDraftError(""); setOpen(true); }} style={[styles.input, error ? styles.invalid : undefined]}><Text style={value ? styles.value : styles.placeholder}>{value || "Pilih bulan (YYYY-MM)"}</Text></Pressable><ErrorText value={error} /><Modal animationType="slide" transparent visible={open} onRequestClose={() => setOpen(false)}><View style={styles.backdrop}><View style={styles.sheet}><Text style={styles.sheetTitle}>Pilih Periode</Text><TextInput autoFocus keyboardType="numeric" onChangeText={(next) => { setDraft(next); setDraftError(""); }} value={draft} style={[styles.input, draftError ? styles.invalid : undefined]} /><ErrorText value={draftError} /><View style={styles.actions}><Pressable onPress={() => setOpen(false)} style={styles.cancel}><Text>Batal</Text></Pressable><Pressable onPress={save} style={styles.confirm}><Text style={styles.confirmText}>Gunakan</Text></Pressable></View></View></View></Modal></View>;
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value || new Date().toISOString().slice(0, 7));
+  const [draftError, setDraftError] = useState("");
+  const message = errorMessage(error);
+  function openPicker() { setDraft(value || new Date().toISOString().slice(0, 7)); setDraftError(""); setOpen(true); }
+  function save() { if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(draft)) { setDraftError("Masukkan periode dengan format YYYY-MM."); return; } onChange(draft); setDraftError(""); setOpen(false); }
+  return <FieldShell label={label} error={message || draftError}><Button accessibilityLabel={label} onPress={openPicker} variant="outline" className="min-h-12 justify-start rounded-xl border-[#DFE4EC] bg-white px-3"><ButtonText className={value ? "text-sm font-semibold text-[#0F234D]" : "text-sm font-normal text-[#8A96A8]"}>{value || "Pilih bulan (YYYY-MM)"}</ButtonText></Button><Modal isOpen={open} onClose={() => setOpen(false)} size="full"><ModalBackdrop /><ModalContent className="mt-auto w-full rounded-t-3xl rounded-b-none p-5"><ModalHeader><Text className="text-lg font-black text-[#0F234D]">Pilih Periode</Text></ModalHeader><ModalBody><Input isInvalid={Boolean(draftError)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField autoFocus accessibilityLabel="Periode" keyboardType="numeric" onChangeText={(next) => { setDraft(next); setDraftError(""); }} value={draft} className="py-3" /></Input>{draftError ? <Text className="mt-1 text-xs text-[#C5312C]">{draftError}</Text> : null}</ModalBody><ModalFooter><Button onPress={() => setOpen(false)} variant="outline" className="min-h-11 rounded-xl border-[#DFE4EC]"><ButtonText className="text-[#0F234D]">Batal</ButtonText></Button><Button onPress={save} className="min-h-11 rounded-xl bg-[#1454C4]"><ButtonText>Gunakan</ButtonText></Button></ModalFooter></ModalContent></Modal></FieldShell>;
 }
 
-export function SelectField({ label, value, options, onChange, error, required = false }: { label: string; value: string; options: Array<{ label: string; value: string }>; onChange: (value: string) => void; error?: unknown; required?: boolean }) { return <View style={styles.field}><Text style={styles.label}>{label}{required ? " *" : ""}</Text>{options.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.options}>{options.map((option) => <Pressable accessibilityRole="radio" accessibilityState={{ selected: value === option.value }} key={option.value} onPress={() => onChange(option.value)} style={[styles.option, value === option.value && styles.optionActive, error ? styles.invalid : undefined]}><Text style={[styles.optionText, value === option.value && styles.optionTextActive]}>{option.label}</Text></Pressable>)}</ScrollView> : <Text style={styles.placeholder}>Belum ada pilihan tersedia.</Text>}<ErrorText value={error} /></View>; }
-export function SubmitButton({ label, loading, loadingLabel = "Menyimpan…", onPress }: { label: string; loading: boolean; loadingLabel?: string; onPress: () => void | Promise<void> }) {
-  async function handlePress() {
-    try { await onPress(); } catch (error) { showActionError(error); }
-  }
-  return <Pressable accessibilityRole="button" accessibilityState={{ busy: loading, disabled: loading }} disabled={loading} onPress={() => void handlePress()} style={[styles.submit, loading && { opacity: 0.55 }]}>{loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}<Text style={styles.submitText}>{loading ? loadingLabel : label}</Text></Pressable>;
+export function SelectField({ label, value, options, onChange, error, required = false }: { label: string; value: string | null | undefined; options: SelectOption[]; onChange: (value: string) => void; error?: unknown; required?: boolean }) {
+  const safeOptions = normalizedOptions(options);
+  const safeValue = String(value ?? "");
+  const message = errorMessage(error);
+  const selected = safeOptions.some((option) => option.value === safeValue) ? safeValue : "";
+  return <FieldShell label={label} required={required} error={message}><Select selectedValue={selected} onValueChange={(next) => onChange(String(next ?? ""))} isDisabled={!safeOptions.length}><SelectTrigger size="lg" variant="outline" className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><SelectInput placeholder={safeOptions.length ? "Pilih opsi" : "Belum ada pilihan tersedia"} className="text-sm text-[#0F234D]" /><SelectIcon as={ChevronDown} className="text-[#6E7785]" /></SelectTrigger><SelectPortal><SelectBackdrop /><SelectContent>{safeOptions.map((option) => <SelectItem key={option.value || "option-" + option.label} label={option.label} value={option.value} />)}</SelectContent></SelectPortal></Select></FieldShell>;
 }
-export function ErrorText({ value }: { value: unknown }) { return value ? <Text style={styles.error}>{String(value)}</Text> : null; }
-const styles = StyleSheet.create({ field: { gap: 6 }, label: { color: colors.textStrong, fontSize: typography.caption, fontWeight: "800" }, inputWrap: { position: "relative" }, input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, color: colors.textStrong, minHeight: 48, paddingHorizontal: 14, paddingVertical: 11 }, inputWithAction: { paddingRight: 48 }, inputAction: { alignItems: "center", height: 48, justifyContent: "center", position: "absolute", right: 2, top: 1, width: 44 }, textarea: { minHeight: 104, textAlignVertical: "top" }, invalid: { borderColor: colors.danger, backgroundColor: colors.dangerSoft }, error: { color: colors.danger, fontSize: typography.micro }, value: { color: colors.textStrong, fontSize: typography.body, paddingTop: 2 }, placeholder: { color: colors.textMuted, fontSize: typography.body, paddingTop: 2 }, backdrop: { backgroundColor: "#00000066", flex: 1, justifyContent: "flex-end" }, sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, gap: spacing.sm, padding: spacing.lg, ...shadows.card }, sheetTitle: { color: colors.textStrong, fontSize: 18, fontWeight: "900" }, sheetHint: { color: colors.textMuted, fontSize: typography.caption }, actions: { flexDirection: "row", gap: spacing.sm, justifyContent: "flex-end", marginTop: spacing.sm }, cancel: { borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, minHeight: 48, padding: spacing.md }, confirm: { backgroundColor: colors.primary, borderRadius: radii.md, minHeight: 48, padding: spacing.md }, confirmText: { color: "#FFFFFF", fontWeight: "800" }, options: { gap: spacing.sm }, option: { borderColor: colors.border, borderRadius: radii.pill, borderWidth: 1, minHeight: 40, paddingHorizontal: 14, paddingVertical: 10 }, optionActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary }, optionText: { color: colors.textStrong, fontSize: typography.caption }, optionTextActive: { color: colors.primary, fontWeight: "800" }, submit: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radii.md, minHeight: 50, padding: 14 }, submitText: { color: "#FFFFFF", fontSize: typography.body, fontWeight: "900" } });
-export const formStyles = styles;
+
+export function SubmitButton({ label, loading, loadingLabel = "Menyimpan…", onPress }: { label: string; loading: boolean; loadingLabel?: string; onPress: () => void | Promise<void> }) {
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
+  const busy = loading || pending;
+  async function handlePress() { if (busy || inFlight.current) return; inFlight.current = true; setPending(true); try { await onPress(); } catch (error) { showActionError(error); } finally { inFlight.current = false; setPending(false); } }
+  return <Button accessibilityRole="button" accessibilityState={{ busy, disabled: busy }} disabled={busy} onPress={() => void handlePress()} className="min-h-12 rounded-xl bg-[#1454C4]">{busy ? <ButtonSpinner color="#FFFFFF" /> : null}<ButtonText>{busy ? loadingLabel : label}</ButtonText></Button>;
+}
+
+export { RHFInputField as InputField };
+export function ErrorText({ value }: { value: unknown }) { const message = errorMessage(value); return message ? <Text className="text-xs text-[#C5312C]">{message}</Text> : null; }

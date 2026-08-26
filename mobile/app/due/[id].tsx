@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../../src/components/ui/TextInput";
 
 import { useAuth } from "../../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";

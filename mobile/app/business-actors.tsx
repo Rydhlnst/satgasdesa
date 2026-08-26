@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Building2 } from "lucide-react-native";
-import { StyleSheet, TextInput } from "react-native";
+import { StyleSheet } from "react-native";
+import { TextInput } from "../src/components/ui/TextInput";
 
 import { useAuth } from "../src/auth";
 import { ActionButton, RowCard } from "../src/components/PimpinanPrimitives";

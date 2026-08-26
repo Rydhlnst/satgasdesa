@@ -3,7 +3,8 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { Filter, List, LocateFixed, MapPinned, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../src/components/ui/TextInput";
 import { Camera, Map as MapLibreView, Marker } from "@maplibre/maplibre-react-native";
 import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 

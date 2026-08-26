@@ -3,7 +3,8 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { ArrowLeft, CalendarDays, HardHat, MapPin, UserRound } from "lucide-react-native";
 import { useState, type ReactNode } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../../src/components/ui/TextInput";
 
 import { useAuth } from "../../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";

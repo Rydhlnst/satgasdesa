@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { TextInput } from "../src/components/ui/TextInput";
 
 import { useAuth } from "../src/auth";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";

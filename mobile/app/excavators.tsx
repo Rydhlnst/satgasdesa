@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { HardHat, Plus, Search } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { TextInput } from "../src/components/ui/TextInput";
 
 import { useAuth } from "../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";

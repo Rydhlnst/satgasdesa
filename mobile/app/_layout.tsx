@@ -7,6 +7,11 @@ import { AuthProvider } from "../src/auth";
 import { DateRangeProvider } from "../src/date-range-provider";
 import { openInitialPushResponse, subscribeToPushEvents } from "../src/notifications/push";
 import { OfflineSyncProvider } from "../src/offline/provider";
+import { GluestackUIProvider } from "../src/components/ui/gluestack-ui-provider";
+import { AppErrorBoundary } from "../src/components/AppErrorBoundary";
+// UniWind consumes this stylesheet through Metro; Expo TypeScript does not type CSS side-effect imports.
+// @ts-expect-error Expo Metro stylesheet entry.
+import "../global.css";
 
 function PushNotificationRouter() {
   const router = useRouter();
@@ -21,5 +26,5 @@ function PushNotificationRouter() {
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }));
-  return <QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><PushNotificationRouter /><StatusBar style="light" /><Stack screenOptions={{ headerShown: false }} /></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><GluestackUIProvider mode="light"><AppErrorBoundary><PushNotificationRouter /><StatusBar style="dark" /><Stack screenOptions={{ headerShown: false }} /></AppErrorBoundary></GluestackUIProvider></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider>;
 }
