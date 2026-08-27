@@ -1,6 +1,7 @@
 import { Stack, useRouter } from "expo-router";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 
 import { AuthProvider } from "../src/auth";
@@ -26,5 +27,5 @@ function PushNotificationRouter() {
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: false } } }));
-  return <QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><GluestackUIProvider mode="light"><AppErrorBoundary><PushNotificationRouter /><StatusBar style="dark" /><Stack screenOptions={{ headerShown: false }} /></AppErrorBoundary></GluestackUIProvider></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider>;
+  return <SafeAreaProvider><QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><GluestackUIProvider mode="light"><AppErrorBoundary><PushNotificationRouter /><StatusBar style="dark" /><Stack screenOptions={{ headerShown: false }} /></AppErrorBoundary></GluestackUIProvider></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider></SafeAreaProvider>;
 }

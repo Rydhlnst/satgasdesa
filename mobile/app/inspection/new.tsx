@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { useAuth } from "../../src/auth";
 import { Header, Screen } from "../../src/components/Screen";
-import { DateField, InputField, SelectField, SubmitButton } from "../../src/components/NativeForm";
+import { CapturedLocation, DateField, InputField, LocationField, SelectField, SubmitButton } from "../../src/components/NativeForm";
 import { inspectionFormSchema as schema } from "../../src/form-schemas";
 import { clearInspectionDraftLocally, loadInspectionDraft, saveInspectionDraftLocally } from "../../src/lib/drafts";
 import { createInspection, createInspectionUploadUrl, finalizeInspection, getBlocks, getInspection, saveInspectionDraft } from "../../src/lib/api";
@@ -25,13 +25,26 @@ const steps = ["Data", "Dokumentasi", "Tinjau"];
 
 export default function NewInspection() {
   const { role } = useAuth(); const router = useRouter(); const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const [step, setStep] = useState(0); const [saving, setSaving] = useState(false); const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]); const [storedPhotos, setStoredPhotos] = useState<StoredPhoto[]>([]);
+  const [step, setStep] = useState(0); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]); const [storedPhotos, setStoredPhotos] = useState<StoredPhoto[]>([]);
   const blocks = useQuery({ queryKey: ["blocks", "inspection-form"], queryFn: () => getBlocks(), enabled: Boolean(role) });
   const draft = useQuery({ queryKey: ["inspection", draftId], queryFn: () => getInspection(draftId!), enabled: Boolean(role && draftId) });
   const form = useForm<Values>({ resolver: zodResolver(schema), mode: "onBlur", reValidateMode: "onChange", defaultValues: { excavatorCount: 0, workerCount: 0, condition: "Aktif", conditionRoad: "Baik", conditionEnvironment: "Aman", conditionActivity: "Normal" } });
   useEffect(() => { if (draftId) return; void loadInspectionDraft().then((value) => { if (value) form.reset({ ...value, conditionActivity: "Normal" }); }); }, [draftId, form]);
   useEffect(() => { if (!draft.data || draft.data.item.status !== "DRAFT") return; const item = draft.data.item; form.reset({ blockId: String(item.blockId), inspectedAt: item.inspectedAt ? String(item.inspectedAt).slice(0, 10) : undefined, excavatorCount: Number(item.excavatorCount), workerCount: Number(item.workerCount), condition: String(item.condition), conditionRoad: String(item.roadCondition ?? "Baik"), conditionEnvironment: String(item.environmentCondition ?? "Aman"), conditionActivity: String(item.activityCondition ?? "Normal"), findings: String(item.findings ?? ""), notes: String(item.notes ?? "") }); setStoredPhotos(draft.data.photos.map((photo) => ({ storageKey: String(photo.storageKey), contentType: String(photo.contentType), size: Number(photo.sizeBytes), capturedAt: photo.capturedAt ? String(photo.capturedAt) : undefined }))); }, [draft.data, form]);
   if (!role) return null;
+
+  async function captureLocation() {
+    setLocationLoading(true);
+    try {
+      const result = await getCurrentLocation("menyimpan pemeriksaan");
+      const next = { latitude: result.coords.latitude, longitude: result.coords.longitude, accuracy: result.coords.accuracy, capturedAt: new Date().toISOString() };
+      setCapturedLocation(next);
+      return next;
+    } catch (error) {
+      Alert.alert("Lokasi tidak tersedia", error instanceof Error ? error.message : "Lokasi perangkat belum dapat dibaca.");
+      throw error;
+    } finally { setLocationLoading(false); }
+  }
 
   async function choosePhotos(source: "camera" | "library") { const permission = source === "camera" ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!permission.granted) return Alert.alert("Izin diperlukan", source === "camera" ? "Izinkan kamera untuk mendokumentasikan pemeriksaan." : "Izinkan akses galeri untuk menambahkan foto."); const remaining = 3 - photos.length - storedPhotos.length; if (!remaining) return Alert.alert("Batas foto", "Maksimal tiga foto dapat dilampirkan."); const result = source === "camera" ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8 }) : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: true, selectionLimit: remaining, quality: 0.8 }); if (!result.canceled) setPhotos((current) => [...current, ...(result.assets ?? [])].slice(0, 3 - storedPhotos.length)); }
   function addPhoto() { Alert.alert("Tambah foto", "Pilih sumber dokumentasi.", [{ text: "Kamera", onPress: () => void choosePhotos("camera") }, { text: "Galeri", onPress: () => void choosePhotos("library") }, { text: "Batal", style: "cancel" }]); }
@@ -40,7 +53,7 @@ export default function NewInspection() {
   async function save(values: Values, mode: "draft" | "submit") {
     setSaving(true);
     try {
-      const location = await getCurrentLocation("menyimpan pemeriksaan");
+      const location = capturedLocation ?? await captureLocation();
       const inspectionId = draftId ?? crypto.randomUUID();
       const baseInput = {
         blockId: values.blockId,
@@ -53,10 +66,10 @@ export default function NewInspection() {
         activityCondition: values.conditionActivity,
         findings: values.findings,
         notes: values.notes,
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        gpsAccuracy: location.coords.accuracy ?? 0,
-        gpsCapturedAt: new Date().toISOString(),
+        latitude: location.latitude,
+        longitude: location.longitude,
+        gpsAccuracy: location.accuracy ?? 0,
+        gpsCapturedAt: location.capturedAt,
         photos: storedPhotos,
       };
 
@@ -88,7 +101,56 @@ export default function NewInspection() {
     }
   }
   const values = form.getValues();
-  return <><Header role={role} title={draftId ? "Lanjutkan Draft" : "Pemeriksaan Baru"} subtitle="Data, dokumentasi, lalu tinjau" /><Screen><View style={styles.steps}>{steps.map((label, index) => <Pressable key={label} onPress={() => index <= step && setStep(index)} style={[styles.step, step === index && styles.stepActive]}><Text style={[styles.stepText, step === index && styles.stepTextActive]}>{index + 1}. {label}</Text></Pressable>)}</View>{step === 0 ? <><Text style={styles.heading}>Data Pemeriksaan</Text><SelectField label="Blok" value={form.watch("blockId") ?? ""} options={(blocks.data?.blocks ?? []).map((block) => ({ label: `${block.code} · ${block.name}`, value: block.id }))} onChange={(value) => form.setValue("blockId", value, { shouldValidate: true })} /><DateField name="inspectedAt" label="Tanggal pemeriksaan" control={form.control} errors={form.formState.errors} /><InputField name="excavatorCount" label="Jumlah excavator" keyboardType="numeric" register={form.register} errors={form.formState.errors} /><InputField name="workerCount" label="Jumlah pekerja" keyboardType="numeric" register={form.register} errors={form.formState.errors} /><SelectField label="Kondisi blok" value={form.watch("condition")} options={["Aktif", "Berhenti", "Belum Operasi"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("condition", value, { shouldValidate: true })} /><SelectField label="Kondisi jalan" value={form.watch("conditionRoad")} options={["Baik", "Rusak", "Perlu Perbaikan"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionRoad", value, { shouldValidate: true })} /><SelectField label="Kondisi lingkungan" value={form.watch("conditionEnvironment")} options={["Aman", "Waspada", "Berisiko"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionEnvironment", value, { shouldValidate: true })} /><SelectField label="Kondisi aktivitas" value={form.watch("conditionActivity")} options={["Normal", "Terbatas", "Terhenti"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionActivity", value, { shouldValidate: true })} /><SubmitButton label="Lanjut ke Dokumentasi" loading={saving} onPress={() => void continueToDocumentation()} /></> : null}{step === 1 ? <><Text style={styles.heading}>Dokumentasi</Text><InputField name="findings" label="Temuan" multiline register={form.register} errors={form.formState.errors} /><InputField name="notes" label="Catatan" multiline register={form.register} errors={form.formState.errors} /><Pressable onPress={addPhoto} style={styles.photoButton}><Text style={styles.photoText}>Tambah Foto ({photos.length + storedPhotos.length}/3)</Text></Pressable>{photos.length ? <View style={styles.photos}>{photos.map((photo) => <Image alt="Foto pemeriksaan" key={photo.uri} source={{ uri: photo.uri }} style={styles.photo} />)}</View> : null}<View style={styles.actions}><SubmitButton label="Kembali" loading={saving} onPress={() => setStep(0)} /><SubmitButton label="Tinjau Pemeriksaan" loading={saving} onPress={() => setStep(2)} /></View></> : null}{step === 2 ? <><Text style={styles.heading}>Tinjau Sebelum Kirim</Text><Summary label="Blok" value={(blocks.data?.blocks ?? []).find((block) => block.id === values.blockId)?.name ?? "Belum dipilih"} /><Summary label="Kondisi" value={`${values.condition} · Jalan ${values.conditionRoad} · Lingkungan ${values.conditionEnvironment} · Aktivitas ${values.conditionActivity}`} /><Summary label="Sumber daya" value={`${values.excavatorCount} excavator · ${values.workerCount} pekerja`} /><Summary label="Dokumentasi" value={`${photos.length + storedPhotos.length} foto · ${values.findings || "Tidak ada temuan"}`} /><View style={styles.actions}><SubmitButton label="Kembali" loading={saving} onPress={() => setStep(1)} /><SubmitButton label="Simpan Draft" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "draft"))()} /><SubmitButton label="Kirim Data" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "submit"))()} /></View></> : null}</Screen></>;
+  return (
+    <>
+      <Header role={role} title={draftId ? "Lanjutkan Draft" : "Pemeriksaan Baru"} subtitle="Data, dokumentasi, lalu tinjau" />
+      <Screen>
+        <View style={styles.steps}>
+          {steps.map((label, index) => (
+            <Pressable key={label} onPress={() => index <= step && setStep(index)} style={[styles.step, step === index && styles.stepActive]}>
+              <Text style={[styles.stepText, step === index && styles.stepTextActive]}>{index + 1}. {label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {step === 0 ? (
+          <>
+            <Text style={styles.heading}>Data Pemeriksaan</Text>
+            <SelectField label="Blok" value={form.watch("blockId") ?? ""} options={(blocks.data?.blocks ?? []).map((block) => ({ label: `${block.code} · ${block.name}`, value: block.id }))} onChange={(value) => form.setValue("blockId", value, { shouldValidate: true })} />
+            <DateField name="inspectedAt" label="Tanggal pemeriksaan" control={form.control} errors={form.formState.errors} />
+            <LocationField value={capturedLocation} loading={locationLoading} onCapture={captureLocation} />
+            <InputField name="excavatorCount" label="Jumlah excavator" keyboardType="numeric" register={form.register} errors={form.formState.errors} />
+            <InputField name="workerCount" label="Jumlah pekerja" keyboardType="numeric" register={form.register} errors={form.formState.errors} />
+            <SelectField label="Kondisi blok" value={form.watch("condition")} options={["Aktif", "Berhenti", "Belum Operasi"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("condition", value, { shouldValidate: true })} />
+            <SelectField label="Kondisi jalan" value={form.watch("conditionRoad")} options={["Baik", "Rusak", "Perlu Perbaikan"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionRoad", value, { shouldValidate: true })} />
+            <SelectField label="Kondisi lingkungan" value={form.watch("conditionEnvironment")} options={["Aman", "Waspada", "Berisiko"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionEnvironment", value, { shouldValidate: true })} />
+            <SelectField label="Kondisi aktivitas" value={form.watch("conditionActivity")} options={["Normal", "Terbatas", "Terhenti"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionActivity", value, { shouldValidate: true })} />
+            <SubmitButton label="Lanjut ke Dokumentasi" loading={saving} onPress={() => void continueToDocumentation()} />
+          </>
+        ) : null}
+        {step === 1 ? (
+          <>
+            <Text style={styles.heading}>Dokumentasi</Text>
+            <InputField name="findings" label="Temuan" multiline register={form.register} errors={form.formState.errors} />
+            <InputField name="notes" label="Catatan" multiline register={form.register} errors={form.formState.errors} />
+            <Pressable onPress={addPhoto} style={styles.photoButton}><Text style={styles.photoText}>Tambah Foto ({photos.length + storedPhotos.length}/3)</Text></Pressable>
+            {photos.length ? <View style={styles.photos}>{photos.map((photo) => <Image alt="Foto pemeriksaan" key={photo.uri} source={{ uri: photo.uri }} style={styles.photo} />)}</View> : null}
+            <View style={styles.actions}><SubmitButton label="Kembali" loading={saving} onPress={() => setStep(0)} /><SubmitButton label="Tinjau Pemeriksaan" loading={saving} onPress={() => setStep(2)} /></View>
+          </>
+        ) : null}
+        {step === 2 ? (
+          <>
+            <Text style={styles.heading}>Tinjau Sebelum Kirim</Text>
+            <Summary label="Blok" value={(blocks.data?.blocks ?? []).find((block) => block.id === values.blockId)?.name ?? "Belum dipilih"} />
+            <Summary label="Kondisi" value={`${values.condition} · Jalan ${values.conditionRoad} · Lingkungan ${values.conditionEnvironment} · Aktivitas ${values.conditionActivity}`} />
+            <Summary label="Sumber daya" value={`${values.excavatorCount} excavator · ${values.workerCount} pekerja`} />
+            <Summary label="Lokasi GPS" value={capturedLocation ? `${capturedLocation.latitude.toFixed(6)}, ${capturedLocation.longitude.toFixed(6)}` : "Belum diambil"} />
+            <Summary label="Dokumentasi" value={`${photos.length + storedPhotos.length} foto · ${values.findings || "Tidak ada temuan"}`} />
+            <View style={styles.actions}><SubmitButton label="Kembali" loading={saving} onPress={() => setStep(1)} /><SubmitButton label="Simpan Draft" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "draft"))()} /><SubmitButton label="Kirim Data" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "submit"))()} /></View>
+          </>
+        ) : null}
+      </Screen>
+    </>
+  );
 }
 
 function Summary({ label, value }: { label: string; value: string }) { return <View style={styles.summary}><Text style={styles.summaryLabel}>{label}</Text><Text style={styles.summaryValue}>{value}</Text></View>; }

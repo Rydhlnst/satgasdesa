@@ -1,9 +1,9 @@
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ReactNode } from "react";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Bell, CircleUserRound, ClipboardCheck, CloudOff, FileBarChart, FileText, Home, Inbox, MapPinned, Search, Settings2, ShieldCheck, Truck, TrendingUp, WalletCards, Wifi, WifiOff } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../auth";
 import { getNotifications } from "../lib/api";
@@ -16,14 +16,15 @@ import { Spinner } from "./ui/spinner";
 import appIcon from "../../assets/icon.png";
 
 export function Screen({ children, refreshing, onRefresh, scroll = true, showDateRange = true }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; showDateRange?: boolean }) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const sync = useOfflineSync();
   const notice = !sync.isOnline ? "Offline — perubahan baru akan dikirim saat koneksi kembali." : sync.summary.BLOCKED ? `${sync.summary.BLOCKED} data perlu diperbaiki. Ketuk untuk melihat detail.` : sync.summary.FAILED ? `${sync.summary.FAILED} data gagal dikirim. Ketuk untuk mencoba lagi.` : sync.summary.PENDING || sync.summary.SYNCING ? `${sync.summary.PENDING + sync.summary.SYNCING} data menunggu sinkronisasi.` : null;
   async function retrySync() { try { await sync.syncNow(true); } catch (error) { showActionError(error, "Sinkronisasi gagal. Periksa koneksi lalu coba lagi."); } }
   const banner = notice ? <Pressable disabled={sync.isSyncing} onPress={() => void (sync.summary.BLOCKED ? router.push("/offline-queue") : retrySync())} style={[styles.syncBanner, sync.summary.FAILED || sync.summary.BLOCKED ? styles.syncBannerFailed : null]}><Text style={styles.syncBannerText}>{sync.isSyncing ? "Menyinkronkan data…" : notice}</Text></Pressable> : null;
   const dateRange = showDateRange ? <DateRangePicker /> : null;
-  const content = scroll ? <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} refreshControl={onRefresh ? <RefreshControl onRefresh={onRefresh} refreshing={Boolean(refreshing)} tintColor={colors.primary} /> : undefined}>{dateRange}{banner}{children}</ScrollView> : <View style={styles.content}>{dateRange}{banner}{children}</View>;
-  return <SafeAreaView edges={["bottom"]} style={styles.safe}>{content}</SafeAreaView>;
+  const content = scroll ? <ScrollView style={{ flex: 1 }} automaticallyAdjustKeyboardInsets contentContainerStyle={[styles.content, { paddingBottom: 102 + insets.bottom }]} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} refreshControl={onRefresh ? <RefreshControl onRefresh={onRefresh} refreshing={Boolean(refreshing)} tintColor={colors.primary} /> : undefined}>{dateRange}{banner}{children}</ScrollView> : <View style={{ flex: 1 }}>{dateRange}{banner}{children}</View>;
+  return <SafeAreaView edges={["bottom"]} style={styles.safe}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>{content}</KeyboardAvoidingView></SafeAreaView>;
 }
 
 export function Header({ role, title, subtitle }: { role: Role; title: string; subtitle?: string }) {
@@ -60,10 +61,12 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry: () 
 }
 export function EmptyState({ message }: { message: string }) { return <View style={styles.state}><View style={styles.stateIcon}><Inbox color={colors.textSubtle} size={22} /></View><Text style={styles.muted}>{message}</Text></View>; }
 export function BottomNav({ role, current }: { role: Role; current: string }) {
-  if (role === "PIMPINAN") return <View style={styles.nav}><NavItem icon={Home} label="Dashboard" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Monitoring Blok" active={current === "monitoring"} href="/monitoring" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={Search} label="Anggaran" active={current === "budgets"} href="/budgets" /><NavItem icon={FileText} label="Laporan" active={current === "reports" || current === "realizations"} href="/reports" /></View>;
-  if (role === "BENDAHARA") return <View style={styles.nav}><NavItem icon={Home} label="Dashboard" active={current === "dashboard"} href="/dashboard" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={ClipboardCheck} label="Pengajuan" active={current === "proposals"} href="/proposals" /><NavItem icon={TrendingUp} label="Realisasi" active={current === "realizations" || current === "budgets"} href="/realizations" /><NavItem icon={FileText} label="Laporan" active={current === "reports"} href="/reports" /></View>;
-  if (role === "PETUGAS_LAPANGAN") return <View style={styles.nav}><NavItem icon={Home} label="Dashboard" active={current === "dashboard"} href="/dashboard" /><NavItem icon={FileText} label="Pemeriksaan" active={current === "inspections" || current === "monitoring" || current === "map"} href="/monitoring" /><NavItem icon={MapPinned} label="Excavator" active={current === "excavators"} href="/excavators" /><NavItem icon={WalletCards} label="Informasi" active={current === "information"} href="/information" /><NavItem icon={CircleUserRound} label="Profil" active={current === "profile"} href="/profile" /></View>;
-  return <View style={styles.nav}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Keuangan" active={current === "monitoring"} href="/finance" /><NavItem icon={WalletCards} label="Informasi" active={false} href="/information" /><NavItem icon={Search} label="Laporan" active={false} href="/reports" /><NavItem icon={CircleUserRound} label="Akun" active={false} href="/dashboard" /></View>;
+  const insets = useSafeAreaInsets();
+  const navStyle = [styles.nav, { paddingBottom: Math.max(insets.bottom, 10), minHeight: 69 + insets.bottom }];
+  if (role === "PIMPINAN") return <View style={navStyle}><NavItem icon={Home} label="Dashboard" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Monitoring Blok" active={current === "monitoring"} href="/monitoring" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={Search} label="Anggaran" active={current === "budgets"} href="/budgets" /><NavItem icon={FileText} label="Laporan" active={current === "reports" || current === "realizations"} href="/reports" /></View>;
+  if (role === "BENDAHARA") return <View style={navStyle}><NavItem icon={Home} label="Dashboard" active={current === "dashboard"} href="/dashboard" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={ClipboardCheck} label="Pengajuan" active={current === "proposals"} href="/proposals" /><NavItem icon={TrendingUp} label="Realisasi" active={current === "realizations" || current === "budgets"} href="/realizations" /><NavItem icon={FileText} label="Laporan" active={current === "reports"} href="/reports" /></View>;
+  if (role === "PETUGAS_LAPANGAN") return <View style={navStyle}><NavItem icon={Home} label="Dashboard" active={current === "dashboard"} href="/dashboard" /><NavItem icon={FileText} label="Pemeriksaan" active={current === "inspections" || current === "monitoring" || current === "map"} href="/monitoring" /><NavItem icon={MapPinned} label="Excavator" active={current === "excavators"} href="/excavators" /><NavItem icon={WalletCards} label="Informasi" active={current === "information"} href="/information" /><NavItem icon={CircleUserRound} label="Profil" active={current === "profile"} href="/profile" /></View>;
+  return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Keuangan" active={current === "monitoring"} href="/finance" /><NavItem icon={WalletCards} label="Informasi" active={false} href="/information" /><NavItem icon={Search} label="Laporan" active={false} href="/reports" /><NavItem icon={CircleUserRound} label="Akun" active={false} href="/dashboard" /></View>;
 }
 
 function NavItem({ label, active, href, icon: Icon }: { label: string; active: boolean; href: "/dashboard" | "/monitoring" | "/finance" | "/information" | "/reports" | "/budgets" | "/proposals" | "/realizations" | "/inspections" | "/excavators" | "/profile" | "/notifications"; icon: typeof Home }) {

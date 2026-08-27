@@ -21,6 +21,7 @@
 /.playwright-cli/
 /.playwright-mcp/
 /.docker-local/
+/.pnpm-local/
 
 /Dockerfile
 /docker-compose*.yml
