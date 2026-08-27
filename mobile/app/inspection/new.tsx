@@ -4,7 +4,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 import { z } from "zod";
 
 import { useAuth } from "../../src/auth";
@@ -26,7 +27,7 @@ export default function NewInspection() {
   const { role } = useAuth(); const router = useRouter(); const { draftId } = useLocalSearchParams<{ draftId?: string }>();
   const [step, setStep] = useState(0); const [saving, setSaving] = useState(false); const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]); const [storedPhotos, setStoredPhotos] = useState<StoredPhoto[]>([]);
   const blocks = useQuery({ queryKey: ["blocks", "inspection-form"], queryFn: () => getBlocks(), enabled: Boolean(role) });
-  const draft = useQuery({ queryKey: ["inspection", draftId], queryFn: () => getInspection(draftId!), enabled: Boolean(draftId) });
+  const draft = useQuery({ queryKey: ["inspection", draftId], queryFn: () => getInspection(draftId!), enabled: Boolean(role && draftId) });
   const form = useForm<Values>({ resolver: zodResolver(schema), mode: "onBlur", reValidateMode: "onChange", defaultValues: { excavatorCount: 0, workerCount: 0, condition: "Aktif", conditionRoad: "Baik", conditionEnvironment: "Aman", conditionActivity: "Normal" } });
   useEffect(() => { if (draftId) return; void loadInspectionDraft().then((value) => { if (value) form.reset({ ...value, conditionActivity: "Normal" }); }); }, [draftId, form]);
   useEffect(() => { if (!draft.data || draft.data.item.status !== "DRAFT") return; const item = draft.data.item; form.reset({ blockId: String(item.blockId), inspectedAt: item.inspectedAt ? String(item.inspectedAt).slice(0, 10) : undefined, excavatorCount: Number(item.excavatorCount), workerCount: Number(item.workerCount), condition: String(item.condition), conditionRoad: String(item.roadCondition ?? "Baik"), conditionEnvironment: String(item.environmentCondition ?? "Aman"), conditionActivity: String(item.activityCondition ?? "Normal"), findings: String(item.findings ?? ""), notes: String(item.notes ?? "") }); setStoredPhotos(draft.data.photos.map((photo) => ({ storageKey: String(photo.storageKey), contentType: String(photo.contentType), size: Number(photo.sizeBytes), capturedAt: photo.capturedAt ? String(photo.capturedAt) : undefined }))); }, [draft.data, form]);

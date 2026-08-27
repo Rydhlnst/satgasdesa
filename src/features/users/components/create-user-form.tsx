@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createInvitedUser, type UserCreateState } from "@/src/features/users/actions";
+import { createUser, type UserCreateState } from "@/src/features/users/actions";
 
 const initialState: UserCreateState = { error: null, success: null };
 
@@ -16,13 +16,13 @@ type CreateUserFormProps = {
 };
 
 export function CreateUserForm({ roles }: CreateUserFormProps) {
-  const [state, formAction, isPending] = useActionState(createInvitedUser, initialState);
+  const [state, formAction, isPending] = useActionState(createUser, initialState);
 
   return (
     <form action={formAction} className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm" noValidate>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Invite user</p>
-        <p className="mt-1 text-sm text-muted-foreground">The user receives a secure password setup link by email.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Create account</p>
+        <p className="mt-1 text-sm text-muted-foreground">Set the user&apos;s initial password. The account can sign in immediately.</p>
       </div>
       {state.error ? <Alert variant="destructive"><AlertDescription>{state.error}</AlertDescription></Alert> : null}
       <FormErrorToast error={state.error} />
@@ -32,7 +32,8 @@ export function CreateUserForm({ roles }: CreateUserFormProps) {
         <div className="space-y-2"><Label htmlFor="new-user-email">Email</Label><Input id="new-user-email" name="email" type="email" required maxLength={255} /></div>
       </div>
       <div className="space-y-2"><Label htmlFor="new-user-role">Role</Label><select id="new-user-role" name="roleId" required defaultValue="" className="h-10 w-full border border-border bg-background px-3 text-sm"><option value="" disabled>Select a role</option>{roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
-      <Button type="submit" disabled={isPending}>{isPending ? "Creating invitation…" : "Create and invite"}</Button>
+      <div className="space-y-2"><Label htmlFor="new-user-password">Password</Label><Input id="new-user-password" name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} /><p className="text-xs text-muted-foreground">Use at least 8 characters. The account is ready to use immediately.</p></div>
+      <Button type="submit" disabled={isPending}>{isPending ? "Creating account…" : "Create account"}</Button>
     </form>
   );
 }

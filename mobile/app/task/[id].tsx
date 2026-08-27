@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 
 import { useAuth } from "../../src/auth";
 import { ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
@@ -18,7 +19,7 @@ export default function TaskDetailScreen() {
   if (query.isLoading) return <><Header role={role} title="Detail Tugas" /><Screen><LoadingState /></Screen></>;
   if (query.isError || !query.data) return <><Header role={role} title="Detail Tugas" /><Screen><ErrorState message="Tugas tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item; const status = text(item, "status"); const canManage = session?.permissions.includes("FIELD_TASK_MANAGE") ?? false;
-  async function transition(next: string) { setSaving(true); try { await updateFieldTask({ id, status: next }); await client.invalidateQueries({ queryKey: ["field-task", id] }); await client.invalidateQueries({ queryKey: ["field-tasks"] }); } catch (error) { Alert.alert("Tidak dapat memperbarui tugas", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); } }
+  async function transition(next: string) { if (saving) return; setSaving(true); try { await updateFieldTask({ id, status: next }); await client.invalidateQueries({ queryKey: ["field-task", id] }); await client.invalidateQueries({ queryKey: ["field-tasks"] }); } catch (error) { Alert.alert("Tidak dapat memperbarui tugas", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); } }
   return <><Header role={role} title="Detail Tugas" subtitle="Status dan tanggung jawab pekerjaan" /><Screen><View style={styles.hero}><Text style={styles.title}>{text(item, "title")}</Text><StatusPill tone={status === "DONE" ? "green" : status === "CANCELLED" ? "red" : "orange"}>{status}</StatusPill><Text style={styles.copy}>{text(item, "description", "Tanpa deskripsi")}</Text></View><View style={styles.card}><Text style={styles.label}>Blok</Text><Text style={styles.value}>{text(item, "blockId")}</Text><Text style={styles.label}>Tenggat</Text><Text style={styles.value}>{text(item, "dueDate", "Tidak ditentukan")}</Text><Text style={styles.label}>Prioritas</Text><Text style={styles.value}>{text(item, "priority")}</Text></View>{canManage && (nextStates[status] ?? []).length ? <View style={styles.card}>{(nextStates[status] ?? []).map((next) => <Pressable disabled={saving} key={next} onPress={() => void transition(next)} style={[styles.action, next === "CANCELLED" && styles.danger]}><Text style={styles.actionText}>{next === "IN_PROGRESS" ? "Mulai Pekerjaan" : next === "DONE" ? "Tandai Selesai" : "Batalkan Tugas"}</Text></Pressable>)}</View> : null}</Screen></>;
 }
 

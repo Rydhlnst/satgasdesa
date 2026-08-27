@@ -11,6 +11,7 @@ import { createFinancialTransactionSchema } from "@/src/features/finance/schema"
 import { createFundRequestSchema } from "@/src/features/fund-requests/schema";
 import { createInspectionSchema, inspectionUploadSchema } from "@/src/features/inspections/schema";
 import { adminInviteFormSchema, budgetCategoryFormSchema, budgetCategoryPeriodFormSchema, budgetItemFormSchema, budgetPeriodFormSchema, budgetSubcategoryFormSchema, businessActorFormSchema, dueFormSchema, endAssignmentFormSchema, excavatorEditFormSchema, excavatorFormSchema, excavatorMovementFormSchema, financeCategoryFormSchema, fieldAssignmentFormSchema, forgotPasswordSchema, fundRequestCorrectionFormSchema, fundRequestFormSchema, informationFollowUpFormSchema, informationFormSchema, informationTransitionFormSchema, inspectionFormSchema, loginSchema, passwordSchema, paymentFormSchema, paymentVerificationFormSchema, profileSchema, realizationCorrectionFormSchema, realizationFormSchema, reversalFormSchema, settingsFormSchema, taskFormSchema, transactionFormSchema, workerAssignmentFormSchema, workerFormSchema, workflowDecisionFormSchema } from "@/mobile/src/form-schemas";
+import { adminCreateUserFormSchema } from "@/mobile/src/form-schemas";
 
 const blockId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
@@ -51,6 +52,7 @@ const completeUserInputs: Array<[string, z.ZodTypeAny, unknown]> = [
   ["Mobile workflow decision form", workflowDecisionFormSchema, { notes: "Sesuai pemeriksaan." }],
   ["Mobile reversal form", reversalFormSchema, { reason: "Koreksi pencatatan." }],
   ["Mobile admin invite form", adminInviteFormSchema, { name: "Admin Sejoli", email: "admin@sejoli.id", roleId: "PETUGAS_LAPANGAN" }],
+  ["Mobile admin create account form", adminCreateUserFormSchema, { name: "Admin Sejoli", email: "admin@sejoli.id", roleId: "PETUGAS_LAPANGAN", password: "SecurePass123" }],
   ["Mobile settings form", settingsFormSchema, { organizationName: "Satgas Desa Sejoli", organizationPhone: "08123456789", monthlyDueAmount: "10000000", roadEntryDueAmount: "5000000", monthlyDueDay: "7", periodKey: "2026-08" }],
   ["Pimpinan/Admin block form", blockFormSchema, {
     code: "BLK-001", name: "Blok Utara", status: "ACTIVE", priority: "NORMAL", latitude: "-6.200000", longitude: "106.816666", areaHectares: "12.5", managerName: "Siti", locationPicName: "Budi", fieldPicName: "Rina", contact: "08123456789", workerCount: "8", operationalCondition: "Beroperasi normal", startDate: "2026-08-01", notes: "Akses aman",
@@ -126,6 +128,7 @@ describe("mobile forms validate realistic user input", () => {
     ["realization correction reason", realizationCorrectionFormSchema, { budgetItemId: blockId, activity: "Jalan", realizationDate: "2026-08-26", requestedAmount: "100", description: "Material", reason: " " }],
     ["budget item amount", budgetItemFormSchema, { groupId: blockId, name: "Material", allocatedAmount: "-1" }],
     ["admin invite email", adminInviteFormSchema, { name: "Admin", email: "wrong", roleId: "PETUGAS_LAPANGAN" }],
+    ["admin create account password", adminCreateUserFormSchema, { name: "Admin Sejoli", email: "admin@sejoli.id", roleId: "PETUGAS_LAPANGAN", password: "short" }],
     ["settings period", settingsFormSchema, { organizationName: "Satgas", organizationPhone: "", monthlyDueAmount: "100", roadEntryDueAmount: "100", monthlyDueDay: "7", periodKey: "2026-13" }],
     ["reversal reason", reversalFormSchema, { reason: " " }],
   ];

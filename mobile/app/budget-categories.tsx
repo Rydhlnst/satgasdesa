@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppAlert as Alert } from "../src/lib/feedback";
 
 import { useAuth } from "../src/auth";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
@@ -59,13 +60,17 @@ export default function BudgetCategories() {
   }
 
   async function toggleCategory(item: Category) {
+    if (saving) return;
+    setSaving(true);
     try { await updateBudgetCategory({ id: text(item, "id"), name: text(item, "name"), sortOrder: Number(item.sortOrder ?? 0), isActive: Number(item.isActive) !== 1 }); await refresh(); }
-    catch (error) { Alert.alert("Tidak dapat memperbarui", error instanceof Error ? error.message : "Coba lagi."); }
+    catch (error) { Alert.alert("Tidak dapat memperbarui", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
   }
 
   async function toggleSubcategory(item: Record<string, unknown>) {
+    if (saving) return;
+    setSaving(true);
     try { await updateBudgetSubcategory({ id: text(item, "id"), categoryId: text(item, "categoryId"), name: text(item, "name"), sortOrder: Number(item.sortOrder ?? 0), isActive: Number(item.isActive) !== 1 }); await refresh(); }
-    catch (error) { Alert.alert("Tidak dapat memperbarui", error instanceof Error ? error.message : "Coba lagi."); }
+    catch (error) { Alert.alert("Tidak dapat memperbarui", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
   }
 
   return <><Header role={role} title="Kategori Anggaran" subtitle="Master kategori dan subkategori alokasi" /><Screen>

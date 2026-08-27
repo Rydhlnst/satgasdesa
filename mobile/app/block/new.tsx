@@ -3,7 +3,8 @@ import { useRouter } from "expo-router";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Alert, Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 import { z } from "zod";
 
 import { useAuth } from "../../src/auth";

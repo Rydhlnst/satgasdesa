@@ -12,7 +12,6 @@ import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS, ROLES, type RoleName } from "@/src/lib/permissions/constants";
 import { role, userRole } from "@/src/db/schema/rbac";
-import { createAuth } from "@/src/lib/auth/auth";
 
 const USER_STATUSES = ["ACTIVE", "INACTIVE"] as const;
 type UserStatus = (typeof USER_STATUSES)[number];
@@ -32,6 +31,7 @@ const createUserSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters.").max(255),
   email: z.string().trim().email("Enter a valid email address.").max(255),
   roleId: z.enum([ROLES.PIMPINAN, ROLES.BENDAHARA, ROLES.PETUGAS_LAPANGAN]),
+  password: z.string().min(8, "Password must be at least 8 characters.").max(128, "Password must be 128 characters or fewer."),
 });
 const userIdSchema = z.string().uuid("Invalid user ID.");
 
@@ -109,7 +109,7 @@ export async function getUserById(userId: string) {
   return item ?? null;
 }
 
-export async function createInvitedUser(
+export async function createUser(
   _previousState: UserCreateState,
   formData: FormData,
 ): Promise<UserCreateState> {
@@ -118,6 +118,7 @@ export async function createInvitedUser(
     name: formData.get("name"),
     email: formData.get("email"),
     roleId: formData.get("roleId"),
+    password: formData.get("password"),
   });
 
   if (!values.success) {
@@ -138,7 +139,7 @@ export async function createInvitedUser(
 
   const userId = crypto.randomUUID();
   const now = new Date();
-  const temporaryPasswordHash = await hashPassword(crypto.randomUUID());
+  const passwordHash = await hashPassword(values.data.password);
 
   try {
     await database.transaction(async (tx) => {
@@ -146,7 +147,7 @@ export async function createInvitedUser(
         id: userId,
         name: values.data.name,
         email,
-        emailVerified: false,
+        emailVerified: true,
         image: null,
         status: "ACTIVE",
         createdAt: now,
@@ -157,7 +158,7 @@ export async function createInvitedUser(
         accountId: userId,
         providerId: "credential",
         userId,
-        password: temporaryPasswordHash,
+        password: passwordHash,
         createdAt: now,
         updatedAt: now,
       });
@@ -173,7 +174,7 @@ export async function createInvitedUser(
           action: AUDIT_ACTIONS.CREATE,
           entityType: "USER",
           entityId: userId,
-          newValues: { name: values.data.name, email, roleId: values.data.roleId, invited: true },
+          newValues: { name: values.data.name, email, roleId: values.data.roleId, createdDirectly: true },
         }),
       );
     });
@@ -181,17 +182,8 @@ export async function createInvitedUser(
     return { error: "Unable to create the user. Check the details and try again.", success: null };
   }
 
-  try {
-    const response = await createAuth().api.requestPasswordReset({
-      body: { email, redirectTo: "/reset-password" },
-    });
-    if (!response.status) return { error: "The user was created, but the invitation email could not be sent.", success: null };
-  } catch {
-    return { error: "The user was created, but the invitation email could not be sent.", success: null };
-  }
-
   revalidatePath("/dashboard/settings/users");
-  return { error: null, success: `Invitation sent to ${email}.` };
+  return { error: null, success: `Account created for ${email}.` };
 }
 
 export async function updateUserStatus(formData: FormData) {

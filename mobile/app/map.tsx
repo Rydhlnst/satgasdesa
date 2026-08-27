@@ -3,13 +3,14 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { Filter, List, LocateFixed, MapPinned, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { TextInput } from "../src/components/ui/TextInput";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Camera, Map as MapLibreView, Marker } from "@maplibre/maplibre-react-native";
 import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 
 import { useAuth } from "../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
+import { SearchField } from "../src/components/MobilePrimitives";
+import { Modal as GModal, ModalBackdrop, ModalContent } from "../src/components/ui/modal";
 import { getBlocks } from "../src/lib/api";
 import { colors, spacing } from "../src/theme";
 import type { Block } from "../src/types";
@@ -129,7 +130,7 @@ export default function MapScreen() {
         </Pressable>
       </View>
       <View style={styles.searchRow}>
-        <TextInput onChangeText={setSearch} placeholder="Cari blok..." placeholderTextColor={colors.textMuted} style={styles.search} value={search} />
+        <SearchField value={search} onChangeText={setSearch} onClear={() => setSearch("")} placeholder="Cari blok..." />
         <Pressable onPress={() => setFilterOpen(true)} style={styles.filterButton}>
           <Filter color={colors.primary} size={17} />
           <Text style={styles.filterText}>Filter</Text>
@@ -199,9 +200,9 @@ export default function MapScreen() {
       </>}
     </Screen>
     <BottomNav current="monitoring" role={role} />
-    <Modal animationType="slide" transparent visible={filterOpen} onRequestClose={() => setFilterOpen(false)}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.sheet}>
+    <GModal isOpen={filterOpen} onClose={() => setFilterOpen(false)} size="full">
+      <ModalBackdrop />
+      <ModalContent className="mt-auto min-h-[320px] w-full rounded-t-3xl rounded-b-none bg-white p-5 pb-safe">
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Filter Blok</Text>
             <Pressable accessibilityLabel="Close filters" accessibilityRole="button" onPress={() => setFilterOpen(false)}>
@@ -217,9 +218,8 @@ export default function MapScreen() {
             <Text style={[styles.optionText, priority === value && styles.optionTextActive]}>{value === "ALL" ? "Semua Prioritas" : value}</Text>
           </Pressable>)}
           <Pressable onPress={() => setFilterOpen(false)} style={styles.apply}><Text style={styles.applyText}>Terapkan Filter</Text></Pressable>
-        </View>
-      </View>
-    </Modal>
+      </ModalContent>
+    </GModal>
   </>;
 }
 

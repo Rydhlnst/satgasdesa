@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 
 import { useAuth } from "../../src/auth";
 import { Header, Screen } from "../../src/components/Screen";

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 import { TextInput } from "../../src/components/ui/TextInput";
 
 import { useAuth } from "../../src/auth";

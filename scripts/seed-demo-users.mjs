@@ -9,15 +9,30 @@ if (process.env.NODE_ENV === "production") throw new Error("Demo users may only 
 function requiredPassword(name) {
   const password = process.env[name];
   if (!password) throw new Error(`${name} must be configured before seeding users.`);
+  if (password.length < 12) throw new Error(`${name} must be at least 12 characters.`);
   return password;
 }
 
-const accounts = [
-  { name: "Bootstrap Admin", email: "admin@satgas.local", password: requiredPassword("SEED_ADMIN_PASSWORD"), role: "PIMPINAN" },
-  { name: "Local Pimpinan", email: "pimpinan@satgas.local", password: requiredPassword("SEED_PIMPINAN_PASSWORD"), role: "PIMPINAN" },
-  { name: "Local Bendahara", email: "bendahara@satgas.local", password: requiredPassword("SEED_BENDAHARA_PASSWORD"), role: "BENDAHARA" },
-  { name: "Local Petugas Lapangan", email: "petugas@satgas.local", password: requiredPassword("SEED_PETUGAS_PASSWORD"), role: "PETUGAS_LAPANGAN" },
+const accountDefinitions = [
+  { name: "Bootstrap Admin", email: "admin@satgas.local", passwordEnv: "SEED_ADMIN_PASSWORD", role: "PIMPINAN" },
+  { name: "Local Pimpinan", email: "pimpinan@satgas.local", passwordEnv: "SEED_PIMPINAN_PASSWORD", role: "PIMPINAN" },
+  { name: "Local Bendahara", email: "bendahara@satgas.local", passwordEnv: "SEED_BENDAHARA_PASSWORD", role: "BENDAHARA" },
+  { name: "Local Petugas Lapangan", email: "petugas@satgas.local", passwordEnv: "SEED_PETUGAS_PASSWORD", role: "PETUGAS_LAPANGAN" },
 ];
+
+const supportedRoles = new Set(accountDefinitions.map((account) => account.role));
+const selectedRoles = (process.env.SEED_ROLES ?? "BENDAHARA,PETUGAS_LAPANGAN")
+  .split(",")
+  .map((role) => role.trim())
+  .filter(Boolean);
+
+if (!selectedRoles.length || selectedRoles.some((role) => !supportedRoles.has(role))) {
+  throw new Error(`SEED_ROLES must contain supported roles: ${[...supportedRoles].join(", ")}.`);
+}
+
+const accounts = accountDefinitions
+  .filter((account) => selectedRoles.includes(account.role))
+  .map(({ passwordEnv, ...account }) => ({ ...account, password: requiredPassword(passwordEnv) }));
 
 const pool = mysql.createPool({ uri: databaseUrl, connectionLimit: 1 });
 const connection = await pool.getConnection();

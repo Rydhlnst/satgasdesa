@@ -25,6 +25,6 @@ function PushNotificationRouter() {
 }
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }));
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: false } } }));
   return <QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><GluestackUIProvider mode="light"><AppErrorBoundary><PushNotificationRouter /><StatusBar style="dark" /><Stack screenOptions={{ headerShown: false }} /></AppErrorBoundary></GluestackUIProvider></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider>;
 }

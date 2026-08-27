@@ -1,7 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useForm } from "react-hook-form";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 import { z } from "zod";
 
 import { useAuth } from "../../src/auth";
@@ -24,7 +25,13 @@ export default function ProfileSecurity() {
       Alert.alert("Password changed", "Sign in again on other devices if their sessions were revoked.", [{ text: "Done", onPress: () => router.back() }]);
     } catch (error) { Alert.alert("Unable to change password", error instanceof Error ? error.message : "Try again."); }
   }
-  return <><Header role={role} title="Password and sessions" subtitle="Secure this account" /><Screen><View style={styles.card}><Text style={styles.copy}>Use a unique password. You can revoke other active sessions after updating it.</Text><InputField name="currentPassword" label="Current password" required register={form.register} errors={form.formState.errors} secureTextEntry /><InputField name="newPassword" label="New password" required register={form.register} errors={form.formState.errors} secureTextEntry /><InputField name="confirmPassword" label="Confirm new password" required register={form.register} errors={form.formState.errors} secureTextEntry /><SelectField label="Other sessions" required error={form.formState.errors.revokeOtherSessions?.message} value={form.watch("revokeOtherSessions")} options={[{ label: "Revoke", value: "yes" }, { label: "Keep active", value: "no" }]} onChange={(value) => form.setValue("revokeOtherSessions", value as "yes" | "no", { shouldValidate: true })} /><SubmitButton label="Change password" loading={form.formState.isSubmitting} onPress={() => void form.handleSubmit(submit)()} /></View><Pressable onPress={() => void signOut()} style={styles.signOut}><Text style={styles.signOutText}>Sign out from this device</Text></Pressable></Screen></>;
+  function confirmSignOut() {
+    Alert.alert("Sign out?", "You will need to sign in again to access operational data.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign out", style: "destructive", onPress: () => void signOut().catch((error) => Alert.alert("Unable to sign out", error instanceof Error ? error.message : "Try again.")) },
+    ]);
+  }
+  return <><Header role={role} title="Password and sessions" subtitle="Secure this account" /><Screen><View style={styles.card}><Text style={styles.copy}>Use a unique password. You can revoke other active sessions after updating it.</Text><InputField name="currentPassword" label="Current password" required register={form.register} errors={form.formState.errors} secureTextEntry /><InputField name="newPassword" label="New password" required register={form.register} errors={form.formState.errors} secureTextEntry /><InputField name="confirmPassword" label="Confirm new password" required register={form.register} errors={form.formState.errors} secureTextEntry /><SelectField label="Other sessions" required error={form.formState.errors.revokeOtherSessions?.message} value={form.watch("revokeOtherSessions")} options={[{ label: "Revoke", value: "yes" }, { label: "Keep active", value: "no" }]} onChange={(value) => form.setValue("revokeOtherSessions", value as "yes" | "no", { shouldValidate: true })} /><SubmitButton label="Change password" loading={form.formState.isSubmitting} onPress={() => void form.handleSubmit(submit)()} /></View><Pressable accessibilityRole="button" onPress={confirmSignOut} style={styles.signOut}><Text style={styles.signOutText}>Sign out from this device</Text></Pressable></Screen></>;
 }
 
 const styles = StyleSheet.create({ card: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 13, borderWidth: 1, gap: spacing.md, padding: spacing.md }, copy: { color: colors.textMuted, fontSize: 12, lineHeight: 18 }, signOut: { alignItems: "center", borderColor: "#F4B4B0", borderRadius: 10, borderWidth: 1, padding: 13 }, signOutText: { color: colors.danger, fontSize: 12, fontWeight: "900" } });

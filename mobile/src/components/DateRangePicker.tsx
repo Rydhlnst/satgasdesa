@@ -28,7 +28,7 @@ export function DateRangePicker() {
     </Pressable>
     <Modal isOpen={open} onClose={() => setOpen(false)} size="full">
       <ModalBackdrop />
-      <ModalContent className="mt-auto w-full rounded-t-3xl rounded-b-none p-5">
+      <ModalContent className="mt-auto min-h-[320px] w-full rounded-t-3xl rounded-b-none p-5 pb-safe">
         <ModalHeader><Text className="text-lg font-black text-[#0F234D]">Filter date range</Text></ModalHeader>
         <ModalBody>
           <Text className="mb-3 text-xs text-[#6E7785]">All dated lists and summaries use this range.</Text>

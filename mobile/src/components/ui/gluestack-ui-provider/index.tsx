@@ -3,6 +3,7 @@ import { View, ViewProps } from 'react-native';
 import { OverlayProvider } from '@gluestack-ui/core/overlay/creator';
 import { ToastProvider } from '@gluestack-ui/core/toast/creator';
 import { Uniwind } from 'uniwind';
+import { FeedbackHost } from '../../FeedbackHost';
 
 export type ModeType = 'light' | 'dark' | 'system';
 
@@ -25,7 +26,7 @@ export function GluestackUIProvider({
   return (
     <View style={[{ flex: 1, height: '100%', width: '100%' }, props.style]}>
       <OverlayProvider>
-        <ToastProvider>{props.children}</ToastProvider>
+        <ToastProvider><FeedbackHost />{props.children}</ToastProvider>
       </OverlayProvider>
     </View>
   );

@@ -1,6 +1,6 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { Alert } from "react-native";
+import { AppAlert as Alert } from "./feedback";
 
 const MAX_IMAGE_EDGE = 1600;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;

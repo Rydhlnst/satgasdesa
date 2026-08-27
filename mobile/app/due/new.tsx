@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Alert, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import { AppAlert as Alert } from "../../src/lib/feedback";
 import { z } from "zod";
 
 import { useAuth } from "../../src/auth";

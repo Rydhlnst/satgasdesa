@@ -21,6 +21,7 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 function apiError(response: Response, body: ErrorBody | null): Error {
+  if (__DEV__) console.warn("[mobile-api]", response.status, response.url, body?.error ?? "UNKNOWN_ERROR");
   const message = body?.message ?? (response.status === 401
     ? "Sesi Anda telah berakhir."
     : response.status === 404
@@ -228,7 +229,7 @@ export function getInformationFiltered(filters: Record<string, string>) { return
 export function getReport(period?: string) { return request<{ report: Record<string, unknown> }>(`/api/mobile/reports${period ? `?period=${period}` : ""}`); }
 export function getAuditLogs(filters?: Record<string, string>) { return request<{ rows: Array<Record<string, unknown>>; pagination: Record<string, number> }>(`/api/mobile/audit${queryString(filters)}`); }
 export function getAdminUsers(filters?: Record<string, string>) { return request<{ users: Array<Record<string, unknown>>; roles: Array<Record<string, unknown>> }>(`/api/mobile/admin/users${queryString(filters)}`); }
-export function createAdminUser(input: { name: string; email: string; roleId: string }) { return request<{ error: string | null; success: string | null }>("/api/mobile/admin/users", { method: "POST", body: JSON.stringify(input) }); }
+export function createAdminUser(input: { name: string; email: string; roleId: string; password: string }) { return request<{ message: string | null; created: boolean }>("/api/mobile/admin/users", { method: "POST", body: JSON.stringify(input) }); }
 export function updateAdminUser(id: string, input: { status?: string; roleId?: string }) { return request<{ updated: boolean }>(`/api/mobile/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(input) }); }
 export function getSystemSettings() { return request<{ settings: Record<string, unknown> }>("/api/mobile/admin/settings"); }
 export function updateSystemSettings(input: Record<string, unknown>) { return request<{ settings: Record<string, unknown> }>("/api/mobile/admin/settings", { method: "PATCH", body: JSON.stringify(input) }); }
