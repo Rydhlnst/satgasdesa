@@ -17,7 +17,7 @@ function emit(event: FeedbackEvent) {
   listeners.forEach((listener) => listener(event));
 }
 
-function messageFor(error: unknown, fallback: string) {
+export function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
 
@@ -28,7 +28,7 @@ export function isRetryableNetworkError(error: unknown) {
 }
 
 export function showActionError(error: unknown, fallback = "Periksa data dan koneksi lalu coba lagi.") {
-  emit({ kind: "toast", tone: "error", title: "Aksi gagal", message: messageFor(error, fallback) });
+  emit({ kind: "toast", tone: "error", title: "Aksi gagal", message: errorMessage(error, fallback) });
 }
 
 export function showActionSuccess(message: string, title = "Berhasil") {

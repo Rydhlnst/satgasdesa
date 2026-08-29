@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { getActiveDateRange } from "../date-range";
+import { createClientId } from "./id";
 import type { Block, BlockDetails, DashboardResponse, FieldAssignmentItem, NotificationItem, Profile, Session } from "../types";
 
 const TOKEN_KEY = "satgas.mobile.session-token";
@@ -11,8 +12,11 @@ const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 const baseUrl = (isProductionEasBuild ? DEFAULT_API_URL : (configuredApiUrl || DEFAULT_API_URL)).replace(/\/+$/, "");
 const authOrigin = (isProductionEasBuild ? DEFAULT_API_URL : (process.env.EXPO_PUBLIC_AUTH_ORIGIN?.trim() || baseUrl)).replace(/\/+$/, "");
 
-type ErrorBody = { error?: string; message?: string; fields?: Record<string, string> };
+type ErrorDiagnostics = { requestId?: string; appRevision?: string };
+type ErrorBody = { error?: string; message?: string; fields?: Record<string, string>; diagnostics?: ErrorDiagnostics };
 type AuthResponse = ErrorBody & { token?: string | null };
+
+type MobileApiError = Error & { status?: number; code?: string; fields?: Record<string, string>; requestId?: string; appRevision?: string };
 
 async function readJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -20,26 +24,37 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
-function apiError(response: Response, body: ErrorBody | null): Error {
+function diagnosticSuffix(response: Response, body: ErrorBody | null, clientRequestId?: string) {
+  const requestId = response.headers.get("x-request-id") || body?.diagnostics?.requestId || clientRequestId || "tidak tersedia";
+  const appRevision = response.headers.get("x-app-revision") || body?.diagnostics?.appRevision || "tidak diketahui";
+  return `Detail teknis: HTTP ${response.status}${body?.error ? ` · ${body.error}` : ""} · ID ${requestId} · revisi server ${appRevision}.`;
+}
+
+function apiError(response: Response, body: ErrorBody | null, clientRequestId?: string): MobileApiError {
   if (__DEV__) console.warn("[mobile-api]", response.status, response.url, body?.error ?? "UNKNOWN_ERROR");
-  const message = body?.message ?? (response.status === 401
+  const message = (response.status === 404
+    ? "API route atau data tidak ditemukan. Kemungkinan aplikasi mobile lebih baru daripada server, Coolify belum redeploy dari commit GitHub terbaru, atau URL API salah."
+    : response.status === 503
+      ? "Server belum siap. Coolify mungkin sedang redeploy, migrasi database belum selesai, atau database tidak tersedia."
+      : response.status >= 500
+        ? "Server gagal memproses permintaan. Periksa log Coolify, status database, dan migrasi deployment terbaru."
+        : body?.message) ?? (response.status === 401
     ? "Sesi Anda telah berakhir."
-    : response.status === 404
-      ? "API route tidak ditemukan. Periksa deployment dan EXPO_PUBLIC_API_URL."
-      : "Tidak dapat terhubung ke server.");
-  const error = new Error(message);
-  Object.assign(error, { status: response.status, code: body?.error, fields: body?.fields });
+    : "Tidak dapat terhubung ke server.") + ` ${diagnosticSuffix(response, body, clientRequestId)}`;
+  const error = new Error(message) as MobileApiError;
+  Object.assign(error, { status: response.status, code: body?.error, fields: body?.fields, requestId: response.headers.get("x-request-id") || body?.diagnostics?.requestId || clientRequestId, appRevision: response.headers.get("x-app-revision") || body?.diagnostics?.appRevision });
   return error;
 }
 
-async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, clientRequestId?: string): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     return await fetch(input, { ...init, signal: init?.signal ?? controller.signal });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new Error("Koneksi ke API timeout. Periksa internet dan coba lagi.");
-    throw new Error("Tidak dapat terhubung ke API. Periksa internet dan alamat server.");
+    const detail = `Detail teknis: ID ${clientRequestId ?? "tidak tersedia"}.`;
+    if (error instanceof Error && error.name === "AbortError") throw new Error(`Server tidak merespons dalam ${REQUEST_TIMEOUT_MS / 1000} detik. Periksa status Coolify/redeploy dan koneksi internet. ${detail}`);
+    throw new Error(`Tidak dapat terhubung ke API. Periksa internet, URL server, DNS/HTTPS, dan status Coolify. ${detail}`);
   } finally {
     clearTimeout(timeout);
   }
@@ -51,6 +66,7 @@ export async function clearToken() { return SecureStore.deleteItemAsync(TOKEN_KE
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken();
+  const clientRequestId = createClientId();
   const method = (init?.method ?? "GET").toUpperCase();
   const url = new URL(`${baseUrl}${path}`);
   if (method === "GET") {
@@ -60,14 +76,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const response = await fetchWithTimeout(url, {
     ...init,
-    headers: { Accept: "application/json", ...(init?.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
-  });
+    headers: { Accept: "application/json", "X-Client-Request-ID": clientRequestId, ...(init?.body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init?.headers },
+  }, clientRequestId);
   if (!response.ok) {
     if (response.status === 401) await clearToken();
-    throw apiError(response, await readJson(response) as ErrorBody | null);
+    throw apiError(response, await readJson(response) as ErrorBody | null, clientRequestId);
   }
   const body = await readJson(response);
-  if (body === null) throw new Error("Server mengembalikan respons tidak valid. Periksa deployment dan EXPO_PUBLIC_API_URL.");
+  if (body === null) throw new Error(`Server mengembalikan respons non-JSON atau kosong. Kemungkinan URL API salah atau deployment Coolify belum aktif. Detail teknis: HTTP ${response.status} · ID ${clientRequestId} · revisi server ${response.headers.get("x-app-revision") ?? "tidak diketahui"}.`);
   return body as T;
 }
 
@@ -158,22 +174,24 @@ export function updateFinanceCategory(input: unknown) { return workflow<{ id: st
 export function getDue(id: string) { return request<{ due: Record<string, unknown> }>(`/api/mobile/dues/${id}`); }
 
 export async function login(email: string, password: string) {
-  const response = await fetchWithTimeout(`${baseUrl}/api/auth/sign-in/email`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", Origin: authOrigin }, body: JSON.stringify({ email, password }) });
+  const clientRequestId = createClientId();
+  const response = await fetchWithTimeout(`${baseUrl}/api/auth/sign-in/email`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", Origin: authOrigin, "X-Client-Request-ID": clientRequestId }, body: JSON.stringify({ email, password }) }, clientRequestId);
   const body = await readJson(response) as AuthResponse | null;
   const token = response.headers.get("set-auth-token") || body?.token;
-  if (!response.ok) throw apiError(response, body);
+  if (!response.ok) throw apiError(response, body, clientRequestId);
   if (!token) throw new Error(body?.message ?? "Server login tidak mengembalikan sesi yang valid.");
   await saveToken(token);
   return getSession();
 }
 
-export type ApiHealth = { status: "ok" | "unavailable"; automation?: { enabled: boolean; configured: boolean } };
+export type ApiHealth = { status: "ok" | "unavailable"; deployment?: { revision: string; requestId: string }; automation?: { enabled: boolean; configured: boolean } };
 
 export async function getApiHealth(): Promise<ApiHealth> {
-  const response = await fetchWithTimeout(`${baseUrl}/api/health`, { headers: { Accept: "application/json" } });
+  const clientRequestId = createClientId();
+  const response = await fetchWithTimeout(`${baseUrl}/api/health`, { headers: { Accept: "application/json", "X-Client-Request-ID": clientRequestId } }, clientRequestId);
   const body = await readJson(response);
-  if (!response.ok) throw apiError(response, body as ErrorBody | null);
-  if (!body || typeof body !== "object" || !("status" in body)) throw new Error("Health endpoint mengembalikan respons tidak valid.");
+  if (!response.ok) throw apiError(response, body as ErrorBody | null, clientRequestId);
+  if (!body || typeof body !== "object" || !("status" in body)) throw new Error(`Health endpoint mengembalikan respons tidak valid. Kemungkinan server belum redeploy atau URL API salah. Detail teknis: HTTP ${response.status} · ID ${clientRequestId} · revisi server ${response.headers.get("x-app-revision") ?? "tidak diketahui"}.`);
   return body as ApiHealth;
 }
 

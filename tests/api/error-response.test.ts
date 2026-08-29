@@ -4,7 +4,7 @@ import { z } from "zod";
 import { apiErrorResponse, unauthorizedResponse } from "@/src/lib/mobile-api";
 
 async function json(response: Response) {
-  return response.json() as Promise<{ error: string; message: string }>;
+  return response.json() as Promise<{ error: string; message: string; diagnostics: { requestId: string; appRevision: string }; fields?: Record<string, string> }>;
 }
 
 describe("mobile API error responses", () => {
@@ -13,7 +13,12 @@ describe("mobile API error responses", () => {
     const body = await json(response);
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "REQUEST_FAILED", message: "Unable to process the request." });
+    expect(body.error).toBe("REQUEST_FAILED");
+    expect(body.message).toContain("Coolify");
+    expect(body.diagnostics).toMatchObject({ appRevision: "unknown" });
+    expect(body.diagnostics.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.headers.get("x-request-id")).toBe(body.diagnostics.requestId);
+    expect(response.headers.get("x-app-revision")).toBe("unknown");
     expect(JSON.stringify(body)).not.toContain("mysql");
     expect(JSON.stringify(body)).not.toContain("secret");
   });
@@ -27,16 +32,18 @@ describe("mobile API error responses", () => {
       zodError = error;
     }
     const zodResponse = apiErrorResponse(zodError);
+    const syntaxBody = await json(syntaxResponse);
 
     expect(syntaxResponse.status).toBe(400);
-    expect(await json(syntaxResponse)).toEqual({ error: "VALIDATION_FAILED", message: "Invalid request data." });
+    expect(syntaxBody.error).toBe("VALIDATION_FAILED");
+    expect(syntaxBody.message).toBe("Invalid request data.");
     expect(zodResponse.status).toBe(400);
-    expect(await json(zodResponse)).toEqual({ error: "VALIDATION_FAILED", message: "id: Invalid UUID", fields: { id: "Invalid UUID" } });
+    expect(await json(zodResponse)).toMatchObject({ error: "VALIDATION_FAILED", message: "id: Invalid UUID", fields: { id: "Invalid UUID" }, diagnostics: { appRevision: "unknown" } });
   });
 
   it("returns the stable unauthorized contract", async () => {
     const response = unauthorizedResponse();
     expect(response.status).toBe(401);
-    expect(await json(response)).toEqual({ error: "UNAUTHORIZED", message: "Your session is invalid or expired." });
+    expect(await json(response)).toMatchObject({ error: "UNAUTHORIZED", message: "Your session is invalid or expired.", diagnostics: { appRevision: "unknown" } });
   });
 });

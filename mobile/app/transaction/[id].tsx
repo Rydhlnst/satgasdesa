@@ -19,7 +19,7 @@ export default function TransactionDetail() {
   const query = useQuery({ queryKey: ["transaction", id], queryFn: () => getTransaction(id), enabled: Boolean(role && id) });
   if (!role) return null;
   if (query.isLoading) return <><Header role={role} title="Detail Transaksi" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data?.item) return <><Header role={role} title="Detail Transaksi" /><Screen><ErrorState message="Transaksi tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isError || !query.data?.item) return <><Header role={role} title="Detail Transaksi" /><Screen><ErrorState message="Transaksi tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item; const status = text(item, "status"); const canApprove = session?.permissions.includes("FINANCE_APPROVE");
   const refresh = async () => { await client.invalidateQueries({ queryKey: ["transaction", id] }); await client.invalidateQueries({ queryKey: ["transactions"] }); };
   async function approve() { if (saving) return; setSaving(true); try { await approveFinancialTransaction({ id }); await refresh(); } catch (error) { Alert.alert("Tidak dapat menyetujui", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); } }

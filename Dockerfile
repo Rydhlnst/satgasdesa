@@ -13,10 +13,13 @@ RUN pnpm build
 
 FROM node:22-bookworm-slim AS runner
 
+ARG APP_REVISION=unknown
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV APP_REVISION=${APP_REVISION}
 WORKDIR /app
 
 COPY --from=builder /app/.next/standalone ./

@@ -1,7 +1,7 @@
 import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, Bell, CircleUserRound, ClipboardCheck, CloudOff, FileBarChart, FileText, Home, Inbox, MapPinned, Search, Settings2, ShieldCheck, Truck, TrendingUp, WalletCards, Wifi, WifiOff } from "lucide-react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -10,7 +10,7 @@ import { getNotifications } from "../lib/api";
 import { useOfflineSync } from "../offline/provider";
 import { DateRangePicker } from "./DateRangePicker";
 import { colors, radii, roleTheme, shadows, spacing, typography, type Role } from "../theme";
-import { showActionError } from "../lib/feedback";
+import { errorMessage, showActionError } from "../lib/feedback";
 import { Button, ButtonText } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 import appIcon from "../../assets/icon.png";
@@ -61,9 +61,12 @@ function renderPageIcon(title: string, color: string) {
 }
 
 export function LoadingState() { return <View style={styles.state}><View style={styles.stateIcon}><Spinner color={colors.primary} size="small" /><Activity color={colors.primary} size={18} /></View><Text style={styles.muted}>Memuat data…</Text></View>; }
-export function ErrorState({ message, onRetry }: { message: string; onRetry: () => void | Promise<unknown> }) {
+export function ErrorState({ message, error, onRetry }: { message: string; error?: unknown; onRetry: () => void | Promise<unknown> }) {
+  const queryClient = useQueryClient();
+  const latestQueryError = queryClient.getQueryCache().getAll().filter((query) => query.state.error).sort((a, b) => (b.state.errorUpdatedAt ?? 0) - (a.state.errorUpdatedAt ?? 0))[0]?.state.error;
+  const visibleError = error ?? latestQueryError;
   async function retry() { try { await onRetry(); } catch (error) { showActionError(error, "Data belum dapat dimuat. Periksa koneksi lalu coba lagi."); } }
-  return <View style={styles.state}><View style={[styles.stateIcon, styles.stateIconError]}><CloudOff color={colors.danger} size={22} /></View><Text style={styles.errorTitle}>Terjadi masalah</Text><Text style={styles.muted}>{message}</Text><Button onPress={() => void retry()} className="min-h-12 rounded-xl bg-[#1454C4] px-4"><ButtonText>Coba lagi</ButtonText></Button></View>;
+  return <View style={styles.state}><View style={[styles.stateIcon, styles.stateIconError]}><CloudOff color={colors.danger} size={22} /></View><Text style={styles.errorTitle}>Terjadi masalah</Text><Text style={styles.muted}>{errorMessage(visibleError, message)}</Text><Button onPress={() => void retry()} className="min-h-12 rounded-xl bg-[#1454C4] px-4"><ButtonText>Coba lagi</ButtonText></Button></View>;
 }
 export function EmptyState({ message, title, description, action }: { message?: string; title?: string; description?: string; action?: { label: string; onPress: () => void } }) { return <View style={[styles.state, styles.emptyState]}><View style={styles.stateIcon}><Inbox color={colors.textSubtle} size={22} /></View><Text style={styles.emptyTitle}>{title ?? message ?? "Belum ada data"}</Text>{description ? <Text style={styles.muted}>{description}</Text> : null}{action ? <Pressable accessibilityRole="button" onPress={action.onPress} style={({ pressed }) => [styles.emptyAction, pressed && styles.navPressed]}><Text style={styles.emptyActionText}>{action.label}</Text></Pressable> : null}</View>; }
 export function BottomNav({ role, current }: { role: Role; current: string }) {

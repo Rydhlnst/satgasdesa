@@ -17,7 +17,7 @@ export default function WorkerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>(); const { role, session } = useAuth(); const client = useQueryClient(); const query = useQuery({ queryKey: ["field-worker", id], queryFn: () => getFieldWorker(id), enabled: Boolean(role && id) }); const blocks = useQuery({ queryKey: ["blocks", "worker-assignment"], queryFn: () => getBlocks(), enabled: Boolean(role) }); const [saving, setSaving] = useState(false); const [draft, setDraft] = useState<Record<string, string> | null>(null); const [blockId, setBlockId] = useState(""); const [startedAt, setStartedAt] = useState(new Date().toISOString().slice(0, 10));
   if (!role) return null;
   if (query.isLoading) return <><Header role={role} title="Detail Pekerja" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Pekerja" /><Screen><ErrorState message="Data pekerja tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Pekerja" /><Screen><ErrorState message="Data pekerja tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const values = draft ?? workerValues(query.data.item);
   const canManage = session?.permissions.includes("WORKER_MANAGE") ?? false;
   async function refresh() { await Promise.all([query.refetch(), client.invalidateQueries({ queryKey: ["field-workers"] })]); }

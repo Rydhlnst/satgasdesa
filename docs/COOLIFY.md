@@ -30,6 +30,7 @@ MYSQL_DATABASE=satgas
 MYSQL_USER=satgas
 MYSQL_PASSWORD=<strong-password>
 MYSQL_ROOT_PASSWORD=<strong-root-password>
+APP_REVISION=<GitHub commit SHA deployed by this release>
 BETTER_AUTH_SECRET=<long-random-secret>
 BETTER_AUTH_URL=https://your-domain.example
 NODE_ENV=production
@@ -80,7 +81,8 @@ Do not use `docker compose down -v` or remove the MySQL volume unless a full, ir
 ## Health and operations
 
 - Coolify health check: `GET /api/health`.
-- The health endpoint checks MySQL connectivity and returns no internal error details.
+- The health endpoint checks MySQL connectivity and returns a safe deployment revision and request ID. Set `APP_REVISION` to the deployed GitHub commit SHA in Coolify; this makes stale deployments immediately visible in the app's Administration > Settings health panel and in API errors.
+- API errors include `HTTP status`, stable error code, request ID, and server revision without exposing secrets or stack traces. For a 404, verify the mobile app is not newer than the backend and redeploy Coolify from the latest GitHub commit. For 500/503, inspect Coolify startup/migration and database logs.
 - Use the Coolify domain over HTTPS; Better Auth cookies and the service worker depend on this.
 - Set `DAILY_AUTOMATION_ENABLED=true`, then schedule `POST /api/jobs/daily` once daily with `Authorization: Bearer <CRON_SECRET>` after setting `AUTOMATION_ACTOR_USER_ID` and `CRON_SECRET`. Set `MONTHLY_DUE_DAY=10` so the monthly collection window closes on the 10th. Confirm `/api/health` reports `automation.enabled` and `automation.configured` as `true` before enabling the scheduler.
 - Back up the MySQL named volume and use the documented logical backup procedure in `docs/BACKUP-RESTORE.md`.

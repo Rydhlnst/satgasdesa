@@ -24,7 +24,7 @@ export default function BlockDetail() {
   const query = useQuery({ queryKey: ["block", id], queryFn: () => getBlockDetails(id), enabled: Boolean(role && id) });
   if (!role) return null;
   if (query.isLoading) return <><Header role={role} title="Detail Blok" subtitle="Memuat detail blok" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Blok" /><Screen><ErrorState message="Detail blok tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Blok" /><Screen><ErrorState message="Detail blok tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const { item, excavators, inspections, dailyInformation, workers, tasks, photos, history } = query.data;
   const canEdit = session?.permissions.includes("BLOCK_UPDATE");
   const canArchive = session?.permissions.includes("BLOCK_ARCHIVE") ?? false;

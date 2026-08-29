@@ -27,7 +27,7 @@ export default function EditBlock() {
 
   if (!role) return null;
   if (query.isLoading) return <><Header role={role} title="Ubah Blok" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Ubah Blok" /><Screen><ErrorState message="Data blok tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Ubah Blok" /><Screen><ErrorState message="Data blok tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
 
   const values = draft ?? blockValues(query.data.item);
 

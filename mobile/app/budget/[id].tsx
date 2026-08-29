@@ -31,7 +31,7 @@ export default function BudgetDetail() {
   const categoriesQuery = useQuery({ queryKey: ["budget-categories", "active"], queryFn: () => getBudgetCategories(), enabled: Boolean(role && canCreate) });
   if (!role) return null;
   if (query.isLoading) return <><Header role={role} title="Detail Anggaran" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Anggaran" /><Screen><ErrorState message="Detail anggaran tidak dapat dimuat. Daftar periode tetap tersedia." onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Anggaran" /><Screen><ErrorState message="Detail anggaran tidak dapat dimuat. Daftar periode tetap tersedia." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const data = query.data as { period?: Record<string, unknown>; groups?: Group[]; summary?: Record<string, unknown>; revisions?: Array<Record<string, unknown>>; history?: Array<Record<string, unknown>> };
   const period = data.period ?? {}; const groups = data.groups ?? []; const summary = data.summary ?? {}; const categories = (categoriesQuery.data?.categories ?? []) as Category[];
   const canVerify = session?.permissions.includes("BUDGET_VERIFY") ?? false; const canApprove = session?.permissions.includes("BUDGET_APPROVE") ?? false; const canManageCategories = session?.permissions.includes("BUDGET_CATEGORY_MANAGE") ?? false;

@@ -24,7 +24,7 @@ export default function ExcavatorDetail() {
   const blocks = useQuery({ queryKey: ["blocks", "excavator-movement"], queryFn: () => getBlocks(), enabled: Boolean(role) });
   if (!role) return null;
   if (query.isLoading) return <><Header role={role} title="Detail Alat Berat" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Alat Berat" /><Screen><ErrorState message="Detail alat berat tidak dapat dimuat." onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Alat Berat" /><Screen><ErrorState message="Detail alat berat tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item;
   const canManage = session?.permissions.includes("EXCAVATOR_MANAGE"); const currentBlock = (blocks.data?.blocks ?? []).find((block) => block.id === text(item, "currentBlockId"));
   const beginEdit = () => { setUnitCode(text(item, "unitCode", "")); setBrand(text(item, "brand", "")); setModel(text(item, "model", "")); setOperatorName(text(item, "operatorName", "")); setEditing(true); };
