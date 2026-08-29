@@ -5,15 +5,15 @@ ALTER TABLE `due_payment`
   ADD COLUMN `rejected_by` varchar(36),
   ADD COLUMN `rejected_at` timestamp NULL,
   ADD COLUMN `rejection_reason` text,
-  ADD COLUMN `financial_transaction_id` varchar(36);
+  ADD COLUMN `financial_transaction_id` varchar(36);--> statement-breakpoint
 
-UPDATE `due_payment` SET `status` = 'CONFIRMED' WHERE `status` = 'PENDING';
+UPDATE `due_payment` SET `status` = 'CONFIRMED' WHERE `status` = 'PENDING';--> statement-breakpoint
 
 ALTER TABLE `budget_item`
   ADD COLUMN `progress_percentage` int NOT NULL DEFAULT 0,
   ADD COLUMN `progress_notes` text,
   ADD COLUMN `progress_updated_by` varchar(36),
-  ADD COLUMN `progress_updated_at` timestamp NULL;
+  ADD COLUMN `progress_updated_at` timestamp NULL;--> statement-breakpoint
 
 CREATE TABLE `budget_item_progress_history` (
   `id` varchar(36) NOT NULL,
@@ -26,10 +26,10 @@ CREATE TABLE `budget_item_progress_history` (
   CONSTRAINT `budget_item_progress_history_id` PRIMARY KEY (`id`),
   CONSTRAINT `budget_item_progress_history_item_fk` FOREIGN KEY (`budget_item_id`) REFERENCES `budget_item`(`id`) ON DELETE CASCADE,
   CONSTRAINT `budget_item_progress_history_user_fk` FOREIGN KEY (`updated_by`) REFERENCES `user`(`id`) ON DELETE RESTRICT
-);
+);--> statement-breakpoint
 
-CREATE INDEX `due_payment_status_created_idx` ON `due_payment` (`status`, `created_at`);
-CREATE INDEX `budget_item_progress_history_item_created_idx` ON `budget_item_progress_history` (`budget_item_id`, `created_at`);
+CREATE INDEX `due_payment_status_created_idx` ON `due_payment` (`status`, `created_at`);--> statement-breakpoint
+CREATE INDEX `budget_item_progress_history_item_created_idx` ON `budget_item_progress_history` (`budget_item_id`, `created_at`);--> statement-breakpoint
 
 CREATE TABLE `notification_delivery` (
   `id` varchar(36) NOT NULL,
@@ -41,6 +41,6 @@ CREATE TABLE `notification_delivery` (
   `attempted_at` timestamp NOT NULL,
   CONSTRAINT `notification_delivery_id` PRIMARY KEY (`id`),
   CONSTRAINT `notification_delivery_notification_fk` FOREIGN KEY (`notification_id`) REFERENCES `notification`(`id`) ON DELETE CASCADE
-);
-CREATE INDEX `notification_delivery_notification_idx` ON `notification_delivery` (`notification_id`, `attempted_at`);
+);--> statement-breakpoint
+CREATE INDEX `notification_delivery_notification_idx` ON `notification_delivery` (`notification_id`, `attempted_at`);--> statement-breakpoint
 CREATE INDEX `notification_delivery_device_idx` ON `notification_delivery` (`push_device_id`, `attempted_at`);
