@@ -46,4 +46,10 @@ describe("mobile API error responses", () => {
     expect(response.status).toBe(401);
     expect(await json(response)).toMatchObject({ error: "UNAUTHORIZED", message: "Your session is invalid or expired.", diagnostics: { appRevision: "unknown" } });
   });
+
+  it("returns actionable messages for expected domain validation errors", async () => {
+    const response = apiErrorResponse(new Error("Monthly payments can only be recorded from day 1 through day 10 of the month."));
+    expect(response.status).toBe(400);
+    expect(await json(response)).toMatchObject({ error: "VALIDATION_FAILED", message: "Monthly payments can only be recorded from day 1 through day 10 of the month." });
+  });
 });

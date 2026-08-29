@@ -7,3 +7,10 @@ export function isValidCalendarDate(value: string): boolean {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
+
+export function isMonthlyPaymentDate(value: string, periodKey?: string): boolean {
+  if (!isValidCalendarDate(value)) return false;
+  if (periodKey && !value.startsWith(`${periodKey}-`)) return false;
+  const day = Number(value.slice(-2));
+  return day >= 1 && day <= 10;
+}

@@ -94,7 +94,7 @@ export function apiErrorResponse(error: unknown) {
       ? 409
       : /not found/i.test(message)
         ? 404
-        : /check the|invalid |required\.|must use|unsupported|outside the permitted|must be supplied/i.test(message)
+      : /check the|invalid |required\.|must use|unsupported|outside the permitted|must be supplied|monthly payments can only|bukti pembayaran wajib|iuran .* ditetapkan|\b(wajib|harus|hanya dapat|cannot|requires?)\b/i.test(message)
           ? 400
           : /storage is not configured|storage is not fully configured/i.test(message)
             ? 503
@@ -105,7 +105,8 @@ export function apiErrorResponse(error: unknown) {
   const code = /^[A-Z][A-Z0-9_]{1,63}$/.test(candidateCode) ? candidateCode : codeByStatus[status] ?? "REQUEST_FAILED";
   const safeMessages: Record<number, string> = { 400: "Invalid request data.", 401: "Your session is invalid or expired.", 403: "You do not have permission to perform this action.", 404: "The requested API route or resource was not found. Verify that Coolify deployed the latest GitHub commit and that the mobile API URL is correct.", 409: "The request conflicts with current data.", 422: "The request could not be processed.", 429: "Too many requests. Try again later.", 500: "The server failed to process the request. Check Coolify deployment logs, database connectivity, and migrations.", 503: "The service is not ready. Coolify may be redeploying, migrations may still be running, or the database may be unavailable." };
   const diagnostics = getApiDiagnostics();
-  const response = { error: code, message: status === 400 && validationMessage ? validationMessage : safeMessages[status] ?? safeMessages[500], diagnostics } as { error: string; message: string; fields?: Record<string, string>; diagnostics: ApiDiagnostics };
+  const safeDomainMessage = error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof ZodError) && message.length <= 500 && !/(mysql|sql|password|secret|ER_[A-Z_]+|ECONN|ENOENT|stack trace)/i.test(message);
+  const response = { error: code, message: validationMessage || (status < 500 && safeDomainMessage ? message : safeMessages[status] ?? safeMessages[500]), diagnostics } as { error: string; message: string; fields?: Record<string, string>; diagnostics: ApiDiagnostics };
   if (status === 400 && validationIssues.length) {
     response.fields = Object.fromEntries(validationIssues.filter((issue) => issue.path.length).map((issue) => [issue.path.join("."), issue.message]));
   }

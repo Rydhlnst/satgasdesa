@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { Controller, type Control, type FieldErrors, type FieldValues, type UseFormRegister } from "react-hook-form";
+import { Controller, useWatch, type Control, type FieldErrors, type FieldValues, type UseFormRegister } from "react-hook-form";
 import { CalendarDays, ChevronDown, Crosshair, Eye, EyeOff, MapPin } from "lucide-react-native";
-import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, View, type NativeSyntheticEvent, type TextInputFocusEventData } from "react-native";
 
 import { Button, ButtonSpinner, ButtonText } from "./ui/button";
 import { FormControl, FormControlError, FormControlErrorText, FormControlHelper, FormControlHelperText, FormControlLabel, FormControlLabelText } from "./ui/form-control";
@@ -9,6 +9,7 @@ import { Input, InputField, InputSlot } from "./ui/input";
 import { Select, SelectBackdrop, SelectContent, SelectDragIndicator, SelectDragIndicatorWrapper, SelectIcon, SelectInput, SelectItem, SelectPortal, SelectTrigger } from "./ui/select";
 import { showActionError } from "../lib/feedback";
 import { CalendarSheet } from "./CalendarPicker";
+import { formatMoneyInput, parseMoneyInput } from "../lib/format";
 
 type KeyboardType = "default" | "numeric" | "phone-pad" | "email-address";
 export type SelectOption = { label: string; value: string };
@@ -43,22 +44,27 @@ function FieldShell({ label, required, error, helper, children }: { label: strin
   </FormControl>;
 }
 
-function RHFInputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder, secureTextEntry = false, required = false }: { name: string; label: string; register: UseFormRegister<T>; errors: FieldErrors<T>; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; secureTextEntry?: boolean; required?: boolean }) {
+function RHFInputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder, secureTextEntry = false, required = false, helper, currency = false, control }: { name: string; label: string; register: UseFormRegister<T>; errors: FieldErrors<T>; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; secureTextEntry?: boolean; required?: boolean; helper?: string; currency?: boolean; control?: Control<T> }) {
   const [visible, setVisible] = useState(false);
+  const [focused, setFocused] = useState(false);
   const registered = register(name as never);
+  const watchedValue = useWatch({ control, name: name as never });
   const message = errorMessage(errors[name as keyof T]);
-  return <FieldShell label={label} required={required} error={message}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={registered.onBlur} onChangeText={(value) => void registered.onChange({ target: { name, value }, type: "change" })} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  const displayValue = currency && control ? (focused ? String(watchedValue ?? "") : formatMoneyInput(watchedValue as unknown as string | number | null | undefined)) : undefined;
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); registered.onBlur(event); }} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} value={displayValue} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
-export function TextInputField(props: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string; secureTextEntry?: boolean }) {
+export function TextInputField(props: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string; secureTextEntry?: boolean; currency?: boolean }) {
   if (props.placeholder?.includes("YYYY-MM")) return <MonthTextInput {...props} />;
   return <RegularTextInputField {...props} />;
 }
 
-function RegularTextInputField({ label, value, onChange, error, multiline = false, keyboardType = "default", placeholder, required = false, helper, secureTextEntry = false }: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string; secureTextEntry?: boolean }) {
+function RegularTextInputField({ label, value, onChange, error, multiline = false, keyboardType = "default", placeholder, required = false, helper, secureTextEntry = false, currency = false }: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string; secureTextEntry?: boolean; currency?: boolean }) {
   const message = errorMessage(error);
   const [visible, setVisible] = useState(false);
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="#8A96A8" value={String(value ?? "")} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  const [focused, setFocused] = useState(false);
+  const displayValue = currency && !focused ? formatMoneyInput(value) : String(value ?? "");
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={() => setFocused(false)} onChangeText={(next) => onChange(currency ? parseMoneyInput(next) : next)} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" value={displayValue} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 function MonthTextInput({ label, value, onChange, error, required = false, helper }: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; required?: boolean; helper?: string }) {
