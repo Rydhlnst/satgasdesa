@@ -10,7 +10,7 @@ import { fieldTaskSchema, fieldWorkerSchema } from "@/src/features/field-work/sc
 import { createFinancialTransactionSchema } from "@/src/features/finance/schema";
 import { createFundRequestSchema } from "@/src/features/fund-requests/schema";
 import { createInspectionSchema, inspectionUploadSchema } from "@/src/features/inspections/schema";
-import { adminInviteFormSchema, budgetCategoryFormSchema, budgetCategoryPeriodFormSchema, budgetItemFormSchema, budgetPeriodFormSchema, budgetSubcategoryFormSchema, businessActorFormSchema, dueFormSchema, endAssignmentFormSchema, excavatorEditFormSchema, excavatorFormSchema, excavatorMovementFormSchema, financeCategoryFormSchema, fieldAssignmentFormSchema, forgotPasswordSchema, fundRequestCorrectionFormSchema, fundRequestFormSchema, informationFollowUpFormSchema, informationFormSchema, informationTransitionFormSchema, inspectionFormSchema, loginSchema, passwordSchema, paymentFormSchema, paymentVerificationFormSchema, profileSchema, realizationCorrectionFormSchema, realizationFormSchema, reversalFormSchema, settingsFormSchema, taskFormSchema, transactionFormSchema, workerAssignmentFormSchema, workerFormSchema, workflowDecisionFormSchema } from "@/mobile/src/form-schemas";
+import { adminInviteFormSchema, adminUserStatusFormSchema, blockArchiveFormSchema, budgetCategoryFormSchema, budgetCategoryPeriodFormSchema, budgetItemFormSchema, budgetPeriodFormSchema, budgetSubcategoryFormSchema, businessActorFormSchema, dueFormSchema, duePaymentIdFormSchema, duePaymentRejectionFormSchema, endAssignmentFormSchema, excavatorEditFormSchema, excavatorFormSchema, excavatorMovementFormSchema, financeCategoryFormSchema, fieldAssignmentFormSchema, forgotPasswordSchema, fundRequestCorrectionFormSchema, fundRequestFormSchema, informationFollowUpFormSchema, informationFormSchema, informationTransitionFormSchema, inspectionFormSchema, loginSchema, passwordSchema, paymentFormSchema, paymentVerificationFormSchema, profileSchema, realizationCorrectionFormSchema, realizationFormSchema, requiredWorkflowDecisionFormSchema, reversalFormSchema, settingsFormSchema, taskFormSchema, taskStatusFormSchema, transactionApprovalFormSchema, transactionFormSchema, workerAssignmentFormSchema, workerFormSchema, workflowDecisionFormSchema } from "@/mobile/src/form-schemas";
 import { adminCreateUserFormSchema } from "@/mobile/src/form-schemas";
 
 const blockId = "11111111-1111-4111-8111-111111111111";
@@ -50,6 +50,7 @@ const completeUserInputs: Array<[string, z.ZodTypeAny, unknown]> = [
   ["Mobile budget item form", budgetItemFormSchema, { groupId: blockId, subcategoryId: "", name: "Material jalan", allocatedAmount: "1000000", notes: "Prioritas", revisionReason: "" }],
   ["Mobile budget category period form", budgetCategoryPeriodFormSchema, { periodId: blockId, categoryId: userId }],
   ["Mobile workflow decision form", workflowDecisionFormSchema, { notes: "Sesuai pemeriksaan." }],
+  ["Mobile required workflow decision form", requiredWorkflowDecisionFormSchema, { notes: "Alasan perlu dicatat." }],
   ["Mobile reversal form", reversalFormSchema, { reason: "Koreksi pencatatan." }],
   ["Mobile admin invite form", adminInviteFormSchema, { name: "Admin Sejoli", email: "admin@sejoli.id", roleId: "PETUGAS_LAPANGAN" }],
   ["Mobile admin create account form", adminCreateUserFormSchema, { name: "Admin Sejoli", email: "admin@sejoli.id", roleId: "PETUGAS_LAPANGAN", password: "SecurePass123" }],
@@ -91,7 +92,7 @@ describe("mobile forms validate realistic user input", () => {
     ["profile name", profileSchema, { name: "A", phone: "", image: "" }],
     ["profile avatar URL", profileSchema, { name: "Operator", phone: "", image: "not-a-url" }],
     ["password confirmation", passwordSchema, { currentPassword: "OldPass123", newPassword: "NewPass123", confirmPassword: "Different123", revokeOtherSessions: "yes" }],
-    ["monthly due amount", dueFormSchema, { excavatorId: blockId, payerName: "CV Maju", amountDue: "100", dueDate: "2026-08-26" }],
+    ["monthly due amount", dueFormSchema, { excavatorId: blockId, payerName: "CV Maju", amountDue: "0", dueDate: "2026-08-26" }],
     ["excavator entry pairing", excavatorFormSchema, { unitCode: "EX-001", brand: "Komatsu", model: "PC-200", businessActorId: userId, currentBlockId: blockId, entryDate: "" }],
     ["information date", informationFormSchema, { blockId, reportedAt: "2026-02-30", category: "ACTIVITY", priority: "MEDIUM", description: "Pekerjaan" }],
     ["inspection count", inspectionFormSchema, { blockId, inspectedAt: "2026-08-26", excavatorCount: "1.5", workerCount: "4", condition: "Aktif", conditionRoad: "Baik", conditionEnvironment: "Aman", conditionActivity: "Normal" }],
@@ -147,5 +148,17 @@ describe("mobile forms validate realistic user input", () => {
     expect(recordDuePaymentSchema.safeParse({ dueId: blockId, idempotencyKey: transactionId, payerName: "CV Maju", paymentDate: "2026-08-26", amount: "100", method: "BANK_TRANSFER", evidenceKey: "x" }).success).toBe(true);
     expect(inspectionUploadSchema.safeParse({ inspectionId: blockId, contentType: "image/jpeg", size: 10 * 1024 * 1024 + 1, originalName: "inspection.jpg" }).success).toBe(false);
     expect(createInspectionSchema.safeParse({ blockId, latitude: "-6.2", longitude: "106.8", gpsAccuracy: "10", excavatorCount: "0", workerCount: "0", condition: "Aktif", roadCondition: "Baik", environmentCondition: "Aman", activityCondition: "Normal", photos: [{ storageKey: "photo", contentType: "image/jpeg", size: 10 * 1024 * 1024 + 1 }] }).success).toBe(false);
+  });
+
+  it("keeps mobile action payloads within server contracts", () => {
+    expect(dueFormSchema.safeParse({ excavatorId: blockId, payerName: "CV Maju", amountDue: "5000000", dueDate: "2026-08-26" }).success).toBe(true);
+    expect(budgetItemFormSchema.safeParse({ groupId: "", name: "Material", allocatedAmount: "100" }).success).toBe(false);
+    expect(adminCreateUserFormSchema.safeParse({ name: "Admin Sejoli", email: "admin@sejoli.id", roleId: "UNKNOWN", password: "SecurePass123" }).success).toBe(false);
+    expect(blockArchiveFormSchema.safeParse({ id: "not-an-id", archived: true }).success).toBe(false);
+    expect(taskStatusFormSchema.safeParse({ id: transactionId, status: "INVALID" }).success).toBe(false);
+    expect(adminUserStatusFormSchema.safeParse({ id: transactionId, status: "INVALID" }).success).toBe(false);
+    expect(transactionApprovalFormSchema.safeParse({ id: transactionId }).success).toBe(true);
+    expect(duePaymentIdFormSchema.safeParse({ duePaymentId: transactionId }).success).toBe(true);
+    expect(duePaymentRejectionFormSchema.safeParse({ duePaymentId: transactionId, reason: " " }).success).toBe(false);
   });
 });

@@ -10,7 +10,7 @@
 | Direct admin mutation validation | Invalid JSON, missing fields, and mutually-exclusive update fields return `400` | `tests/api/direct-validation.test.ts` |
 | Error safety | Internal database/storage exception text is not returned to clients | `tests/api/error-response.test.ts` |
 | Media validation | MIME allowlist, size limit, extension matching, path traversal, and scoped object keys | `tests/api/storage-validation.test.ts` |
-| Mobile user input | Realistic Pimpinan/Admin, Bendahara, and Petugas Lapangan form values, invalid values, GPS, dates, money, discrepancy notes, and oversized attachments | `tests/mobile/user-input-validation.test.ts` |
+| Mobile user input and action contracts | Every mapped Pimpinan/Admin, Bendahara, and Petugas Lapangan form, invalid boundaries, GPS, dates, money, discrepancy notes, oversized attachments, and button-driven action payloads | `tests/mobile/user-input-validation.test.ts`, `docs/mobile-schema-map.md` |
 | Due payments | Partial/full payment, overpayment, settlement, reversal, retry identity | `tests/dues/payment-rules.test.ts` |
 | Realizations | Exact remaining allocation and over-allocation rejection | `tests/budgets/allocation-rules.test.ts` |
 | Fund requests | Workflow transitions, permissions, and creator separation | `tests/fund-requests/policy.test.ts` |
@@ -18,7 +18,7 @@
 
 ## Results
 
-- Latest run: 15 test files, 245 tests passed.
+- Latest run: 22 test files, 267 tests passed.
 - TypeScript: passed.
 - Lint: passed with existing mobile warnings only; zero errors.
 
