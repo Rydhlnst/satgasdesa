@@ -240,9 +240,7 @@ export async function createDailyInformation(input: unknown) {
     );
   });
 
-  if (["HIGH", "URGENT"].includes(values.priority)) {
-    await notifyPermissionHolders({ permission: PERMISSIONS.DAILY_INFO_UPDATE, ruleKey: "HIGH_PRIORITY_INFORMATION", targetKey: id, type: "HIGH_PRIORITY_INFORMATION", title: "High-priority daily information", body: `${values.priority} ${values.category.toLowerCase()} requires attention.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: id });
-  }
+  await notifyPermissionHolders({ permission: PERMISSIONS.DAILY_INFO_READ, ruleKey: "DAILY_INFORMATION_CREATED", targetKey: id, type: "DAILY_INFORMATION", title: values.priority === "URGENT" || values.priority === "HIGH" ? "Informasi lapangan mendesak" : "Informasi lapangan baru", body: `${values.category} telah dikirim untuk ditinjau.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: id });
 
   return { id };
 }

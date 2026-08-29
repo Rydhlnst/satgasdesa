@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CalendarDays, ChevronDown } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatDate, isValidDate, type DateRange } from "../date-range";
 import { useDateRange } from "../date-range-provider";
@@ -27,8 +27,8 @@ export function DateRangePicker() {
 
   return <>
     <View style={styles.bar}>
-      <View style={styles.labelRow}><View style={styles.iconBubble}><CalendarDays color={colors.primary} size={15} /></View><View><Text style={styles.label}>DATE RANGE</Text><Text style={styles.value}>{range.dateFrom} — {range.dateTo}</Text></View></View>
-      <View style={styles.actions}><Pressable accessibilityLabel="Choose start date" accessibilityRole="button" onPress={() => { setDraft(range); setActive("from"); }} style={styles.dateButton}><Text style={styles.dateButtonText}>Dari</Text></Pressable><Pressable accessibilityLabel="Choose end date" accessibilityRole="button" onPress={() => { setDraft(range); setActive("to"); }} style={styles.dateButton}><Text style={styles.dateButtonText}>Sampai</Text></Pressable><Pressable accessibilityLabel="Use current month" accessibilityRole="button" onPress={setCurrentMonth} style={styles.monthButton}><Text style={styles.monthButtonText}>Bulan ini</Text><ChevronDown color={colors.primary} size={14} /></Pressable></View>
+      <View style={styles.labelRow}><View style={styles.iconBubble}><CalendarDays color={colors.primary} size={15} /></View><View><Text style={styles.label}>RENTANG TANGGAL</Text><Text style={styles.value}>{range.dateFrom} — {range.dateTo}</Text></View></View>
+      <View style={styles.actions}><Pressable accessibilityLabel="Pilih tanggal mulai" accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setDraft(range); setActive("from"); }} style={styles.dateButton}><Text style={styles.dateButtonText}>Dari</Text></Pressable><Pressable accessibilityLabel="Pilih tanggal akhir" accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setDraft(range); setActive("to"); }} style={styles.dateButton}><Text style={styles.dateButtonText}>Sampai</Text></Pressable><Pressable accessibilityLabel="Gunakan bulan ini" accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setCurrentMonth(); }} style={styles.monthButton}><Text style={styles.monthButtonText}>Bulan ini</Text><ChevronDown color={colors.primary} size={14} /></Pressable></View>
     </View>
     <CalendarSheet key={`${active}-${draft.dateFrom}-${draft.dateTo}`} open={active !== null} onClose={() => setActive(null)} value={active === "from" ? draft.dateFrom : draft.dateTo} onChange={(value) => { if (active) changeDate(active, value); }} title={active === "from" ? "Tanggal mulai filter" : "Tanggal akhir filter"} />
   </>;

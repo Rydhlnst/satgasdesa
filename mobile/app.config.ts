@@ -19,6 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
+    android: { ...config.android, softwareKeyboardLayoutMode: "resize" },
     plugins: [
       ...(config.plugins ?? []),
       "@maplibre/maplibre-react-native",

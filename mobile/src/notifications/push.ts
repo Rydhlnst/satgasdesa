@@ -50,8 +50,14 @@ export async function registerCurrentDeviceForPush(): Promise<void> {
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
-      name: "Default",
+      name: "Notifikasi umum",
       importance: Notifications.AndroidImportance.DEFAULT,
+    });
+    await Notifications.setNotificationChannelAsync("informasi-harian", {
+      name: "Informasi Harian",
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: "default",
+      vibrationPattern: [0, 250, 200, 250],
     });
   }
 

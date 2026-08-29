@@ -1,6 +1,6 @@
 import { ChevronRight, LayoutList, Plus, SlidersHorizontal } from "lucide-react-native";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { ReactNode } from "react";
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef, useState, type ReactNode } from "react";
 
 import { Badge, BadgeText } from "./ui/badge";
 import { Button, ButtonText } from "./ui/button";
@@ -8,22 +8,23 @@ import { Card as UICard } from "./ui/card";
 import { Tabs as UITabs, TabsContent, TabsList, TabsTrigger, TabsTriggerText } from "./ui/tabs";
 import { colors, radii, spacing, typography } from "../theme";
 import { showActionError } from "../lib/feedback";
+import { displayStatus } from "../lib/read";
 
 export function Tabs({ items, active = 0 }: { items: string[]; active?: number }) {
-  return <UITabs value={String(active)} variant="filled"><TabsList className="rounded-xl bg-[#F1F5F9] p-1">{items.map((item, index) => <TabsTrigger key={item} value={String(index)} className="min-h-10 flex-1 rounded-lg px-2"><TabsTriggerText className="text-xs font-bold text-[#6E7785]">{item}</TabsTriggerText></TabsTrigger>)}</TabsList></UITabs>;
+  return <UITabs value={String(active)} variant="filled"><TabsList className="rounded-xl bg-[#F1F5F9] p-1">{items.map((item, index) => { const selected = index === active; return <TabsTrigger key={item} value={String(index)} className="min-h-10 flex-1 rounded-lg px-2" style={[styles.tabTrigger, selected && styles.tabTriggerActive]}><TabsTriggerText className="text-xs font-bold" style={[styles.tabTriggerText, selected && styles.tabTriggerTextActive]}>{item}</TabsTriggerText></TabsTrigger>; })}</TabsList></UITabs>;
 }
 
 export function InteractiveTabs({ items, active, onChange, panels }: { items: string[]; active: number; onChange: (index: number) => void; panels?: Partial<Record<number, ReactNode>> }) {
-  return <UITabs value={String(active)} onValueChange={(value: string) => onChange(Number(value))} variant="filled"><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroller}><TabsList className="rounded-2xl border border-[#DFE4EC] bg-white p-1 shadow-sm">{items.map((item, index) => <TabsTrigger key={item} value={String(index)} className="min-h-11 min-w-20 flex-none rounded-xl px-3 data-[selected=true]:bg-[#E7F0FF] data-[selected=true]:shadow-sm"><TabsTriggerText className="text-xs font-bold text-[#6E7785] data-[selected=true]:text-[#1454C4]">{item}</TabsTriggerText></TabsTrigger>)}</TabsList></ScrollView>{panels ? Object.entries(panels).map(([key, content]) => <TabsContent key={key} value={key} className="p-0 pt-3">{content}</TabsContent>) : null}</UITabs>;
+  return <UITabs value={String(active)} onValueChange={(value: string) => { Keyboard.dismiss(); onChange(Number(value)); }} variant="filled"><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroller}><TabsList className="rounded-2xl border border-[#DFE4EC] bg-white p-1 shadow-sm">{items.map((item, index) => { const selected = index === active; return <TabsTrigger key={item} value={String(index)} className="min-h-11 min-w-20 flex-none rounded-xl px-3" style={[styles.tabTrigger, selected && styles.tabTriggerActive]}><TabsTriggerText className="text-xs font-bold" style={[styles.tabTriggerText, selected && styles.tabTriggerTextActive]}>{item}</TabsTriggerText></TabsTrigger>; })}</TabsList></ScrollView>{panels ? Object.entries(panels).map(([key, content]) => <TabsContent key={key} value={key} className="p-0 pt-3">{content}</TabsContent>) : null}</UITabs>;
 }
 
 export function StatusPill({ children, tone = "green" }: { children: ReactNode; tone?: "green" | "red" | "orange" | "blue" | "gray" }) {
   const style = tone === "green" ? "border-transparent bg-[#E8F7EE]" : tone === "red" ? "border-transparent bg-[#FDECEC]" : tone === "orange" ? "border-transparent bg-[#FFF3DF]" : tone === "blue" ? "border-transparent bg-[#E7F0FF]" : "border-transparent bg-[#F1F5F9]";
   const textStyle = tone === "green" ? "text-[#27834B]" : tone === "red" ? "text-[#C5312C]" : tone === "orange" ? "text-[#D87914]" : tone === "blue" ? "text-[#1454C4]" : "text-[#6E7785]";
-  return <Badge variant="outline" className={"rounded-full px-2 py-1 " + style}><BadgeText className={"text-[10px] font-extrabold " + textStyle}>{children}</BadgeText></Badge>;
+  return <Badge variant="outline" className={"rounded-full px-2 py-1 " + style}><BadgeText className={"text-[10px] font-extrabold " + textStyle}>{typeof children === "string" ? displayStatus(children) : children}</BadgeText></Badge>;
 }
 
-export function WorkflowStatusPill({ status }: { status: string }) { return <StatusPill tone={statusTone(status)}>{status}</StatusPill>; }
+export function WorkflowStatusPill({ status }: { status: string }) { return <StatusPill tone={statusTone(status)}>{displayStatus(status)}</StatusPill>; }
 export function statusTone(status: string): "green" | "red" | "orange" | "blue" | "gray" {
   const value = status.toLowerCase();
   if (/(reject|tolak|gagal|overdue|tunggak|failed|blocked)/.test(value)) return "red";
@@ -46,14 +47,28 @@ export function FilterChip({ label, active = false, onPress }: { label: string; 
 }
 
 export function ActionButton({ children, onPress }: { children: ReactNode; onPress: () => void | Promise<void> }) {
-  async function handlePress() { try { await onPress(); } catch (error) { showActionError(error); } }
-  return <Button accessibilityRole="button" onPress={() => void handlePress()} className="min-h-12 rounded-2xl bg-[#1454C4] shadow-sm" style={styles.actionButton}><Plus color="#FFFFFF" size={18} strokeWidth={2.5} /><ButtonText className="text-sm font-extrabold">{children}</ButtonText></Button>;
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
+  async function handlePress() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
+    try { await onPress(); } catch (error) { showActionError(error); } finally { inFlight.current = false; setPending(false); }
+  }
+  return <Button accessibilityRole="button" accessibilityState={{ busy: pending, disabled: pending }} disabled={pending} onPress={() => void handlePress()} className="min-h-12 rounded-2xl bg-[#1454C4] shadow-sm" style={styles.actionButton}><Plus color="#FFFFFF" size={18} strokeWidth={2.5} /><ButtonText className="text-sm font-extrabold">{children}</ButtonText></Button>;
 }
 
 export function RowCard({ title, subtitle, meta, status, tone = "green", icon, thumbnail, onPress }: { title: string; subtitle?: string; meta?: string; status?: string; tone?: "green" | "red" | "orange" | "blue" | "gray"; icon?: ReactNode; thumbnail?: ReactNode; onPress?: () => void | Promise<void> }) {
+  const inFlight = useRef(false);
   const content = <><View style={styles.rowIcon}>{thumbnail ?? icon}</View><View style={styles.rowCopy}><Text numberOfLines={2} style={styles.rowTitle}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={styles.rowSubtitle}>{subtitle}</Text> : null}{meta ? <Text numberOfLines={1} style={styles.rowMeta}>{meta}</Text> : null}</View>{status ? <StatusPill tone={tone}>{status}</StatusPill> : null}{onPress ? <View style={styles.rowArrow}><ChevronRight color={colors.primary} size={17} strokeWidth={2.4} /></View> : null}</>;
   if (!onPress) return <UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl border-[#DFE4EC] bg-white p-3 shadow-sm" style={styles.card}>{content}</UICard>;
-  return <Pressable accessibilityRole="button" onPress={() => void onPress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl border-[#DFE4EC] bg-white p-3 shadow-sm" style={styles.card}>{content}</UICard></Pressable>;
+  const press = onPress;
+  async function handlePress() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try { await press(); } catch (error) { showActionError(error); } finally { inFlight.current = false; }
+  }
+  return <Pressable accessibilityRole="button" onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl border-[#DFE4EC] bg-white p-3 shadow-sm" style={styles.card}>{content}</UICard></Pressable>;
 }
 
 export function SectionTitle({ children, action, icon }: { children: ReactNode; action?: string; icon?: ReactNode }) {
@@ -62,6 +77,10 @@ export function SectionTitle({ children, action, icon }: { children: ReactNode; 
 
 const styles = StyleSheet.create({
   tabScroller: { width: "100%" },
+  tabTrigger: { backgroundColor: "transparent" },
+  tabTriggerActive: { backgroundColor: colors.primarySoft, elevation: 1 },
+  tabTriggerText: { color: colors.textMuted, fontSize: typography.caption, fontWeight: "800" },
+  tabTriggerTextActive: { color: colors.primary },
   card: { elevation: 2, shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
   metricHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 9 },
   metricAccent: { borderRadius: radii.pill, height: 5, width: 30 },

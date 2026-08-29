@@ -13,7 +13,7 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { applyDuePayment, hasMatchingPaymentIdentity, reverseDuePayment as reverseDuePaymentState } from "./payment-rules";
-import { createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
+import { confirmDuePaymentSchema, createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, rejectDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
 import { assertMonthlyPaymentDate } from "./config";
 import { getFinanceDefaults } from "../settings/service";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
@@ -298,6 +298,7 @@ export async function getBlockReceivableSummary(input?: unknown) {
 export async function recordDuePayment(input: unknown) {
   const session = await requirePermission(PERMISSIONS.PAYMENT_CREATE);
   const values = parseInput(recordDuePaymentSchema.safeParse(input));
+  if (!values.evidenceKey) throw new Error("Bukti pembayaran wajib dilampirkan.");
   if (values.evidenceKey) assertDuePaymentEvidenceKey(values.idempotencyKey, values.evidenceKey);
   if (values.evidenceKey) await getObjectStorage().verifyObject(values.evidenceKey);
   const database = getDb();
@@ -308,27 +309,16 @@ export async function recordDuePayment(input: unknown) {
       if (!hasMatchingPaymentIdentity(existingPayment, values)) {
         throw new Error("This payment idempotency key was already used for different payment data.");
       }
-      const [cashTransaction] = await tx
-        .select({ id: financialTransaction.id })
-        .from(financialTransaction)
-        .where(and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, paymentId)))
-        .limit(1);
-      const [existingDue] = await tx.select({ amountPaid: due.amountPaid, status: due.status }).from(due).where(eq(due.id, values.dueId)).limit(1);
-      if (!existingDue || !cashTransaction) throw new Error("Existing payment records are incomplete and require reconciliation.");
-      return { id: paymentId, cashTransactionId: cashTransaction.id, dueId: values.dueId, amountPaid: existingDue.amountPaid, status: existingDue.status, duplicate: true };
+      return { id: paymentId, dueId: existingPayment.dueId, status: existingPayment.status, duplicate: true };
     }
 
     const [current] = await tx.select().from(due).where(eq(due.id, values.dueId)).limit(1);
     if (!current) throw new Error("Due was not found.");
     if (current.dueType === "MONTHLY") assertMonthlyPaymentDate(values.paymentDate);
-    const { amountPaid, status } = applyDuePayment(current, values.amount);
-    const cashTransactionId = crypto.randomUUID();
+    const pendingRows = await tx.select({ amount: duePayment.amount }).from(duePayment).where(and(eq(duePayment.dueId, current.id), eq(duePayment.status, "PENDING")));
+    const pendingAmount = pendingRows.reduce((total, row) => total + row.amount, 0);
+    if (current.amountPaid + pendingAmount + values.amount > current.amountDue) throw new Error("Confirmed and pending payments cannot exceed the due amount.");
     const now = new Date();
-    const [updateResult] = await tx
-      .update(due)
-      .set({ amountPaid, status, updatedAt: now })
-      .where(and(eq(due.id, current.id), eq(due.amountPaid, current.amountPaid), eq(due.status, current.status)));
-    if (updateResult.affectedRows !== 1) throw new Error("This due was changed by another payment. Retry with a new idempotency key.");
 
     await tx.insert(duePayment).values({
       id: paymentId,
@@ -339,25 +329,15 @@ export async function recordDuePayment(input: unknown) {
       method: values.method,
       evidenceKey: optionalValue(values.evidenceKey),
       notes: optionalValue(values.notes),
+      status: "PENDING",
+      confirmedBy: null,
+      confirmedAt: null,
+      rejectedBy: null,
+      rejectedAt: null,
+      rejectionReason: null,
+      financialTransactionId: null,
       recordedBy: session.user.id,
       createdAt: now,
-    });
-    await tx.insert(financialTransaction).values({
-      id: cashTransactionId,
-      transactionCode: createPaymentTransactionCode(),
-      transactionAt: new Date(`${values.paymentDate}T00:00:00.000Z`),
-      transactionType: "CASH_IN",
-      amount: values.amount,
-      description: `Due payment for ${current.id}`,
-      relatedEntityType: "DUE_PAYMENT",
-      relatedEntityId: paymentId,
-      evidenceKey: optionalValue(values.evidenceKey),
-      status: "SAH",
-      createdBy: session.user.id,
-      approvedBy: session.user.id,
-      reversedTransactionId: null,
-      createdAt: now,
-      updatedAt: now,
     });
     await tx.insert(auditLog).values([
       createAuditLogValues({
@@ -365,29 +345,43 @@ export async function recordDuePayment(input: unknown) {
         action: AUDIT_ACTIONS.CREATE,
         entityType: "DUE_PAYMENT",
         entityId: paymentId,
-        oldValues: { amountPaid: current.amountPaid, status: current.status },
-        newValues: { dueId: current.id, amount: values.amount, amountPaid, status },
-      }),
-      createAuditLogValues({
-        actorUserId: session.user.id,
-        action: AUDIT_ACTIONS.UPDATE,
-        entityType: "DUE",
-        entityId: current.id,
-        oldValues: { amountPaid: current.amountPaid, status: current.status },
-        newValues: { amountPaid, status },
-      }),
-      createAuditLogValues({
-        actorUserId: session.user.id,
-        action: AUDIT_ACTIONS.CREATE,
-        entityType: "FINANCIAL_TRANSACTION",
-        entityId: cashTransactionId,
-        newValues: { relatedEntityType: "DUE_PAYMENT", relatedEntityId: paymentId, amount: values.amount, transactionType: "CASH_IN" },
+        newValues: { dueId: current.id, amount: values.amount, status: "PENDING" },
       }),
     ]);
 
-    return { id: paymentId, cashTransactionId, dueId: current.id, amountPaid, status, duplicate: false };
+    return { id: paymentId, dueId: current.id, status: "PENDING", duplicate: false };
   });
   return result;
+}
+
+export async function confirmDuePayment(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.PAYMENT_CONFIRM);
+  const values = parseInput(confirmDuePaymentSchema.safeParse(input));
+  return getDb().transaction(async (tx) => {
+    const [payment] = await tx.select().from(duePayment).where(eq(duePayment.id, values.duePaymentId)).limit(1);
+    if (!payment) throw new Error("Due payment was not found.");
+    if (payment.status === "CONFIRMED") return { id: payment.id, status: payment.status, duplicate: true };
+    if (payment.status !== "PENDING") throw new Error("Only pending payments can be confirmed.");
+    const [currentDue] = await tx.select().from(due).where(eq(due.id, payment.dueId)).limit(1);
+    if (!currentDue) throw new Error("Due was not found.");
+    const { amountPaid, status } = applyDuePayment(currentDue, payment.amount);
+    const now = new Date(); const transactionId = crypto.randomUUID();
+    const [updated] = await tx.update(due).set({ amountPaid, status, updatedAt: now }).where(and(eq(due.id, currentDue.id), eq(due.amountPaid, currentDue.amountPaid), eq(due.status, currentDue.status)));
+    if (updated.affectedRows !== 1) throw new Error("This due changed before confirmation. Refresh and try again.");
+    await tx.insert(financialTransaction).values({ id: transactionId, transactionCode: createPaymentTransactionCode(), transactionAt: new Date(`${payment.paymentDate}T00:00:00.000Z`), transactionType: "CASH_IN", amount: payment.amount, description: `Due payment for ${currentDue.id}`, relatedEntityType: "DUE_PAYMENT", relatedEntityId: payment.id, evidenceKey: payment.evidenceKey, status: "SAH", createdBy: payment.recordedBy, approvedBy: session.user.id, reversedTransactionId: null, createdAt: now, updatedAt: now });
+    await tx.update(duePayment).set({ status: "CONFIRMED", confirmedBy: session.user.id, confirmedAt: now, financialTransactionId: transactionId }).where(and(eq(duePayment.id, payment.id), eq(duePayment.status, "PENDING")));
+    await tx.insert(auditLog).values([createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.APPROVE, entityType: "DUE_PAYMENT", entityId: payment.id, oldValues: { status: "PENDING" }, newValues: { status: "CONFIRMED", transactionId } }), createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "DUE", entityId: currentDue.id, oldValues: { amountPaid: currentDue.amountPaid, status: currentDue.status }, newValues: { amountPaid, status } })]);
+    return { id: payment.id, dueId: currentDue.id, status: "CONFIRMED", amountPaid, dueStatus: status, duplicate: false };
+  });
+}
+
+export async function rejectDuePayment(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.PAYMENT_CONFIRM);
+  const values = parseInput(rejectDuePaymentSchema.safeParse(input)); const now = new Date();
+  const [result] = await getDb().update(duePayment).set({ status: "REJECTED", rejectedBy: session.user.id, rejectedAt: now, rejectionReason: values.reason }).where(and(eq(duePayment.id, values.duePaymentId), eq(duePayment.status, "PENDING")));
+  if (result.affectedRows !== 1) throw new Error("Only pending payments can be rejected.");
+  await getDb().insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.REJECT, entityType: "DUE_PAYMENT", entityId: values.duePaymentId, oldValues: { status: "PENDING" }, newValues: { status: "REJECTED", reason: values.reason } }));
+  return { id: values.duePaymentId, status: "REJECTED" };
 }
 
 export async function reverseDuePayment(input: unknown) {
@@ -400,6 +394,7 @@ export async function reverseDuePayment(input: unknown) {
     const [currentDue] = await tx.select().from(due).where(eq(due.id, payment.dueId)).limit(1);
     if (!currentDue) throw new Error("Due was not found.");
     if (currentDue.blockId) await requireAssignedBlockAccess(currentDue.blockId);
+    if (payment.status !== "CONFIRMED") throw new Error("Only confirmed payments can be reversed.");
     const [cashTransaction] = await tx.select().from(financialTransaction).where(and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, payment.id))).limit(1);
     if (!cashTransaction) throw new Error("Payment cash transaction was not found.");
     if (cashTransaction.status === "REVERSED") return { id: payment.id, dueId: currentDue.id, status: currentDue.status, duplicate: true };
@@ -409,6 +404,7 @@ export async function reverseDuePayment(input: unknown) {
     const [updateResult] = await tx.update(due).set({ amountPaid, status, updatedAt: now }).where(and(eq(due.id, currentDue.id), eq(due.amountPaid, currentDue.amountPaid), eq(due.status, currentDue.status)));
     if (updateResult.affectedRows !== 1) throw new Error("This due changed before the reversal could be applied.");
     const reversalId = await reverseFinancialTransactionRecord(tx, cashTransaction, session.user.id, values.reason);
+    await tx.update(duePayment).set({ status: "REVERSED" }).where(eq(duePayment.id, payment.id));
     await tx.insert(auditLog).values([
       createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.REVERSE, entityType: "DUE_PAYMENT", entityId: payment.id, oldValues: { amount: payment.amount }, newValues: { dueId: currentDue.id, amountPaid, status, reason: values.reason, reversalId, idempotencyKey: values.idempotencyKey } }),
       createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "DUE", entityId: currentDue.id, oldValues: { amountPaid: currentDue.amountPaid, status: currentDue.status }, newValues: { amountPaid, status, reversedPaymentId: payment.id } }),

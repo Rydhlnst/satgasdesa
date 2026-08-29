@@ -65,6 +65,13 @@ export const duePayment = mysqlTable(
     method: varchar("method", { length: 32 }).notNull(),
     evidenceKey: varchar("evidence_key", { length: 255 }),
     notes: text("notes"),
+    status: varchar("status", { length: 16 }).notNull().default("PENDING"),
+    confirmedBy: varchar("confirmed_by", { length: 36 }).references(() => user.id, { onDelete: "restrict" }),
+    confirmedAt: timestamp("confirmed_at"),
+    rejectedBy: varchar("rejected_by", { length: 36 }).references(() => user.id, { onDelete: "restrict" }),
+    rejectedAt: timestamp("rejected_at"),
+    rejectionReason: text("rejection_reason"),
+    financialTransactionId: varchar("financial_transaction_id", { length: 36 }),
     recordedBy: varchar("recorded_by", { length: 36 })
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -72,6 +79,7 @@ export const duePayment = mysqlTable(
   },
   (table) => [
     index("due_payment_due_date_idx").on(table.dueId, table.paymentDate),
+    index("due_payment_status_created_idx").on(table.status, table.createdAt),
     check("due_payment_amount_range_check", sql`${table.amount} > 0 AND ${table.amount} <= 9007199254740991`),
   ],
 );

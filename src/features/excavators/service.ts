@@ -206,7 +206,7 @@ export async function registerExcavator(input: unknown) {
   });
 
   if (values.currentBlockId && values.entryDate) {
-    await notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "EXCAVATOR_ENTRY", targetKey: id, type: "EXCAVATOR_ENTRY", title: "Excavator entered a block", body: `${values.unitCode} entered a block and requires dues review.`, relatedEntityType: "EXCAVATOR", relatedEntityId: id });
+    await notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "EXCAVATOR_ENTRY", targetKey: id, type: "EXCAVATOR_ENTRY", title: "Alat berat masuk blok", body: `${values.unitCode} masuk ke blok dan memerlukan pemeriksaan iuran.`, relatedEntityType: "EXCAVATOR", relatedEntityId: id });
   }
 
   return { id };
@@ -340,7 +340,7 @@ export async function recordExcavatorMovement(input: unknown) {
   });
 
   if (values.movementType === "ENTRY") {
-    await notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "EXCAVATOR_ENTRY", targetKey: `${current.id}:${occurredAt.toISOString()}`, type: "EXCAVATOR_ENTRY", title: "Excavator entered a block", body: `${current.unitCode} entered a block and requires dues review.`, relatedEntityType: "EXCAVATOR", relatedEntityId: current.id });
+    await notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "EXCAVATOR_ENTRY", targetKey: `${current.id}:${occurredAt.toISOString()}`, type: "EXCAVATOR_ENTRY", title: "Alat berat masuk blok", body: `${current.unitCode} masuk ke blok dan memerlukan pemeriksaan iuran.`, relatedEntityType: "EXCAVATOR", relatedEntityId: current.id });
   }
 
   return { excavatorId: current.id, status, currentBlockId: nextBlockId };

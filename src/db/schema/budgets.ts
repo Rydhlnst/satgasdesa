@@ -77,10 +77,28 @@ export const budgetItem = mysqlTable(
     name: varchar("name", { length: 255 }).notNull(),
     allocatedAmount: bigint("allocated_amount", { mode: "number" }).notNull(),
     notes: text("notes"),
+    progressPercentage: int("progress_percentage").notNull().default(0),
+    progressNotes: text("progress_notes"),
+    progressUpdatedBy: varchar("progress_updated_by", { length: 36 }).references(() => user.id, { onDelete: "restrict" }),
+    progressUpdatedAt: timestamp("progress_updated_at"),
     createdAt: timestamp("created_at").notNull(),
     updatedAt: timestamp("updated_at").notNull(),
   },
   (table) => [index("budget_item_group_idx").on(table.groupId), index("budget_item_subcategory_idx").on(table.subcategoryId), check("budget_item_allocated_amount_check", sql`${table.allocatedAmount} >= 0 AND ${table.allocatedAmount} <= 9007199254740991`)],
+);
+
+export const budgetItemProgressHistory = mysqlTable(
+  "budget_item_progress_history",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    budgetItemId: varchar("budget_item_id", { length: 36 }).notNull().references(() => budgetItem.id, { onDelete: "cascade" }),
+    previousPercentage: int("previous_percentage").notNull(),
+    nextPercentage: int("next_percentage").notNull(),
+    notes: text("notes"),
+    updatedBy: varchar("updated_by", { length: 36 }).notNull().references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [index("budget_item_progress_history_item_created_idx").on(table.budgetItemId, table.createdAt)],
 );
 
 export const budgetItemAttachment = mysqlTable(

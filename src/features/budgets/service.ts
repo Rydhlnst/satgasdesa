@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
-import { budgetCategory, budgetGroup, budgetItem, budgetItemAttachment, budgetPeriod, budgetPeriodHistory, budgetRevision, budgetSubcategory, realizationRequest } from "@/src/db/schema/budgets";
+import { budgetCategory, budgetGroup, budgetItem, budgetItemAttachment, budgetItemProgressHistory, budgetPeriod, budgetPeriodHistory, budgetRevision, budgetSubcategory, realizationRequest } from "@/src/db/schema/budgets";
 import { financialTransaction } from "@/src/db/schema/finance";
 import { fundRequest } from "@/src/db/schema/fund-requests";
 import { realizationApproval, realizationEvidence } from "@/src/db/schema/history-evidence";
@@ -17,7 +17,7 @@ import { reverseFinancialTransactionRecord } from "@/src/features/finance/servic
 
 import { assertRealizationAmountAvailable as assertRemainingAllocation } from "./allocation-rules";
 import { BUDGET_PERIOD_STATUSES, INITIAL_BUDGET_GROUPS, REALIZATION_TRANSITIONS } from "./constants";
-import { addBudgetCategoryToPeriodSchema, addBudgetItemAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodFiltersSchema, correctRealizationSchema, createBudgetCategorySchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
+import { addBudgetCategoryToPeriodSchema, addBudgetItemAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodFiltersSchema, correctRealizationSchema, createBudgetCategorySchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemProgressSchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
   return parseValidatedInput(result, "Please check the budget details and try again.");
@@ -95,8 +95,7 @@ async function getDraftGroup(groupId: string) {
 }
 
 async function getDraftBudgetItem(itemId: string) {
-  const [item] = await getDb().select().from(budgetItem).where(eq(budgetItem.id, itemId)).limit(1);
-  if (!item) throw new Error("Budget item was not found.");
+  const item = await getBudgetItemOrThrow(itemId);
   const group = await getDraftGroup(item.groupId);
   return { item, group };
 }
@@ -126,8 +125,7 @@ async function getOrCreateDefaultBudgetCategories(actorUserId: string) {
 }
 
 async function getRealizationCalculationSnapshot(budgetItemId: string, excludeRealizationId?: string) {
-  const [item] = await getDb().select().from(budgetItem).where(eq(budgetItem.id, budgetItemId)).limit(1);
-  if (!item) throw new Error("Budget item was not found.");
+  const item = await getBudgetItemOrThrow(budgetItemId);
   const rows = await getDb().select({ id: realizationRequest.id, requestedAmount: realizationRequest.requestedAmount, status: realizationRequest.status, isOverAllocation: realizationRequest.isOverAllocation, correctsRealizationId: realizationRequest.correctsRealizationId }).from(realizationRequest).where(and(eq(realizationRequest.budgetItemId, budgetItemId), inArray(realizationRequest.status, ["SUBMITTED", "VERIFIED", "SAH"]), excludeRealizationId ? ne(realizationRequest.id, excludeRealizationId) : undefined));
   const replacedIds = new Set(rows.flatMap((row) => row.correctsRealizationId ? [row.correctsRealizationId] : []));
   const effectiveRows = rows.filter((row) => !replacedIds.has(row.id));
@@ -143,8 +141,7 @@ function calculationSnapshotValues(snapshot: Awaited<ReturnType<typeof getRealiz
 
 async function getRealizationContext(budgetItemId: string, fundRequestId?: string) {
   const database = getDb();
-  const [item] = await database.select().from(budgetItem).where(eq(budgetItem.id, budgetItemId)).limit(1);
-  if (!item) throw new Error("Budget item was not found.");
+  const item = await getBudgetItemOrThrow(budgetItemId);
   const [group] = await database.select().from(budgetGroup).where(eq(budgetGroup.id, item.groupId)).limit(1);
   const [period] = group ? await database.select().from(budgetPeriod).where(eq(budgetPeriod.id, group.periodId)).limit(1) : [];
   if (!group || !period || period.status !== "APPROVED") throw new Error("Realizations require an approved budget period.");
@@ -273,13 +270,83 @@ export async function getBudgetSummary(periodId: string) {
   return getBudgetAllocationSnapshot(z.string().uuid("Invalid budget period ID.").parse(periodId));
 }
 
+const legacyBudgetItemColumns = {
+  id: budgetItem.id,
+  groupId: budgetItem.groupId,
+  subcategoryId: budgetItem.subcategoryId,
+  name: budgetItem.name,
+  allocatedAmount: budgetItem.allocatedAmount,
+  notes: budgetItem.notes,
+  createdAt: budgetItem.createdAt,
+  updatedAt: budgetItem.updatedAt,
+};
+
+type LegacyBudgetItem = Pick<typeof budgetItem.$inferSelect, "id" | "groupId" | "subcategoryId" | "name" | "allocatedAmount" | "notes" | "createdAt" | "updatedAt">;
+
+function withDefaultBudgetProgress(item: LegacyBudgetItem): typeof budgetItem.$inferSelect {
+  return { ...item, progressPercentage: 0, progressNotes: null, progressUpdatedBy: null, progressUpdatedAt: null };
+}
+
+async function getBudgetItemById(itemId: string): Promise<typeof budgetItem.$inferSelect | null> {
+  const database = getDb();
+  try {
+    const [item] = await database.select().from(budgetItem).where(eq(budgetItem.id, itemId)).limit(1);
+    return item ?? null;
+  } catch (error) {
+    if (!isMissingBudgetProgressSchema(error)) throw error;
+    const [item] = await database.select(legacyBudgetItemColumns).from(budgetItem).where(eq(budgetItem.id, itemId)).limit(1);
+    return item ? withDefaultBudgetProgress(item) : null;
+  }
+}
+
+async function getBudgetItemOrThrow(itemId: string): Promise<typeof budgetItem.$inferSelect> {
+  const item = await getBudgetItemById(itemId);
+  if (!item) throw new Error("Budget item was not found.");
+  return item;
+}
+
+function isMissingBudgetProgressSchema(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const mentionsProgressColumn = /progress_(percentage|notes|updated_by|updated_at)/i.test(message);
+  const missingColumn = /unknown column|no such column|column .*does not exist|undefined column/i.test(message);
+  const missingProgressHistory = /(?:table|relation).*budget_item_progress_history.*(?:does not exist|not found)/i.test(message);
+  return (mentionsProgressColumn && missingColumn) || missingProgressHistory;
+}
+
+async function getBudgetPeriodItems(periodId: string) {
+  const database = getDb();
+  try {
+    return await database
+      .select({ item: budgetItem, groupId: budgetGroup.id, groupName: budgetGroup.name, subcategoryName: budgetSubcategory.name })
+      .from(budgetItem)
+      .innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId))
+      .leftJoin(budgetSubcategory, eq(budgetSubcategory.id, budgetItem.subcategoryId))
+      .where(eq(budgetGroup.periodId, periodId))
+      .orderBy(budgetGroup.sortOrder, budgetItem.name);
+  } catch (error) {
+    if (!isMissingBudgetProgressSchema(error)) throw error;
+    return getLegacyBudgetPeriodItems(periodId);
+  }
+}
+
+async function getLegacyBudgetPeriodItems(periodId: string) {
+  const rows = await getDb()
+    .select({ item: legacyBudgetItemColumns, groupId: budgetGroup.id, groupName: budgetGroup.name, subcategoryName: budgetSubcategory.name })
+    .from(budgetItem)
+    .innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId))
+    .leftJoin(budgetSubcategory, eq(budgetSubcategory.id, budgetItem.subcategoryId))
+    .where(eq(budgetGroup.periodId, periodId))
+    .orderBy(budgetGroup.sortOrder, budgetItem.name);
+  return rows.map((row) => ({ ...row, item: withDefaultBudgetProgress(row.item) }));
+}
+
 export async function getBudgetPeriodDetail(periodId: string) {
   await requirePermission(PERMISSIONS.BUDGET_READ);
   const validId = z.string().uuid("Invalid budget period ID.").parse(periodId);
   const period = await getBudgetPeriodOrThrow(validId);
   const [groups, items, revisions, realizations, attachments, history] = await Promise.all([
     getDb().select().from(budgetGroup).where(eq(budgetGroup.periodId, validId)).orderBy(budgetGroup.sortOrder),
-    getDb().select({ item: budgetItem, groupId: budgetGroup.id, groupName: budgetGroup.name, subcategoryName: budgetSubcategory.name }).from(budgetItem).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).leftJoin(budgetSubcategory, eq(budgetSubcategory.id, budgetItem.subcategoryId)).where(eq(budgetGroup.periodId, validId)).orderBy(budgetGroup.sortOrder, budgetItem.name),
+    getBudgetPeriodItems(validId),
     getDb().select({ revision: budgetRevision, itemName: budgetItem.name }).from(budgetRevision).innerJoin(budgetItem, eq(budgetItem.id, budgetRevision.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)).orderBy(desc(budgetRevision.createdAt)),
     getDb().select({ budgetItemId: realizationRequest.budgetItemId, requestedAmount: realizationRequest.requestedAmount, status: realizationRequest.status }).from(realizationRequest).innerJoin(budgetItem, eq(budgetItem.id, realizationRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)),
     getDb().select({ attachment: budgetItemAttachment }).from(budgetItemAttachment).innerJoin(budgetItem, eq(budgetItem.id, budgetItemAttachment.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)).orderBy(desc(budgetItemAttachment.createdAt)),
@@ -291,6 +358,40 @@ export async function getBudgetPeriodDetail(periodId: string) {
     groups: groups.map((group) => ({ ...group, items: items.filter((entry) => entry.groupId === group.id).map((entry) => ({ ...entry.item, subcategoryName: entry.subcategoryName, attachments: attachments.filter((attachment) => attachment.attachment.budgetItemId === entry.item.id).map((attachment) => attachment.attachment), approvedRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && realization.status === "SAH").reduce((total, realization) => total + realization.requestedAmount, 0), pendingRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && ["SUBMITTED", "VERIFIED"].includes(realization.status)).reduce((total, realization) => total + realization.requestedAmount, 0) })) })),
     revisions,
     history,
+    summary: {
+      totalAllocation: snapshot.totalAllocation,
+      availableFunds: snapshot.availableFunds,
+      unallocatedFunds: snapshot.unallocatedFunds,
+      approvedRealization: snapshot.approvedRealization,
+      pendingRealization: snapshot.pendingRealization,
+      remainingAllocation: snapshot.remainingAllocation,
+      absorptionPercentage: snapshot.absorptionPercentage,
+      overAllocatedRealizations: snapshot.overAllocatedRealizations,
+    },
+  };
+}
+
+export async function getBudgetPeriodCategorySummary(periodId: string) {
+  await requirePermission(PERMISSIONS.BUDGET_READ);
+  const validId = z.string().uuid("Invalid budget period ID.").parse(periodId);
+  const [period, groups, items, realizations] = await Promise.all([
+    getBudgetPeriodOrThrow(validId),
+    getDb().select().from(budgetGroup).where(eq(budgetGroup.periodId, validId)).orderBy(budgetGroup.sortOrder),
+    getLegacyBudgetPeriodItems(validId),
+    getDb().select({ budgetItemId: realizationRequest.budgetItemId, requestedAmount: realizationRequest.requestedAmount, status: realizationRequest.status }).from(realizationRequest).innerJoin(budgetItem, eq(budgetItem.id, realizationRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)),
+  ]);
+  const snapshot = await getBudgetAllocationSnapshot(validId);
+  return {
+    period,
+    groups: groups.map((group) => ({
+      ...group,
+      items: items.filter((entry) => entry.groupId === group.id).map((entry) => ({
+        ...entry.item,
+        subcategoryName: entry.subcategoryName,
+        approvedRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && realization.status === "SAH").reduce((total, realization) => total + realization.requestedAmount, 0),
+        pendingRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && ["SUBMITTED", "VERIFIED"].includes(realization.status)).reduce((total, realization) => total + realization.requestedAmount, 0),
+      })),
+    })),
     summary: {
       totalAllocation: snapshot.totalAllocation,
       availableFunds: snapshot.availableFunds,
@@ -356,7 +457,7 @@ export async function createBudgetItem(input: unknown) {
 
 export async function reviseBudgetItem(input: unknown) {
   const session = await requirePermission(PERMISSIONS.BUDGET_CREATE); const values = parseInput(reviseBudgetItemSchema.safeParse(input));
-  const [item] = await getDb().select().from(budgetItem).where(eq(budgetItem.id, values.id)).limit(1); if (!item) throw new Error("Budget item was not found."); const group = await getDraftGroup(item.groupId); await assertAllocationWithinFunds(group.periodId, values.allocatedAmount, item.id);
+  const item = await getBudgetItemOrThrow(values.id); const group = await getDraftGroup(item.groupId); await assertAllocationWithinFunds(group.periodId, values.allocatedAmount, item.id);
   const now = new Date();
   await getDb().transaction(async (tx) => {
     await tx.update(budgetItem).set({ allocatedAmount: values.allocatedAmount, updatedAt: now }).where(eq(budgetItem.id, item.id));
@@ -369,8 +470,7 @@ export async function reviseBudgetItem(input: unknown) {
 export async function updateBudgetItem(input: unknown) {
   const session = await requirePermission(PERMISSIONS.BUDGET_CREATE);
   const values = parseInput(updateBudgetItemSchema.safeParse(input));
-  const [item] = await getDb().select().from(budgetItem).where(eq(budgetItem.id, values.id)).limit(1);
-  if (!item) throw new Error("Budget item was not found.");
+  const item = await getBudgetItemOrThrow(values.id);
   const group = await getDraftGroup(item.groupId);
   await assertSubcategoryMatchesGroup(values.subcategoryId, group);
   await assertAllocationWithinFunds(group.periodId, values.allocatedAmount, item.id);
@@ -397,6 +497,21 @@ export async function deleteBudgetItem(input: unknown) {
     await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.DELETE, entityType: "BUDGET_ITEM", entityId: item.id, oldValues: { name: item.name, allocatedAmount: item.allocatedAmount } }));
   });
   return { id: item.id };
+}
+
+export async function updateBudgetItemProgress(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.BUDGET_PROGRESS_UPDATE);
+  const values = parseInput(updateBudgetItemProgressSchema.safeParse(input));
+  const [context] = await getDb().select({ item: budgetItem, period: budgetPeriod }).from(budgetItem).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).innerJoin(budgetPeriod, eq(budgetPeriod.id, budgetGroup.periodId)).where(eq(budgetItem.id, values.id)).limit(1);
+  if (!context) throw new Error("Budget item was not found.");
+  if (context.period.status !== "APPROVED") throw new Error("Progress can only be updated after the budget period is approved.");
+  const now = new Date();
+  await getDb().transaction(async (tx) => {
+    await tx.update(budgetItem).set({ progressPercentage: values.progressPercentage, progressNotes: optionalValue(values.notes), progressUpdatedBy: session.user.id, progressUpdatedAt: now, updatedAt: now }).where(eq(budgetItem.id, context.item.id));
+    await tx.insert(budgetItemProgressHistory).values({ id: crypto.randomUUID(), budgetItemId: context.item.id, previousPercentage: context.item.progressPercentage, nextPercentage: values.progressPercentage, notes: optionalValue(values.notes), updatedBy: session.user.id, createdAt: now });
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "BUDGET_ITEM_PROGRESS", entityId: context.item.id, oldValues: { progressPercentage: context.item.progressPercentage }, newValues: { progressPercentage: values.progressPercentage, notes: optionalValue(values.notes) } }));
+  });
+  return { id: context.item.id, progressPercentage: values.progressPercentage };
 }
 
 export async function createBudgetItemAttachmentUploadUrl(input: unknown) {
@@ -458,7 +573,7 @@ export async function approveBudgetPeriod(input: unknown) {
     const [updateResult] = await tx.update(budgetPeriod).set({ status: "APPROVED", approvalNotes: optionalValue(values.approvalNotes), approvedBy: session.user.id, updatedAt: now }).where(and(eq(budgetPeriod.id, period.id), eq(budgetPeriod.status, "VERIFIED")));
     if (updateResult.affectedRows !== 1) throw new Error("This budget period was changed by another user. Refresh and try again.");
     await tx.insert(budgetPeriodHistory).values({ id: crypto.randomUUID(), periodId: period.id, budgetItemId: null, action: "APPROVED", notes: optionalValue(values.approvalNotes), createdBy: session.user.id, createdAt: now });
-    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.APPROVE, entityType: "BUDGET_PERIOD", entityId: period.id, oldValues: { status: "DRAFT" }, newValues: { status: "APPROVED" } }));
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.APPROVE, entityType: "BUDGET_PERIOD", entityId: period.id, oldValues: { status: "VERIFIED" }, newValues: { status: "APPROVED" } }));
   }); return { id: period.id, status: "APPROVED" };
 }
 
@@ -489,15 +604,22 @@ export async function getRealizations(input?: unknown) {
 export async function getRealizationDetail(id: string) {
   await requirePermission(PERMISSIONS.REALIZATION_READ);
   const validId = z.string().uuid("Invalid realization ID.").parse(id);
-  const [item] = await getDb().select({ realization: realizationRequest, budgetItem: budgetItem, group: budgetGroup, period: budgetPeriod, category: budgetCategory }).from(realizationRequest).innerJoin(budgetItem, eq(budgetItem.id, realizationRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).leftJoin(budgetCategory, eq(budgetCategory.id, budgetGroup.categoryId)).innerJoin(budgetPeriod, eq(budgetPeriod.id, budgetGroup.periodId)).where(eq(realizationRequest.id, validId)).limit(1);
-  if (!item) throw new Error("Realization was not found.");
+  const [realization] = await getDb().select().from(realizationRequest).where(eq(realizationRequest.id, validId)).limit(1);
+  if (!realization) throw new Error("Realization was not found.");
+  const budgetItemRecord = await getBudgetItemOrThrow(realization.budgetItemId);
+  const [group] = await getDb().select().from(budgetGroup).where(eq(budgetGroup.id, budgetItemRecord.groupId)).limit(1);
+  if (!group) throw new Error("Budget group was not found.");
+  const [period] = await getDb().select().from(budgetPeriod).where(eq(budgetPeriod.id, group.periodId)).limit(1);
+  if (!period) throw new Error("Budget period was not found.");
+  const [category] = await getDb().select().from(budgetCategory).where(eq(budgetCategory.id, group.categoryId ?? "")).limit(1);
+  const item = { realization, budgetItem: budgetItemRecord, group, period, category: category ?? null };
   const [approvals, transactions, evidence, linkedFundRequest] = await Promise.all([
     getDb().select().from(realizationApproval).where(eq(realizationApproval.realizationId, validId)).orderBy(desc(realizationApproval.createdAt)),
     getDb().select().from(financialTransaction).where(and(eq(financialTransaction.relatedEntityType, "REALIZATION"), eq(financialTransaction.relatedEntityId, validId))).orderBy(desc(financialTransaction.createdAt)),
     getDb().select().from(realizationEvidence).where(eq(realizationEvidence.realizationId, validId)).orderBy(desc(realizationEvidence.createdAt)),
-    item.realization.fundRequestId ? getDb().select({ id: fundRequest.id, requestNumber: fundRequest.requestNumber, status: fundRequest.status, title: fundRequest.title }).from(fundRequest).where(eq(fundRequest.id, item.realization.fundRequestId)).limit(1).then((rows) => rows[0] ?? null) : Promise.resolve(null),
+    realization.fundRequestId ? getDb().select({ id: fundRequest.id, requestNumber: fundRequest.requestNumber, status: fundRequest.status, title: fundRequest.title }).from(fundRequest).where(eq(fundRequest.id, realization.fundRequestId)).limit(1).then((rows) => rows[0] ?? null) : Promise.resolve(null),
   ]);
-  return { ...item, approvals, transactions, evidence, linkedFundRequest, calculation: await getRealizationCalculationSnapshot(item.realization.budgetItemId, item.realization.status === "SAH" ? item.realization.id : undefined) };
+  return { ...item, approvals, transactions, evidence, linkedFundRequest, calculation: await getRealizationCalculationSnapshot(realization.budgetItemId, realization.status === "SAH" ? realization.id : undefined) };
 }
 
 export async function createRealization(input: unknown) {
@@ -560,7 +682,7 @@ export async function transitionRealization(input: unknown) {
         await tx.update(realizationRequest).set({ status: "REVERSED", reversedAt: now, reversedBy: session.user.id, reversalReason: `Replaced by correction ${current.id}`, updatedAt: now }).where(and(eq(realizationRequest.id, original.id), eq(realizationRequest.status, "SAH")));
         await tx.insert(realizationApproval).values({ id: crypto.randomUUID(), realizationId: original.id, action: "REVERSE", notes: `Replaced by correction ${current.id}`, actorUserId: session.user.id, createdAt: now });
       }
-      await tx.insert(financialTransaction).values({ id: crypto.randomUUID(), transactionCode: financeCode(), transactionAt: now, transactionType: "CASH_OUT", amount: current.requestedAmount, description: current.description, relatedEntityType: "REALIZATION", relatedEntityId: current.id, evidenceKey: current.evidenceKey, status: "SAH", createdBy: session.user.id, approvedBy: session.user.id, reversedTransactionId: null, createdAt: now, updatedAt: now });
+      await tx.insert(financialTransaction).values({ id: crypto.randomUUID(), transactionCode: financeCode(), transactionAt: now, transactionType: "CASH_OUT", amount: current.requestedAmount, description: current.description, relatedEntityType: "REALIZATION", relatedEntityId: current.id, evidenceKey: current.evidenceKey, status: "DRAFT", createdBy: session.user.id, approvedBy: null, reversedTransactionId: null, createdAt: now, updatedAt: now });
     }
     await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: values.status === "SAH" ? AUDIT_ACTIONS.APPROVE : values.status === "VERIFIED" ? AUDIT_ACTIONS.VERIFY : values.status === "REJECTED" ? AUDIT_ACTIONS.REJECT : AUDIT_ACTIONS.SUBMIT, entityType: "REALIZATION", entityId: current.id, oldValues: { status: current.status }, newValues: { status: values.status, notes: optionalValue(values.notes), isOverAllocation: current.isOverAllocation === 1 } }));
   });

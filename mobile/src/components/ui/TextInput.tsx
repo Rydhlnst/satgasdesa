@@ -16,7 +16,7 @@ TextInput.displayName = "TextInput";
 function CalendarTextInput({ style, ...props }: TextInputProps) {
   const [open, setOpen] = useState(false);
   const value = String(props.value ?? "");
-  return <View><Pressable accessibilityLabel={props.accessibilityLabel ?? props.placeholder ?? "Choose date"} accessibilityRole="button" onPress={() => setOpen(true)} style={[styles.input, style]}><CalendarDays color={value ? "#1454C4" : "#8A96A8"} size={17} /><Text numberOfLines={1} style={[styles.text, !value && styles.placeholder]}>{value || props.placeholder || "Pilih tanggal"}</Text></Pressable><CalendarSheet key={`${value}-${open}`} open={open} onClose={() => setOpen(false)} value={value} onChange={(next) => props.onChangeText?.(next)} title={props.placeholder?.replace(" YYYY-MM-DD", "") || "Pilih tanggal"} /></View>;
+  return <View><Pressable accessibilityLabel={props.accessibilityLabel ?? props.placeholder ?? "Pilih tanggal"} accessibilityRole="button" onPress={() => setOpen(true)} style={[styles.input, style]}><CalendarDays color={value ? "#1454C4" : "#8A96A8"} size={17} /><Text numberOfLines={1} style={[styles.text, !value && styles.placeholder]}>{value || props.placeholder || "Pilih tanggal"}</Text></Pressable><CalendarSheet key={`${value}-${open}`} open={open} onClose={() => setOpen(false)} value={value} onChange={(next) => props.onChangeText?.(next)} title={props.placeholder?.replace(" YYYY-MM-DD", "") || "Pilih tanggal"} /></View>;
 }
 
 const styles = StyleSheet.create({ input: { alignItems: "center", backgroundColor: "#FFFFFF", borderColor: "#DFE4EC", borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 8, minHeight: 48, paddingHorizontal: 12 }, text: { color: "#0F234D", flex: 1, fontSize: 12 }, placeholder: { color: "#8A96A8" } });

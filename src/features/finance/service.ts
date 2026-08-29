@@ -277,7 +277,7 @@ export async function getFinanceSummary(input?: { dateFrom?: string; dateTo?: st
       .from(financialTransaction)
       .where(transactionDate.length ? and(...transactionDate) : undefined)
       .groupBy(financialTransaction.status, financialTransaction.transactionType),
-    database.select({ total: sum(duePayment.amount) }).from(duePayment).where(paymentDate.length ? and(...paymentDate) : undefined),
+    database.select({ total: sum(duePayment.amount) }).from(duePayment).innerJoin(financialTransaction, and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, duePayment.id), eq(financialTransaction.status, "SAH"))).where(paymentDate.length ? and(...paymentDate) : undefined),
     database
       .select({ total: sum(financialTransaction.amount) })
       .from(financialTransaction)

@@ -205,7 +205,7 @@ export default function MapScreen() {
       <ModalContent className="mt-auto min-h-[320px] w-full rounded-t-3xl rounded-b-none bg-white p-5 pb-safe">
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Filter Blok</Text>
-            <Pressable accessibilityLabel="Close filters" accessibilityRole="button" onPress={() => setFilterOpen(false)}>
+            <Pressable accessibilityLabel="Tutup filter" accessibilityRole="button" onPress={() => setFilterOpen(false)}>
               <X color={colors.text} size={20} />
             </Pressable>
           </View>

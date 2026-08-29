@@ -73,7 +73,7 @@ export async function optimizeImage(asset: ImagePicker.ImagePickerAsset, fallbac
   const result = await ImageManipulator.manipulateAsync(asset.uri, actions, { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG });
   const response = await fetch(result.uri);
   const blob = await response.blob();
-  if (!blob.size) throw new Error("The optimized image is empty.");
+  if (!blob.size) throw new Error("Foto hasil kompresi kosong.");
   if (blob.size > MAX_UPLOAD_BYTES) throw new Error("Foto harus berukuran maksimal 10 MB.");
   const baseName = (asset.fileName ?? fallbackName).replace(/\.[^/.]+$/, "") || fallbackName;
   return { uri: result.uri, name: `${baseName}.jpg`, contentType: "image/jpeg", sizeBytes: blob.size };
@@ -89,11 +89,11 @@ export async function uploadOptimizedImage(uploadUrl: string, image: OptimizedIm
     try {
       const upload = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": image.contentType }, body: blob });
       if (upload.ok) return;
-      lastError = new Error(`Image upload failed (${upload.status}).`);
+      lastError = new Error(`Unggah foto gagal (${upload.status}).`);
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error("Image upload failed.");
+      lastError = error instanceof Error ? error : new Error("Unggah foto gagal.");
     }
     if (attempt < maxAttempts) await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
   }
-  throw lastError ?? new Error("Image upload failed.");
+  throw lastError ?? new Error("Unggah foto gagal.");
 }

@@ -19,11 +19,12 @@ import { optimizeImage, uploadOptimizedImage } from "../../src/lib/media";
 import { colors, spacing } from "../../src/theme";
 import { getCurrentLocation } from "../../src/lib/location";
 import { isRetryableNetworkError } from "../../src/lib/feedback";
+import { createClientId } from "../../src/lib/id";
 
 type Values = z.infer<typeof schema>;
 
 export default function NewInformation() {
-  const { role } = useAuth(); const router = useRouter(); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [photos, setPhotos] = useState<ImagePickerAsset[]>([]); const [informationId] = useState(() => crypto.randomUUID());
+  const { role } = useAuth(); const router = useRouter(); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [photos, setPhotos] = useState<ImagePickerAsset[]>([]); const [informationId] = useState(createClientId);
   const blocks = useQuery({ queryKey: ["blocks", "information-form"], queryFn: () => getBlocks(), enabled: Boolean(role) });
   const form = useForm<Values>({ resolver: zodResolver(schema), mode: "onBlur", reValidateMode: "onChange", defaultValues: { category: "ACTIVITY", priority: "MEDIUM", reportedAt: new Date().toISOString().slice(0, 10) } });
   if (!role) return null;

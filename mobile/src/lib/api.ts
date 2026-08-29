@@ -55,8 +55,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const url = new URL(`${baseUrl}${path}`);
   if (method === "GET") {
     const range = getActiveDateRange();
-    url.searchParams.set("dateFrom", range.dateFrom);
-    url.searchParams.set("dateTo", range.dateTo);
+    if (!url.searchParams.has("dateFrom")) url.searchParams.set("dateFrom", range.dateFrom);
+    if (!url.searchParams.has("dateTo")) url.searchParams.set("dateTo", range.dateTo);
   }
   const response = await fetchWithTimeout(url, {
     ...init,
@@ -94,6 +94,8 @@ export function updateFieldWorker(input: unknown) { return workflow<Record<strin
 export function assignWorkerToBlock(input: unknown) { return workflow<Record<string, unknown>>("assignWorkerToBlock", input); }
 export function endWorkerBlockAssignment(input: unknown) { return workflow<Record<string, unknown>>("endWorkerBlockAssignment", input); }
 export function recordDuePayment(input: unknown) { return workflow<Record<string, unknown>>("recordDuePayment", input); }
+export function confirmDuePayment(input: unknown) { return workflow<Record<string, unknown>>("confirmDuePayment", input); }
+export function rejectDuePayment(input: unknown) { return workflow<Record<string, unknown>>("rejectDuePayment", input); }
 export function reverseDuePayment(input: unknown) { return workflow<Record<string, unknown>>("reverseDuePayment", input); }
 export function createDue(input: unknown) { return workflow<Record<string, unknown>>("createDue", input); }
 export function createDuePaymentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createDuePaymentUploadUrl", input); }
@@ -145,6 +147,7 @@ export function addBudgetItemAttachment(input: unknown) { return workflow<{ id: 
 export function getBudgetItemAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getBudgetItemAttachmentDownloadUrl", input); }
 export function verifyBudgetPeriod(input: unknown) { return workflow<Record<string, unknown>>("verifyBudgetPeriod", input); }
 export function approveBudgetPeriod(input: unknown) { return workflow<Record<string, unknown>>("approveBudgetPeriod", input); }
+export function updateBudgetItemProgress(input: unknown) { return workflow<Record<string, unknown>>("updateBudgetItemProgress", input); }
 export function createFinancialTransaction(input: unknown) { return workflow<Record<string, unknown>>("createFinancialTransaction", input); }
 export function createFinancialTransactionUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createFinancialTransactionUploadUrl", input); }
 export function getFinancialTransactionEvidenceDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getFinancialTransactionEvidenceDownloadUrl", input); }
@@ -216,7 +219,7 @@ export function getDuesFiltered(filters: Record<string, string>) { return reques
 export function getDuePaymentsFiltered(filters?: Record<string, string>) { return request<{ payments: Array<Record<string, unknown>>; pagination?: Record<string, unknown> }>(`/api/mobile/payments${queryString(filters)}`); }
 export function getBudgets() { return request<{ budgets: Array<Record<string, unknown>>; pagination?: Record<string, unknown> }>("/api/mobile/budgets"); }
 export function getBudgetsFiltered(filters: Record<string, string>) { return request<{ budgets: Array<Record<string, unknown>>; pagination?: Record<string, unknown> }>(`/api/mobile/budgets${queryString(filters)}`); }
-export function getBudget(id: string) { return request<Record<string, unknown>>(`/api/mobile/budgets/${id}`); }
+export function getBudget(id: string, view?: "category") { return request<Record<string, unknown>>(`/api/mobile/budgets/${id}${view ? `?view=${view}` : ""}`); }
 export function getBudgetCategories(filters?: Record<string, string>) { return request<{ categories: Array<Record<string, unknown>> }>(`/api/mobile/budget-categories${queryString(filters)}`); }
 export function getRealizations() { return request<{ realizations: Array<Record<string, unknown>>; statusCounts?: Record<string, number>; pagination?: Record<string, unknown> }>("/api/mobile/realizations"); }
 export function getRealizationsFiltered(filters: Record<string, string>) { return request<{ realizations: Array<Record<string, unknown>>; statusCounts?: Record<string, number>; pagination?: Record<string, unknown> }>(`/api/mobile/realizations${queryString(filters)}`); }

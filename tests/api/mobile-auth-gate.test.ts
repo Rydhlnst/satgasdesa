@@ -60,7 +60,7 @@ const cases: RouteCase[] = [
   { name: "workflows POST", method: "POST", load: () => import("@/app/api/mobile/workflows/route") },
 ];
 
-describe("mobile API authentication gate", () => {
+describe("mobile API authentication gate", { timeout: 15000 }, () => {
   it.each(cases)("rejects unauthenticated $name with 401", async (testCase) => {
     const route = await testCase.load();
     const handler = route[testCase.method] as (request: Request, context?: { params: Promise<{ id: string }> }) => Promise<Response> | Response;

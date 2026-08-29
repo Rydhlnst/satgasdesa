@@ -1,9 +1,9 @@
 import { addBlockPhoto, archiveBlockRecord, createBlockPhotoUploadUrl, createBlockRecord, getBlockPhotoDownloadUrl, updateBlockRecord } from "@/src/features/blocks/actions";
-import { addBudgetCategoryToPeriod, addBudgetItemAttachment, addRealizationEvidence, approveBudgetPeriod, createBudgetCategory, createBudgetItem, createBudgetItemAttachmentUploadUrl, createBudgetPeriod, createBudgetSubcategory, createRealization, createRealizationEvidenceUploadUrl, correctRealization, deleteBudgetItem, getBudgetItemAttachmentDownloadUrl, getRealizationEvidenceDownloadUrl, reviseBudgetItem, reverseRealization, transitionRealization, updateBudgetCategory, updateBudgetItem, updateBudgetSubcategory, updateRealization, verifyBudgetPeriod } from "@/src/features/budgets/service";
+import { addBudgetCategoryToPeriod, addBudgetItemAttachment, addRealizationEvidence, approveBudgetPeriod, createBudgetCategory, createBudgetItem, createBudgetItemAttachmentUploadUrl, createBudgetPeriod, createBudgetSubcategory, createRealization, createRealizationEvidenceUploadUrl, correctRealization, deleteBudgetItem, getBudgetItemAttachmentDownloadUrl, getRealizationEvidenceDownloadUrl, reviseBudgetItem, reverseRealization, transitionRealization, updateBudgetCategory, updateBudgetItem, updateBudgetItemProgress, updateBudgetSubcategory, updateRealization, verifyBudgetPeriod } from "@/src/features/budgets/service";
 import { approveFinancialTransaction, createFinanceCategory, createFinancialTransaction, createFinancialTransactionUploadUrl, getFinancialTransactionEvidenceDownloadUrl, reverseFinancialTransaction, updateFinanceCategory } from "@/src/features/finance/service";
 import { createExcavatorPhotoUploadUrl, getExcavatorPhotoDownloadUrl, recordExcavatorMovement, registerExcavator, setExcavatorPhoto, updateExcavator } from "@/src/features/excavators/service";
 import { createInspection, createInspectionUploadUrl, finalizeInspection, getInspectionPhotoDownloadUrl, saveInspectionDraft } from "@/src/features/inspections/service";
-import { createDue, createDuePaymentUploadUrl, getDuePaymentEvidenceDownloadUrl, recordDuePayment, reverseDuePayment } from "@/src/features/dues/service";
+import { confirmDuePayment, createDue, createDuePaymentUploadUrl, getDuePaymentEvidenceDownloadUrl, recordDuePayment, rejectDuePayment, reverseDuePayment } from "@/src/features/dues/service";
 import { createBlockFieldAssignment, createBusinessActor, createDuePaymentVerificationUploadUrl, endBlockFieldAssignment, updateBusinessActor, verifyDuePayment } from "@/src/features/field-operations/service";
 import { addDailyInformationAttachment, addDailyInformationFollowUp, createDailyInformation, createDailyInformationAttachmentUploadUrl, getDailyInformationAttachmentDownloadUrl, transitionDailyInformation } from "@/src/features/daily-information/service";
 import { assignWorkerToBlock, createFieldTask, createFieldWorker, endWorkerBlockAssignment, updateFieldTask, updateFieldWorker } from "@/src/features/field-work/service";
@@ -46,6 +46,8 @@ const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
   createDuePaymentUploadUrl,
   getDuePaymentEvidenceDownloadUrl,
   recordDuePayment,
+  confirmDuePayment,
+  rejectDuePayment,
   reverseDuePayment,
   createBusinessActor,
   updateBusinessActor,
@@ -76,6 +78,7 @@ const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
   updateBudgetItem,
   reviseBudgetItem,
   deleteBudgetItem,
+  updateBudgetItemProgress,
   createBudgetItemAttachmentUploadUrl,
   addBudgetItemAttachment,
   getBudgetItemAttachmentDownloadUrl,

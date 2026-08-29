@@ -34,3 +34,13 @@ export const pushDevice = mysqlTable("push_device", {
   uniqueIndex("push_device_expo_token_unique").on(table.expoPushToken),
   index("push_device_user_seen_idx").on(table.userId, table.lastSeenAt),
 ]);
+
+export const notificationDelivery = mysqlTable("notification_delivery", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  notificationId: varchar("notification_id", { length: 36 }).notNull().references(() => notification.id, { onDelete: "cascade" }),
+  pushDeviceId: varchar("push_device_id", { length: 36 }),
+  status: varchar("status", { length: 32 }).notNull(),
+  providerTicketId: varchar("provider_ticket_id", { length: 255 }),
+  errorCode: varchar("error_code", { length: 128 }),
+  attemptedAt: timestamp("attempted_at").notNull(),
+}, (table) => [index("notification_delivery_notification_idx").on(table.notificationId, table.attemptedAt), index("notification_delivery_device_idx").on(table.pushDeviceId, table.attemptedAt)]);

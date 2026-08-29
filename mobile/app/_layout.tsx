@@ -10,8 +10,6 @@ import { openInitialPushResponse, subscribeToPushEvents } from "../src/notificat
 import { OfflineSyncProvider } from "../src/offline/provider";
 import { GluestackUIProvider } from "../src/components/ui/gluestack-ui-provider";
 import { AppErrorBoundary } from "../src/components/AppErrorBoundary";
-// UniWind consumes this stylesheet through Metro; Expo TypeScript does not type CSS side-effect imports.
-// @ts-expect-error Expo Metro stylesheet entry.
 import "../global.css";
 
 function PushNotificationRouter() {

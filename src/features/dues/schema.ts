@@ -51,6 +51,9 @@ export const reverseDuePaymentSchema = z.object({
   idempotencyKey: uuid,
 });
 
+export const confirmDuePaymentSchema = z.object({ duePaymentId: uuid });
+export const rejectDuePaymentSchema = z.object({ duePaymentId: uuid, reason: z.string().trim().min(1, "A rejection reason is required.").max(5000) });
+
 export const duesFiltersSchema = z.object({
   status: z.enum(["UNPAID", "PARTIAL", "PAID"]).optional(),
   dueType: z.enum(["MONTHLY", "ROAD_ENTRY"]).optional(),

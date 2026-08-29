@@ -39,7 +39,7 @@ async function upload(uri: string, uploadUrl: string, contentType: string): Prom
   const source = await fetch(uri);
   const body = await source.blob();
   const response = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body });
-  if (!response.ok) throw new Error("Attachment upload failed.");
+  if (!response.ok) throw new Error("Unggah lampiran gagal.");
 }
 
 async function syncInspection(item: OutboxItem<QueuedInspectionSubmission>): Promise<void> {

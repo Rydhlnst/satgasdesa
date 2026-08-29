@@ -3,7 +3,7 @@ import "server-only";
 import { and, count, desc, eq, gte, inArray, isNull, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/src/db";
-import { notification, notificationDispatch, pushDevice } from "@/src/db/schema/notifications";
+import { notification, notificationDelivery, notificationDispatch, pushDevice } from "@/src/db/schema/notifications";
 import { user } from "@/src/db/schema/auth";
 import { permission, rolePermission, userRole } from "@/src/db/schema/rbac";
 import { requireAuth } from "@/src/lib/permissions/authorize";
@@ -48,7 +48,7 @@ async function insertNotificationOnce(input: unknown) {
       await tx.insert(notification).values({ id, recipientUserId: values.recipientUserId, type: values.type, title: values.title, body: values.body, relatedEntityType: values.relatedEntityType ?? null, relatedEntityId: values.relatedEntityId ?? null, readAt: null, createdAt: now });
       await tx.insert(notificationDispatch).values({ id: crypto.randomUUID(), ruleKey: values.ruleKey, targetKey: values.targetKey, recipientUserId: values.recipientUserId, notificationId: id, createdAt: now });
     });
-    await dispatchPushNotification(values);
+    await dispatchPushNotification({ ...values, notificationId: id });
     return { id, created: true };
   } catch (error) {
     if (typeof error === "object" && error && "code" in error && error.code === "ER_DUP_ENTRY") return { id: null, created: false };
@@ -56,12 +56,13 @@ async function insertNotificationOnce(input: unknown) {
   }
 }
 
-async function dispatchPushNotification(input: z.infer<typeof createSchema>): Promise<void> {
+async function dispatchPushNotification(input: z.infer<typeof createSchema> & { notificationId: string }): Promise<void> {
   if (process.env.PUSH_NOTIFICATIONS_ENABLED !== "true") return;
 
+  let devices: Array<{ id: string; expoPushToken: string }> = [];
   try {
-    const devices = await getDb()
-      .select({ expoPushToken: pushDevice.expoPushToken })
+    devices = await getDb()
+      .select({ id: pushDevice.id, expoPushToken: pushDevice.expoPushToken })
       .from(pushDevice)
       .where(eq(pushDevice.userId, input.recipientUserId));
     if (!devices.length) return;
@@ -74,17 +75,26 @@ async function dispatchPushNotification(input: z.infer<typeof createSchema>): Pr
         sound: "default",
         title: input.title,
         body: input.body,
+        channelId: input.type === "DAILY_INFORMATION" ? "informasi-harian" : "default",
+        priority: input.type === "DAILY_INFORMATION" ? "high" : "default",
         data: { relatedEntityType: input.relatedEntityType, relatedEntityId: input.relatedEntityId },
       }))),
     });
-    if (!response.ok) throw new Error(`Expo Push API returned ${response.status}.`);
+    if (!response.ok) {
+      await getDb().insert(notificationDelivery).values(devices.map((device) => ({ id: crypto.randomUUID(), notificationId: input.notificationId, pushDeviceId: device.id, status: "PROVIDER_ERROR", providerTicketId: null, errorCode: `HTTP_${response.status}`, attemptedAt: new Date() })));
+      throw new Error(`Expo Push API returned ${response.status}.`);
+    }
 
     const result = await response.json() as { data?: Array<{ status?: string; details?: { error?: string } }> };
+    await getDb().insert(notificationDelivery).values(devices.map((device, index) => ({ id: crypto.randomUUID(), notificationId: input.notificationId, pushDeviceId: device.id, status: result.data?.[index]?.status === "ok" ? "SENT" : "FAILED", providerTicketId: null, errorCode: result.data?.[index]?.details?.error ?? null, attemptedAt: new Date() })));
     const invalidTokens = devices
       .filter((_, index) => result.data?.[index]?.status === "error" && result.data[index]?.details?.error === "DeviceNotRegistered")
       .map((device) => device.expoPushToken);
     if (invalidTokens.length) await getDb().delete(pushDevice).where(inArray(pushDevice.expoPushToken, invalidTokens));
   } catch (error) {
+    if (devices.length) {
+      await getDb().insert(notificationDelivery).values(devices.map((device) => ({ id: crypto.randomUUID(), notificationId: input.notificationId, pushDeviceId: device.id, status: "PROVIDER_ERROR", providerTicketId: null, errorCode: "NETWORK_ERROR", attemptedAt: new Date() })));
+    }
     console.error("Push notification delivery failed.", error);
   }
 }

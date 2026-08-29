@@ -204,6 +204,13 @@
       "when": 1787827651005,
       "tag": "0028_fix_local_credential_issuer",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1787950800000,
+      "tag": "0029_payment_confirmation_budget_progress",
+      "breakpoints": true
     }
   ]
 }

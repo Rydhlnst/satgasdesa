@@ -15,14 +15,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow SATGAS DESA SEJOLI to access photos for operational evidence.",
-          "cameraPermission": "Allow SATGAS DESA SEJOLI to take photos for operational evidence."
+          "photosPermission": "Izinkan SATGAS DESA SEJOLI mengakses foto untuk bukti operasional.",
+          "cameraPermission": "Izinkan SATGAS DESA SEJOLI mengambil foto untuk bukti operasional."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow SATGAS DESA SEJOLI to use your location for field verification."
+          "locationWhenInUsePermission": "Izinkan SATGAS DESA SEJOLI menggunakan lokasi Anda untuk verifikasi lapangan."
         }
       ],
       "expo-document-picker",
@@ -37,6 +37,12 @@
       },
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
+      ],
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "extra": {
@@ -45,6 +51,13 @@
         "projectId": "469e567b-1947-48ce-9c44-82a7275b7c80"
       }
     },
-    "owner": "riyannas"
+    "owner": "riyannas",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/469e567b-1947-48ce-9c44-82a7275b7c80"
+    },
+    "ios": {}
   }
 }

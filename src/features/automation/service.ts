@@ -24,13 +24,13 @@ function nextPeriodKey(now: Date): string {
 
 async function notifyOverdueDues(today: string) {
   const overdue = await getDb().select({ id: due.id, payerName: due.payerName, amountDue: due.amountDue, amountPaid: due.amountPaid }).from(due).where(and(inArray(due.status, ["UNPAID", "PARTIAL"]), lt(due.dueDate, today))).orderBy(due.dueDate).limit(500);
-  const results = await Promise.all(overdue.map((item) => notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "OVERDUE_DUE", targetKey: item.id, type: "OVERDUE_DUE", title: "Overdue excavator due", body: `${item.payerName} has an overdue balance of Rp${(item.amountDue - item.amountPaid).toLocaleString("id-ID")}.`, relatedEntityType: "DUE", relatedEntityId: item.id })));
+  const results = await Promise.all(overdue.map((item) => notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "OVERDUE_DUE", targetKey: item.id, type: "OVERDUE_DUE", title: "Iuran melewati jatuh tempo", body: `${item.payerName} memiliki tunggakan Rp${(item.amountDue - item.amountPaid).toLocaleString("id-ID")}.`, relatedEntityType: "DUE", relatedEntityId: item.id })));
   return { overdue: overdue.length, notificationsCreated: results.reduce((total, item) => total + item.created, 0) };
 }
 
 async function notifyUnresolvedDailyInformation() {
   const unresolved = await getDb().select({ id: dailyInformation.id, category: dailyInformation.category, priority: dailyInformation.priority }).from(dailyInformation).where(inArray(dailyInformation.status, ["NEW", "RECEIVED", "IN_PROGRESS"])).orderBy(dailyInformation.reportedAt).limit(500);
-  const results = await Promise.all(unresolved.map((item) => notifyPermissionHolders({ permission: PERMISSIONS.DAILY_INFO_UPDATE, ruleKey: "UNRESOLVED_DAILY_INFORMATION", targetKey: item.id, type: "UNRESOLVED_DAILY_INFORMATION", title: "Daily information requires follow-up", body: `${item.priority} ${item.category.toLowerCase()} remains unresolved.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: item.id })));
+  const results = await Promise.all(unresolved.map((item) => notifyPermissionHolders({ permission: PERMISSIONS.DAILY_INFO_UPDATE, ruleKey: "UNRESOLVED_DAILY_INFORMATION", targetKey: item.id, type: "UNRESOLVED_DAILY_INFORMATION", title: "Informasi harian perlu ditindaklanjuti", body: `${item.priority} ${item.category.toLowerCase()} masih belum selesai ditangani.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: item.id })));
   return { unresolved: unresolved.length, notificationsCreated: results.reduce((total, item) => total + item.created, 0) };
 }
 
@@ -38,7 +38,7 @@ async function notifyMissingNextMonthBudget(now: Date) {
   const periodKey = nextPeriodKey(now);
   const [existing] = await getDb().select({ id: budgetPeriod.id }).from(budgetPeriod).where(eq(budgetPeriod.periodKey, periodKey)).limit(1);
   if (existing) return { periodKey, missing: false, notificationsCreated: 0 };
-  const result = await notifyPermissionHolders({ permission: PERMISSIONS.BUDGET_CREATE, ruleKey: "NEXT_MONTH_BUDGET_MISSING", targetKey: periodKey, type: "NEXT_MONTH_BUDGET_MISSING", title: "Next-month budget is not prepared", body: `Create the budget allocation for ${periodKey}.`, relatedEntityType: "BUDGET_PERIOD" });
+  const result = await notifyPermissionHolders({ permission: PERMISSIONS.BUDGET_CREATE, ruleKey: "NEXT_MONTH_BUDGET_MISSING", targetKey: periodKey, type: "NEXT_MONTH_BUDGET_MISSING", title: "Rencana anggaran bulan berikutnya belum dibuat", body: `Siapkan alokasi anggaran untuk periode ${periodKey}.`, relatedEntityType: "BUDGET_PERIOD" });
   return { periodKey, missing: true, notificationsCreated: result.created };
 }
 

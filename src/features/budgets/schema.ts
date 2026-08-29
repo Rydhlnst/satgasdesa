@@ -37,6 +37,7 @@ export const budgetItemAttachmentUploadSchema = z.object({ budgetItemId: budgetI
 export const addBudgetItemAttachmentSchema = z.object({ budgetItemId: budgetItemIdSchema, storageKey: z.string().trim().min(1).max(255), contentType: z.string().trim().min(1).max(100), sizeBytes: z.coerce.number().int().positive().max(10 * 1024 * 1024), caption: z.string().trim().max(255).optional() });
 export const budgetItemAttachmentDownloadSchema = z.object({ budgetItemId: budgetItemIdSchema, attachmentId: uuid });
 export const approveBudgetPeriodSchema = z.object({ id: uuid, approvalNotes: z.string().trim().max(5000).optional() });
+export const updateBudgetItemProgressSchema = z.object({ id: uuid, progressPercentage: z.coerce.number().int().min(0).max(100), notes: z.string().trim().max(5000).optional() });
 export const verifyBudgetPeriodSchema = z.object({ id: budgetPeriodIdSchema, notes: z.string().trim().max(5000).optional() });
 const realizationFields = z.object({ budgetItemId: uuid, fundRequestId: uuid.optional(), activity: z.string().trim().min(1).max(255), realizationDate: calendarDate("Use YYYY-MM-DD.", "Invalid date."), requestedAmount: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER), description: z.string().trim().min(1).max(10000), receiptNumber: z.string().trim().max(100).optional(), evidenceKey: z.string().trim().max(255).optional() });
 export const createRealizationSchema = realizationFields;

@@ -18,6 +18,7 @@ import { queueInspectionSubmission } from "../../src/offline/sync";
 import { colors, spacing } from "../../src/theme";
 import { getCurrentLocation } from "../../src/lib/location";
 import { isRetryableNetworkError } from "../../src/lib/feedback";
+import { createClientId } from "../../src/lib/id";
 
 type Values = z.infer<typeof schema>;
 type StoredPhoto = { storageKey: string; contentType: string; size: number; capturedAt?: string };
@@ -54,7 +55,7 @@ export default function NewInspection() {
     setSaving(true);
     try {
       const location = capturedLocation ?? await captureLocation();
-      const inspectionId = draftId ?? crypto.randomUUID();
+      const inspectionId = draftId ?? createClientId();
       const baseInput = {
         blockId: values.blockId,
         inspectedAt: values.inspectedAt || undefined,
@@ -77,7 +78,7 @@ export default function NewInspection() {
         const uploaded = await uploadPhotos(inspectionId);
         await saveInspectionDraft({ ...baseInput, id: inspectionId, photos: [...storedPhotos, ...uploaded] });
         await clearInspectionDraftLocally();
-        Alert.alert("Draft tersimpan", "Pemeriksaan dapat dilanjutkan dari daftar Draft.", [{ text: "OK", onPress: () => router.replace(`/inspection/${inspectionId}`) }]);
+        Alert.alert("Draf tersimpan", "Pemeriksaan dapat dilanjutkan dari daftar Draf.", [{ text: "OK", onPress: () => router.replace(`/inspection/${inspectionId}`) }]);
         return;
       }
 
@@ -95,7 +96,7 @@ export default function NewInspection() {
       }
     } catch (error) {
       await saveInspectionDraftLocally(values);
-      Alert.alert("Draft tersimpan di perangkat", error instanceof Error ? error.message : "Data belum dapat diproses. Coba lagi saat lokasi dan koneksi tersedia.");
+      Alert.alert("Draf tersimpan di perangkat", error instanceof Error ? error.message : "Data belum dapat diproses. Coba lagi saat lokasi dan koneksi tersedia.");
     } finally {
       setSaving(false);
     }
@@ -103,7 +104,7 @@ export default function NewInspection() {
   const values = form.getValues();
   return (
     <>
-      <Header role={role} title={draftId ? "Lanjutkan Draft" : "Pemeriksaan Baru"} subtitle="Data, dokumentasi, lalu tinjau" />
+      <Header role={role} title={draftId ? "Lanjutkan Draf" : "Pemeriksaan Baru"} subtitle="Data, dokumentasi, lalu tinjau" />
       <Screen>
         <View style={styles.steps}>
           {steps.map((label, index) => (
@@ -118,7 +119,7 @@ export default function NewInspection() {
             <SelectField label="Blok" value={form.watch("blockId") ?? ""} options={(blocks.data?.blocks ?? []).map((block) => ({ label: `${block.code} · ${block.name}`, value: block.id }))} onChange={(value) => form.setValue("blockId", value, { shouldValidate: true })} />
             <DateField name="inspectedAt" label="Tanggal pemeriksaan" control={form.control} errors={form.formState.errors} />
             <LocationField value={capturedLocation} loading={locationLoading} onCapture={captureLocation} />
-            <InputField name="excavatorCount" label="Jumlah excavator" keyboardType="numeric" register={form.register} errors={form.formState.errors} />
+            <InputField name="excavatorCount" label="Jumlah alat berat" keyboardType="numeric" register={form.register} errors={form.formState.errors} />
             <InputField name="workerCount" label="Jumlah pekerja" keyboardType="numeric" register={form.register} errors={form.formState.errors} />
             <SelectField label="Kondisi blok" value={form.watch("condition")} options={["Aktif", "Berhenti", "Belum Operasi"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("condition", value, { shouldValidate: true })} />
             <SelectField label="Kondisi jalan" value={form.watch("conditionRoad")} options={["Baik", "Rusak", "Perlu Perbaikan"].map((value) => ({ label: value, value }))} onChange={(value) => form.setValue("conditionRoad", value, { shouldValidate: true })} />
@@ -142,10 +143,10 @@ export default function NewInspection() {
             <Text style={styles.heading}>Tinjau Sebelum Kirim</Text>
             <Summary label="Blok" value={(blocks.data?.blocks ?? []).find((block) => block.id === values.blockId)?.name ?? "Belum dipilih"} />
             <Summary label="Kondisi" value={`${values.condition} · Jalan ${values.conditionRoad} · Lingkungan ${values.conditionEnvironment} · Aktivitas ${values.conditionActivity}`} />
-            <Summary label="Sumber daya" value={`${values.excavatorCount} excavator · ${values.workerCount} pekerja`} />
+            <Summary label="Sumber daya" value={`${values.excavatorCount} alat berat · ${values.workerCount} pekerja`} />
             <Summary label="Lokasi GPS" value={capturedLocation ? `${capturedLocation.latitude.toFixed(6)}, ${capturedLocation.longitude.toFixed(6)}` : "Belum diambil"} />
             <Summary label="Dokumentasi" value={`${photos.length + storedPhotos.length} foto · ${values.findings || "Tidak ada temuan"}`} />
-            <View style={styles.actions}><SubmitButton label="Kembali" loading={saving} onPress={() => setStep(1)} /><SubmitButton label="Simpan Draft" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "draft"))()} /><SubmitButton label="Kirim Data" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "submit"))()} /></View>
+            <View style={styles.actions}><SubmitButton label="Kembali" loading={saving} onPress={() => setStep(1)} /><SubmitButton label="Simpan Draf" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "draft"))()} /><SubmitButton label="Kirim Data" loading={saving} onPress={() => void form.handleSubmit((payload) => save(payload, "submit"))()} /></View>
           </>
         ) : null}
       </Screen>

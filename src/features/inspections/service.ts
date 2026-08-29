@@ -200,8 +200,8 @@ async function saveInspection(input: unknown, status: "DRAFT" | "SUBMITTED") {
       ruleKey: "INSPECTION_SUBMITTED",
       targetKey: id,
       type: "INSPECTION_SUBMITTED",
-      title: "New block inspection submitted",
-      body: `Inspection for the selected block was submitted by ${session.user.name}.`,
+      title: "Pemeriksaan blok baru diajukan",
+      body: `Pemeriksaan blok telah diajukan oleh ${session.user.name}.`,
       relatedEntityType: "INSPECTION",
       relatedEntityId: id,
     });
