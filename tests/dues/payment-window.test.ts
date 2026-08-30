@@ -9,7 +9,7 @@ describe("monthly payment window", () => {
   });
 
   it("rejects payment dates outside the monthly window", () => {
-    expect(() => assertMonthlyPaymentDate("2026-08-11")).toThrow("day 1 through day 10");
+    expect(() => assertMonthlyPaymentDate("2026-08-11")).toThrow("Pembayaran bulanan hanya dapat dicatat dari tanggal 1 sampai 10 setiap bulan.");
   });
 
   it("uses day 10 as the safe default deadline", () => {

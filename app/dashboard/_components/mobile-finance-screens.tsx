@@ -12,10 +12,10 @@ type BudgetEntry = { id: string; periodKey: string; totalAllocation: number; ava
 type RealizationEntry = { id: string; description: string; amount: number; status: string; groupName: string };
 
 function statusTone(status: string): string {
-  if (["SAH", "DITERIMA", "LUNAS"].includes(status)) return "bg-[#e8f6ec] text-[#27834b]";
-  if (["DIAJUKAN", "DIVERIFIKASI", "VERIFIED"].includes(status)) return "bg-[#edf2ff] text-[#1454c4]";
-  if (["REJECTED", "TUNGGAKAN"].includes(status)) return "bg-[#ffe9e7] text-[#c5312c]";
-  return "bg-[#fff2da] text-[#a96c13]";
+  if (["SAH", "DITERIMA", "LUNAS"].includes(status)) return MOBILE_SURFACE.statusSuccess;
+  if (["DIAJUKAN", "DIVERIFIKASI", "VERIFIED"].includes(status)) return MOBILE_SURFACE.statusInfo;
+  if (["REJECTED", "TUNGGAKAN"].includes(status)) return MOBILE_SURFACE.statusDanger;
+  return MOBILE_SURFACE.statusWarning;
 }
 
 export function MobileFinanceScreen({ cashBalance, cashIn, cashOut, transactionCount, entries }: { cashBalance: number; cashIn: number; cashOut: number; transactionCount: number; entries: FinanceEntry[] }) {

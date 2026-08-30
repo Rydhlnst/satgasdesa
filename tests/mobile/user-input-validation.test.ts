@@ -10,8 +10,10 @@ import { fieldTaskSchema, fieldWorkerSchema } from "@/src/features/field-work/sc
 import { createFinancialTransactionSchema } from "@/src/features/finance/schema";
 import { createFundRequestSchema } from "@/src/features/fund-requests/schema";
 import { createInspectionSchema, inspectionUploadSchema } from "@/src/features/inspections/schema";
+import { localizeUserMessage } from "@/mobile/src/lib/feedback";
 import { adminInviteFormSchema, adminUserStatusFormSchema, blockArchiveFormSchema, budgetCategoryFormSchema, budgetCategoryPeriodFormSchema, budgetItemFormSchema, budgetPeriodFormSchema, budgetSubcategoryFormSchema, businessActorFormSchema, dueFormSchema, duePaymentIdFormSchema, duePaymentRejectionFormSchema, endAssignmentFormSchema, excavatorEditFormSchema, excavatorFormSchema, excavatorMovementFormSchema, financeCategoryFormSchema, fieldAssignmentFormSchema, forgotPasswordSchema, fundRequestCorrectionFormSchema, fundRequestFormSchema, informationFollowUpFormSchema, informationFormSchema, informationTransitionFormSchema, inspectionFormSchema, loginSchema, passwordSchema, paymentFormSchema, paymentVerificationFormSchema, profileSchema, realizationCorrectionFormSchema, realizationFormSchema, requiredWorkflowDecisionFormSchema, reversalFormSchema, settingsFormSchema, taskFormSchema, taskStatusFormSchema, transactionApprovalFormSchema, transactionFormSchema, workerAssignmentFormSchema, workerFormSchema, workflowDecisionFormSchema } from "@/mobile/src/form-schemas";
 import { adminCreateUserFormSchema } from "@/mobile/src/form-schemas";
+import { zodFieldErrors } from "@/mobile/src/lib/form-validation";
 
 const blockId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
@@ -83,6 +85,42 @@ describe("mobile forms validate realistic user input", () => {
 
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.workerCount).toBe(0);
+  });
+
+  it("[OK] normalizes blank optional mobile fields", () => {
+    expect(businessActorFormSchema.safeParse({ actorType: "COMPANY", name: "CV Maju", representativeName: "", contact: "", address: "", notes: "" }).success).toBe(true);
+    expect(excavatorFormSchema.safeParse({ unitCode: "EX-001", brand: "Komatsu", model: "PC-200", businessActorId: userId, operatorName: "", currentBlockId: "", entryDate: "", notes: "" }).success).toBe(true);
+    expect(informationFormSchema.safeParse({ blockId: "", reportedAt: "", category: "ACTIVITY", priority: "MEDIUM", description: "Pekerjaan" }).success).toBe(true);
+    expect(inspectionFormSchema.safeParse({ blockId, inspectedAt: "", excavatorCount: "0", workerCount: "0", condition: "Aktif", conditionRoad: "Baik", conditionEnvironment: "Aman", conditionActivity: "Normal", findings: "", notes: "" }).success).toBe(true);
+    expect(paymentVerificationFormSchema.safeParse({ verificationStatus: "CONFIRMED", verifiedAt: "2026-08-26", notes: "" }).success).toBe(true);
+    expect(transactionFormSchema.safeParse({ transactionAt: "2026-08-26", transactionType: "CASH_OUT", categoryId: "", amount: "100", description: "Material" }).success).toBe(true);
+    expect(workerFormSchema.safeParse({ fullName: "Dedi", phone: "", position: "", status: "ACTIVE", notes: "" }).success).toBe(true);
+    expect(taskFormSchema.safeParse({ blockId, assignedFieldOfficerId: userId, assignedWorkerId: "", title: "Tugas", description: "", priority: "HIGH", dueDate: "" }).success).toBe(true);
+    expect(realizationFormSchema.safeParse({ budgetItemId: blockId, fundRequestId: "", activity: "Perataan", realizationDate: "2026-08-26", requestedAmount: "100", receiptNumber: "", description: "Material" }).success).toBe(true);
+    expect(budgetItemFormSchema.safeParse({ groupId: blockId, subcategoryId: "", name: "Material", allocatedAmount: "100", notes: "", revisionReason: "" }).success).toBe(true);
+    expect(workflowDecisionFormSchema.safeParse({ notes: "" }).success).toBe(true);
+  });
+
+  it("[OK] converts numeric form values before API submission", () => {
+    const result = paymentFormSchema.safeParse({ payerName: "  CV Maju  ", paymentDate: "2026-08-26", amount: "1000000", method: "BANK_TRANSFER", notes: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.payerName).toBe("CV Maju");
+      expect(result.data.amount).toBe(1_000_000);
+      expect(result.data.notes).toBeUndefined();
+    }
+  });
+
+  it("maps schema issues to field-level messages", () => {
+    const result = loginSchema.safeParse({ email: "invalid", password: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(zodFieldErrors(result.error)).toEqual({ email: "Masukkan email yang valid.", password: "Masukkan kata sandi." });
+  });
+
+  it("keeps strict workflow errors in Indonesian", () => {
+    expect(localizeUserMessage("Confirmed and pending payments cannot exceed the due amount.")).toBe("Total pembayaran yang sudah dikonfirmasi dan masih menunggu tidak boleh melebihi jumlah tagihan.");
+    expect(localizeUserMessage("Only confirmed payments can be reversed.")).toBe("Hanya pembayaran yang sudah dikonfirmasi yang dapat dibatalkan.");
+    expect(localizeUserMessage("Invalid request data.")).toBe("Data permintaan tidak valid.");
   });
 
   const invalidUserInputs: Array<[string, z.ZodTypeAny, unknown]> = [

@@ -11,7 +11,7 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 
 
 function periodBounds(periodKey: string) {
-  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodKey)) throw new Error("Period must use YYYY-MM.");
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodKey)) throw new Error("Periode harus menggunakan format YYYY-MM.");
   const [year, month] = periodKey.split("-").map(Number);
   return { start: new Date(Date.UTC(year, month - 1, 1)), end: new Date(Date.UTC(year, month, 1)) };
 }

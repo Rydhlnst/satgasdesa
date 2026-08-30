@@ -8,7 +8,7 @@ import { due, duePayment } from "@/src/db/schema/dues";
 import { excavator, excavatorMovement } from "@/src/db/schema/excavators";
 import { financialTransaction } from "@/src/db/schema/finance";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
-import { requirePermission } from "@/src/lib/permissions/authorize";
+import { hasPermission, requirePermission } from "@/src/lib/permissions/authorize";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
@@ -20,7 +20,7 @@ import { reverseFinancialTransactionRecord } from "@/src/features/finance/servic
 import { parseValidatedInput } from "@/src/lib/validation";
 
 function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
-  return parseValidatedInput(result, "Please check the dues details and try again.");
+  return parseValidatedInput(result, "Periksa data iuran lalu coba lagi.");
 }
 
 function optionalValue(value?: string): string | null {
@@ -34,7 +34,7 @@ function createPaymentTransactionCode(): string {
 function duePaymentScope(paymentId: string): string { return `due-payments/${paymentId}`; }
 function assertDuePaymentEvidenceKey(paymentId: string, storageKey: string): void {
   const scope = `${duePaymentScope(paymentId)}/`;
-  if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("Payment evidence is outside the permitted storage scope.");
+  if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("Bukti pembayaran berada di luar penyimpanan yang diizinkan.");
 }
 
 function buildDueConditions(filters: ReturnType<typeof duesFiltersSchema.parse>) {
@@ -54,13 +54,13 @@ function jakartaDate(today = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(today);
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
   const year = value("year"); const month = value("month"); const day = value("day");
-  if (!year || !month || !day) throw new Error("Unable to determine Jakarta date.");
+  if (!year || !month || !day) throw new Error("Tanggal Jakarta tidak dapat ditentukan.");
   return `${year}-${month}-${day}`;
 }
 
 async function assertExcavatorExists(id: string): Promise<void> {
   const [item] = await getDb().select({ id: excavator.id }).from(excavator).where(eq(excavator.id, id)).limit(1);
-  if (!item) throw new Error("Excavator was not found.");
+  if (!item) throw new Error("Alat berat tidak ditemukan.");
 }
 
 async function assertDueSource(values: { dueType: "MONTHLY" | "ROAD_ENTRY"; sourceMovementId?: string; excavatorId: string; referenceKey: string }) {
@@ -71,7 +71,7 @@ async function assertDueSource(values: { dueType: "MONTHLY" | "ROAD_ENTRY"; sour
     .where(eq(excavatorMovement.id, values.sourceMovementId))
     .limit(1);
   if (!movement || movement.excavatorId !== values.excavatorId || movement.movementType !== "ENTRY" || values.referenceKey !== `ENTRY-${movement.id}`) {
-    throw new Error("Road-entry due must reference the matching excavator entry movement.");
+    throw new Error("Iuran masuk jalan harus mengacu pada pergerakan masuk alat berat yang sesuai.");
   }
 }
 
@@ -191,7 +191,7 @@ function duePaymentState(item: { amountDue: number; amountPaid: number; dueDate:
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(today);
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
   const year = value("year"); const month = value("month"); const day = value("day");
-  if (!year || !month || !day) throw new Error("Unable to determine Jakarta date.");
+  if (!year || !month || !day) throw new Error("Tanggal Jakarta tidak dapat ditentukan.");
   const jakarta = `${year}-${month}-${day}`;
   if (item.dueDate < jakarta) return "OVERDUE";
   return item.amountPaid > 0 ? "PARTIAL" : "UNPAID";
@@ -217,12 +217,12 @@ export async function createDue(input: unknown) {
       ),
     )
     .limit(1);
-  if (existing) throw new Error("A due already exists for this excavator and reference period.");
+  if (existing) throw new Error("Iuran untuk alat berat dan periode referensi ini sudah ada.");
 
   const id = crypto.randomUUID();
   const now = new Date();
   const [unit] = await database.select({ currentBlockId: excavator.currentBlockId, businessActorId: excavator.businessActorId }).from(excavator).where(eq(excavator.id, values.excavatorId)).limit(1);
-  if (!unit?.currentBlockId) throw new Error("An excavator must be assigned to a block before a due can be created.");
+  if (!unit?.currentBlockId) throw new Error("Alat berat harus ditugaskan ke blok sebelum iuran dapat dibuat.");
   await database.transaction(async (tx) => {
     await tx.insert(due).values({
       id,
@@ -258,7 +258,7 @@ export async function createDuePaymentUploadUrl(input: unknown) {
   await requirePermission(PERMISSIONS.PAYMENT_CREATE);
   const values = parseInput(duePaymentUploadSchema.safeParse(input));
   const [item] = await getDb().select({ id: due.id, blockId: due.blockId }).from(due).where(eq(due.id, values.dueId)).limit(1);
-  if (!item) throw new Error("Due was not found.");
+  if (!item) throw new Error("Iuran tidak ditemukan.");
   if (item.blockId) await requireAssignedBlockAccess(item.blockId);
   validateUpload(values);
   const upload = await getObjectStorage().createUploadUrl({ ...values, scope: duePaymentScope(values.paymentId) });
@@ -270,7 +270,7 @@ export async function getDuePaymentEvidenceDownloadUrl(input: unknown) {
   await requirePermission(PERMISSIONS.DUES_READ);
   const values = parseInput(duePaymentEvidenceDownloadSchema.safeParse(input));
   const [payment] = await getDb().select({ evidenceKey: duePayment.evidenceKey, blockId: due.blockId }).from(duePayment).innerJoin(due, eq(due.id, duePayment.dueId)).where(eq(duePayment.id, values.duePaymentId)).limit(1);
-  if (!payment?.evidenceKey) throw new Error("Payment evidence was not found.");
+  if (!payment?.evidenceKey) throw new Error("Bukti pembayaran tidak ditemukan.");
   if (payment.blockId) await requireAssignedBlockAccess(payment.blockId);
   assertDuePaymentEvidenceKey(values.duePaymentId, payment.evidenceKey);
   return { downloadUrl: await getObjectStorage().createDownloadUrl(payment.evidenceKey) };
@@ -307,17 +307,17 @@ export async function recordDuePayment(input: unknown) {
     const [existingPayment] = await tx.select().from(duePayment).where(eq(duePayment.id, paymentId)).limit(1);
     if (existingPayment) {
       if (!hasMatchingPaymentIdentity(existingPayment, values)) {
-        throw new Error("This payment idempotency key was already used for different payment data.");
+        throw new Error("Kunci idempotensi pembayaran ini sudah digunakan untuk data pembayaran yang berbeda.");
       }
       return { id: paymentId, dueId: existingPayment.dueId, status: existingPayment.status, duplicate: true };
     }
 
     const [current] = await tx.select().from(due).where(eq(due.id, values.dueId)).limit(1);
-    if (!current) throw new Error("Due was not found.");
+    if (!current) throw new Error("Iuran tidak ditemukan.");
     if (current.dueType === "MONTHLY") assertMonthlyPaymentDate(values.paymentDate);
     const pendingRows = await tx.select({ amount: duePayment.amount }).from(duePayment).where(and(eq(duePayment.dueId, current.id), eq(duePayment.status, "PENDING")));
     const pendingAmount = pendingRows.reduce((total, row) => total + row.amount, 0);
-    if (current.amountPaid + pendingAmount + values.amount > current.amountDue) throw new Error("Confirmed and pending payments cannot exceed the due amount.");
+    if (current.amountPaid + pendingAmount + values.amount > current.amountDue) throw new Error("Total pembayaran yang sudah dikonfirmasi dan masih menunggu tidak boleh melebihi jumlah tagihan.");
     const now = new Date();
 
     await tx.insert(duePayment).values({
@@ -359,16 +359,16 @@ export async function confirmDuePayment(input: unknown) {
   const values = parseInput(confirmDuePaymentSchema.safeParse(input));
   return getDb().transaction(async (tx) => {
     const [payment] = await tx.select().from(duePayment).where(eq(duePayment.id, values.duePaymentId)).limit(1);
-    if (!payment) throw new Error("Due payment was not found.");
+    if (!payment) throw new Error("Pembayaran iuran tidak ditemukan.");
     if (payment.status === "CONFIRMED") return { id: payment.id, status: payment.status, duplicate: true };
-    if (payment.status !== "PENDING") throw new Error("Only pending payments can be confirmed.");
+    if (payment.status !== "PENDING") throw new Error("Hanya pembayaran yang masih menunggu yang dapat dikonfirmasi.");
     const [currentDue] = await tx.select().from(due).where(eq(due.id, payment.dueId)).limit(1);
-    if (!currentDue) throw new Error("Due was not found.");
+    if (!currentDue) throw new Error("Iuran tidak ditemukan.");
     const { amountPaid, status } = applyDuePayment(currentDue, payment.amount);
     const now = new Date(); const transactionId = crypto.randomUUID();
     const [updated] = await tx.update(due).set({ amountPaid, status, updatedAt: now }).where(and(eq(due.id, currentDue.id), eq(due.amountPaid, currentDue.amountPaid), eq(due.status, currentDue.status)));
-    if (updated.affectedRows !== 1) throw new Error("This due changed before confirmation. Refresh and try again.");
-    await tx.insert(financialTransaction).values({ id: transactionId, transactionCode: createPaymentTransactionCode(), transactionAt: new Date(`${payment.paymentDate}T00:00:00.000Z`), transactionType: "CASH_IN", amount: payment.amount, description: `Due payment for ${currentDue.id}`, relatedEntityType: "DUE_PAYMENT", relatedEntityId: payment.id, evidenceKey: payment.evidenceKey, status: "SAH", createdBy: payment.recordedBy, approvedBy: session.user.id, reversedTransactionId: null, createdAt: now, updatedAt: now });
+    if (updated.affectedRows !== 1) throw new Error("Data iuran berubah sebelum konfirmasi. Muat ulang lalu coba lagi.");
+    await tx.insert(financialTransaction).values({ id: transactionId, transactionCode: createPaymentTransactionCode(), transactionAt: new Date(`${payment.paymentDate}T00:00:00.000Z`), transactionType: "CASH_IN", amount: payment.amount, description: `Pembayaran iuran ${currentDue.id}`, relatedEntityType: "DUE_PAYMENT", relatedEntityId: payment.id, evidenceKey: payment.evidenceKey, status: "SAH", createdBy: payment.recordedBy, approvedBy: session.user.id, reversedTransactionId: null, createdAt: now, updatedAt: now });
     await tx.update(duePayment).set({ status: "CONFIRMED", confirmedBy: session.user.id, confirmedAt: now, financialTransactionId: transactionId }).where(and(eq(duePayment.id, payment.id), eq(duePayment.status, "PENDING")));
     await tx.insert(auditLog).values([createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.APPROVE, entityType: "DUE_PAYMENT", entityId: payment.id, oldValues: { status: "PENDING" }, newValues: { status: "CONFIRMED", transactionId } }), createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "DUE", entityId: currentDue.id, oldValues: { amountPaid: currentDue.amountPaid, status: currentDue.status }, newValues: { amountPaid, status } })]);
     return { id: payment.id, dueId: currentDue.id, status: "CONFIRMED", amountPaid, dueStatus: status, duplicate: false };
@@ -379,30 +379,48 @@ export async function rejectDuePayment(input: unknown) {
   const session = await requirePermission(PERMISSIONS.PAYMENT_CONFIRM);
   const values = parseInput(rejectDuePaymentSchema.safeParse(input)); const now = new Date();
   const [result] = await getDb().update(duePayment).set({ status: "REJECTED", rejectedBy: session.user.id, rejectedAt: now, rejectionReason: values.reason }).where(and(eq(duePayment.id, values.duePaymentId), eq(duePayment.status, "PENDING")));
-  if (result.affectedRows !== 1) throw new Error("Only pending payments can be rejected.");
+  if (result.affectedRows !== 1) throw new Error("Hanya pembayaran yang masih menunggu yang dapat ditolak.");
   await getDb().insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.REJECT, entityType: "DUE_PAYMENT", entityId: values.duePaymentId, oldValues: { status: "PENDING" }, newValues: { status: "REJECTED", reason: values.reason } }));
   return { id: values.duePaymentId, status: "REJECTED" };
 }
 
 export async function reverseDuePayment(input: unknown) {
-  const session = await requirePermission(PERMISSIONS.DUES_MANAGE);
+  const session = await requirePermission(PERMISSIONS.PAYMENT_CREATE);
+  const canManageDues = await hasPermission(session.user.id, PERMISSIONS.DUES_MANAGE);
   const values = parseInput(reverseDuePaymentSchema.safeParse(input));
   const database = getDb();
   return database.transaction(async (tx) => {
     const [payment] = await tx.select().from(duePayment).where(eq(duePayment.id, values.duePaymentId)).limit(1);
-    if (!payment) throw new Error("Due payment was not found.");
+    if (!payment) throw new Error("Pembayaran iuran tidak ditemukan.");
     const [currentDue] = await tx.select().from(due).where(eq(due.id, payment.dueId)).limit(1);
-    if (!currentDue) throw new Error("Due was not found.");
+    if (!currentDue) throw new Error("Iuran tidak ditemukan.");
     if (currentDue.blockId) await requireAssignedBlockAccess(currentDue.blockId);
-    if (payment.status !== "CONFIRMED") throw new Error("Only confirmed payments can be reversed.");
+    if (payment.status === "CANCELLED") return { id: payment.id, dueId: currentDue.id, status: payment.status, duplicate: true };
+    if (payment.status === "PENDING") {
+      if (!canManageDues && payment.recordedBy !== session.user.id) {
+        const error = new Error("Pembayaran yang masih menunggu hanya dapat dibatalkan oleh pencatat atau pengelola iuran.");
+        Object.assign(error, { code: "FORBIDDEN", status: 403 });
+        throw error;
+      }
+      const [cancelResult] = await tx.update(duePayment).set({ status: "CANCELLED", rejectionReason: values.reason }).where(and(eq(duePayment.id, payment.id), eq(duePayment.status, "PENDING")));
+      if (cancelResult.affectedRows !== 1) throw new Error("Status pembayaran berubah sebelum pembatalan diterapkan. Muat ulang lalu coba lagi.");
+      await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "DUE_PAYMENT", entityId: payment.id, oldValues: { status: "PENDING" }, newValues: { status: "CANCELLED", reason: values.reason, idempotencyKey: values.idempotencyKey } }));
+      return { id: payment.id, dueId: currentDue.id, status: "CANCELLED", cancelled: true, duplicate: false };
+    }
+    if (payment.status !== "CONFIRMED") throw new Error("Pembayaran hanya dapat dibatalkan jika masih menunggu atau sudah dikonfirmasi.");
+    if (!canManageDues) {
+      const error = new Error("Anda tidak memiliki izin untuk membatalkan pembayaran yang sudah dikonfirmasi.");
+      Object.assign(error, { code: "FORBIDDEN", status: 403 });
+      throw error;
+    }
     const [cashTransaction] = await tx.select().from(financialTransaction).where(and(eq(financialTransaction.relatedEntityType, "DUE_PAYMENT"), eq(financialTransaction.relatedEntityId, payment.id))).limit(1);
-    if (!cashTransaction) throw new Error("Payment cash transaction was not found.");
+    if (!cashTransaction) throw new Error("Transaksi kas pembayaran tidak ditemukan.");
     if (cashTransaction.status === "REVERSED") return { id: payment.id, dueId: currentDue.id, status: currentDue.status, duplicate: true };
-    if (cashTransaction.status !== "SAH") throw new Error("Only approved payment transactions can be reversed.");
+    if (cashTransaction.status !== "SAH") throw new Error("Hanya transaksi pembayaran yang sudah disahkan yang dapat dibatalkan.");
     const { amountPaid, status } = reverseDuePaymentState(currentDue, payment.amount);
     const now = new Date();
     const [updateResult] = await tx.update(due).set({ amountPaid, status, updatedAt: now }).where(and(eq(due.id, currentDue.id), eq(due.amountPaid, currentDue.amountPaid), eq(due.status, currentDue.status)));
-    if (updateResult.affectedRows !== 1) throw new Error("This due changed before the reversal could be applied.");
+    if (updateResult.affectedRows !== 1) throw new Error("Data iuran berubah sebelum pembatalan diterapkan. Muat ulang lalu coba lagi.");
     const reversalId = await reverseFinancialTransactionRecord(tx, cashTransaction, session.user.id, values.reason);
     await tx.update(duePayment).set({ status: "REVERSED" }).where(eq(duePayment.id, payment.id));
     await tx.insert(auditLog).values([

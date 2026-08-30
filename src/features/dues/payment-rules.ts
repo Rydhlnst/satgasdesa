@@ -9,14 +9,14 @@ export function hasMatchingPaymentIdentity(existing: PaymentIdentity, incoming: 
 }
 
 export function applyDuePayment(current: DuePaymentState, amount: number): UpdatedDuePaymentState {
-  if (current.status === "PAID") throw new Error("This due has already been fully paid.");
-  if (amount > current.amountDue - current.amountPaid) throw new Error("Payment exceeds the outstanding balance.");
+  if (current.status === "PAID") throw new Error("Iuran ini sudah lunas.");
+  if (amount > current.amountDue - current.amountPaid) throw new Error("Jumlah pembayaran melebihi sisa tagihan.");
   const amountPaid = current.amountPaid + amount;
   return { amountPaid, status: amountPaid === current.amountDue ? "PAID" : "PARTIAL" };
 }
 
 export function reverseDuePayment(current: DuePaymentState, amount: number): UpdatedDuePaymentState {
-  if (current.amountPaid < amount) throw new Error("Due payment balance is inconsistent and requires reconciliation.");
+  if (current.amountPaid < amount) throw new Error("Saldo pembayaran iuran tidak konsisten dan perlu diperbaiki.");
   const amountPaid = current.amountPaid - amount;
   return { amountPaid, status: amountPaid === 0 ? "UNPAID" : "PARTIAL" };
 }

@@ -20,7 +20,7 @@ export function InteractiveTabs({ items, active, onChange, panels }: { items: st
 
 export function StatusPill({ children, tone = "green" }: { children: ReactNode; tone?: "green" | "red" | "orange" | "blue" | "gray" }) {
   const style = tone === "green" ? "border-transparent bg-[#E8F7EE]" : tone === "red" ? "border-transparent bg-[#FDECEC]" : tone === "orange" ? "border-transparent bg-[#FFF3DF]" : tone === "blue" ? "border-transparent bg-[#E7F0FF]" : "border-transparent bg-[#F1F5F9]";
-  const textStyle = tone === "green" ? "text-[#27834B]" : tone === "red" ? "text-[#C5312C]" : tone === "orange" ? "text-[#D87914]" : tone === "blue" ? "text-[#1454C4]" : "text-[#6E7785]";
+  const textStyle = tone === "green" ? "text-[#27834B]" : tone === "red" ? "text-[#C5312C]" : tone === "orange" ? "text-[#A85B08]" : tone === "blue" ? "text-[#1454C4]" : "text-[#626D7C]";
   return <Badge variant="outline" className={"rounded-full px-2 py-1 " + style}><BadgeText className={"text-[10px] font-extrabold " + textStyle}>{typeof children === "string" ? displayStatus(children) : children}</BadgeText></Badge>;
 }
 
@@ -34,11 +34,11 @@ export function statusTone(status: string): "green" | "red" | "orange" | "blue" 
   return "gray";
 }
 
-export function Card({ children, style }: { children: ReactNode; style?: object }) { return <UICard className="rounded-3xl border-[#DFE4EC] bg-white p-4 shadow-sm" style={[styles.card, style]}>{children}</UICard>; }
+export function Card({ children, style }: { children: ReactNode; style?: object }) { return <UICard className="rounded-2xl border-[#DFE4EC] bg-white p-4 shadow-sm" style={[styles.card, style]}>{children}</UICard>; }
 
 export function MetricCard({ label, value, hint, tone = "blue" }: { label: string; value: string; hint?: string; tone?: "green" | "red" | "orange" | "blue" }) {
   const accent = tone === "green" ? colors.finance : tone === "red" ? colors.danger : tone === "orange" ? colors.warning : colors.primary;
-  return <UICard className="min-h-28 flex-1 overflow-hidden rounded-3xl border-[#DFE4EC] bg-white p-4 shadow-sm" style={styles.card}><View style={styles.metricHeader}><View style={[styles.metricAccent, { backgroundColor: accent }]} /><View style={[styles.metricDot, { backgroundColor: accent }]} /></View><Text style={styles.metricLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.metricValue}>{value}</Text>{hint ? <Text style={styles.metricHint}>{hint}</Text> : null}</UICard>;
+  return <UICard className="min-h-28 flex-1 overflow-hidden rounded-2xl border-[#DFE4EC] bg-white p-4 shadow-sm" style={styles.card}><View style={styles.metricHeader}><View style={[styles.metricAccent, { backgroundColor: accent }]} /><View style={[styles.metricDot, { backgroundColor: accent }]} /></View><Text style={styles.metricLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.metricValue}>{value}</Text>{hint ? <Text style={styles.metricHint}>{hint}</Text> : null}</UICard>;
 }
 
 export function FilterChip({ label, active = false, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
@@ -60,15 +60,16 @@ export function ActionButton({ children, onPress }: { children: ReactNode; onPre
 
 export function RowCard({ title, subtitle, meta, status, tone = "green", icon, thumbnail, onPress }: { title: string; subtitle?: string; meta?: string; status?: string; tone?: "green" | "red" | "orange" | "blue" | "gray"; icon?: ReactNode; thumbnail?: ReactNode; onPress?: () => void | Promise<void> }) {
   const inFlight = useRef(false);
-  const content = <><View style={styles.rowIcon}>{thumbnail ?? icon}</View><View style={styles.rowCopy}><Text numberOfLines={2} style={styles.rowTitle}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={styles.rowSubtitle}>{subtitle}</Text> : null}{meta ? <Text numberOfLines={1} style={styles.rowMeta}>{meta}</Text> : null}</View>{status ? <StatusPill tone={tone}>{status}</StatusPill> : null}{onPress ? <View style={styles.rowArrow}><ChevronRight color={colors.primary} size={17} strokeWidth={2.4} /></View> : null}</>;
-  if (!onPress) return <UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl border-[#DFE4EC] bg-white p-3 shadow-sm" style={styles.card}>{content}</UICard>;
+  const surfaceStyle = cardSurfaceStyles[tone];
+  const content = <><View style={[styles.rowIcon, cardIconStyles[tone]]}>{thumbnail ?? icon}</View><View style={styles.rowCopy}><Text numberOfLines={2} style={styles.rowTitle}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={styles.rowSubtitle}>{subtitle}</Text> : null}{meta ? <Text numberOfLines={1} style={styles.rowMeta}>{meta}</Text> : null}</View>{status ? <StatusPill tone={tone}>{status}</StatusPill> : null}{onPress ? <View style={styles.rowArrow}><ChevronRight color={colors.primary} size={17} strokeWidth={2.4} /></View> : null}</>;
+  if (!onPress) return <UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl p-3 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard>;
   const press = onPress;
   async function handlePress() {
     if (inFlight.current) return;
     inFlight.current = true;
     try { await press(); } catch (error) { showActionError(error); } finally { inFlight.current = false; }
   }
-  return <Pressable accessibilityRole="button" onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl border-[#DFE4EC] bg-white p-3 shadow-sm" style={styles.card}>{content}</UICard></Pressable>;
+  return <Pressable accessibilityRole="button" onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl p-3 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard></Pressable>;
 }
 
 export function SectionTitle({ children, action, icon }: { children: ReactNode; action?: string; icon?: ReactNode }) {
@@ -94,6 +95,7 @@ const styles = StyleSheet.create({
   actionButton: { elevation: 3, shadowColor: colors.primaryDark, shadowOpacity: 0.2, shadowRadius: 9, shadowOffset: { width: 0, height: 4 } },
   rowPressable: { borderRadius: radii.lg },
   pressed: { opacity: 0.76 },
+  rowCard: { borderWidth: 1 },
   rowIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, height: 48, justifyContent: "center", width: 48 },
   rowCopy: { flex: 1 },
   rowTitle: { color: colors.textStrong, fontSize: typography.body, fontWeight: "800" },
@@ -106,3 +108,19 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.textStrong, fontSize: typography.section, fontWeight: "800" },
   sectionAction: { color: colors.primary, fontSize: typography.caption, fontWeight: "800" },
 });
+
+const cardSurfaceStyles = {
+  blue: { backgroundColor: colors.cardBlue, borderColor: colors.cardBlueBorder },
+  green: { backgroundColor: colors.cardGreen, borderColor: colors.cardGreenBorder },
+  orange: { backgroundColor: colors.cardOrange, borderColor: colors.cardOrangeBorder },
+  red: { backgroundColor: colors.cardRed, borderColor: colors.cardRedBorder },
+  gray: { backgroundColor: colors.cardGray, borderColor: colors.border },
+} as const;
+
+const cardIconStyles = {
+  blue: { backgroundColor: colors.primarySoft, borderColor: colors.cardBlueBorder },
+  green: { backgroundColor: colors.financeSoft, borderColor: colors.cardGreenBorder },
+  orange: { backgroundColor: colors.warningSoft, borderColor: colors.cardOrangeBorder },
+  red: { backgroundColor: colors.dangerSoft, borderColor: colors.cardRedBorder },
+  gray: { backgroundColor: colors.surfaceMuted, borderColor: colors.border },
+} as const;

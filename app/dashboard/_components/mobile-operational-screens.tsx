@@ -41,10 +41,10 @@ type InspectionRow = {
 };
 
 function statusClass(status: string): string {
-  if (["ACTIVE", "COMPLETED", "CLOSED", "SAH"].includes(status)) return "bg-[#e8f6ec] text-[#27834b]";
-  if (["STOPPED", "URGENT", "HIGH"].includes(status)) return "bg-[#ffe9e7] text-[#c5312c]";
+  if (["ACTIVE", "COMPLETED", "CLOSED", "SAH"].includes(status)) return MOBILE_SURFACE.statusSuccess;
+  if (["STOPPED", "URGENT", "HIGH"].includes(status)) return MOBILE_SURFACE.statusDanger;
   if (["INACTIVE", "NOT_ACTIVE"].includes(status)) return "bg-[#f1f2f4] text-[#5c6675]";
-  return "bg-[#fff2da] text-[#a96c13]";
+  return MOBILE_SURFACE.statusWarning;
 }
 
 export function MobileInspectionList({ items, canCreate }: { items: InspectionRow[]; canCreate: boolean }) {

@@ -11,22 +11,31 @@ export const colors = {
   financeSoft: "#E7F7EE",
   text: "#142D60",
   textStrong: "#0F234D",
-  textMuted: "#6E7785",
-  textSubtle: "#8A96A8",
+  textMuted: "#626D7C",
+  textSubtle: "#667085",
   border: "#DFE4EC",
   borderStrong: "#C9D4E3",
   success: "#27834B",
   successSoft: "#E8F7EE",
-  warning: "#D87914",
+  warning: "#A85B08",
   warningSoft: "#FFF3DF",
   danger: "#C5312C",
   dangerSoft: "#FDECEC",
   info: "#1976A8",
   infoSoft: "#E7F4FB",
   ink: "#0B1F3A",
+  cardBlue: "#F1F6FF",
+  cardGreen: "#F0FAF4",
+  cardOrange: "#FFF8EA",
+  cardRed: "#FFF4F3",
+  cardGray: "#F7F8FA",
+  cardBlueBorder: "#C9DCF8",
+  cardGreenBorder: "#CBEAD5",
+  cardOrangeBorder: "#F1D5A6",
+  cardRedBorder: "#F3CBC8",
 };
 
-export const spacing = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32 };
+export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
 
 export const typography = {
   display: 28,
@@ -37,7 +46,7 @@ export const typography = {
   micro: 10,
 } as const;
 
-export const radii = { sm: 8, md: 12, lg: 16, xl: 22, pill: 999 } as const;
+export const radii = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 } as const;
 
 export const shadows = {
   card: {

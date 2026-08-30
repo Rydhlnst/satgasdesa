@@ -65,18 +65,30 @@ export type OptimizedImage = {
   sizeBytes: number;
 };
 
-export async function optimizeImage(asset: ImagePicker.ImagePickerAsset, fallbackName: string): Promise<OptimizedImage> {
-  const longestEdge = Math.max(asset.width, asset.height);
-  const actions = longestEdge > MAX_IMAGE_EDGE
-    ? [{ resize: longestEdge === asset.width ? { width: MAX_IMAGE_EDGE } : { height: MAX_IMAGE_EDGE } }]
+async function optimizeImageSource(uri: string, fallbackName: string, originalName?: string, width?: number, height?: number): Promise<OptimizedImage> {
+  const longestEdge = width && height ? Math.max(width, height) : 0;
+  const actions = longestEdge > MAX_IMAGE_EDGE && width && height
+    ? [{ resize: longestEdge === width ? { width: MAX_IMAGE_EDGE } : { height: MAX_IMAGE_EDGE } }]
     : [];
-  const result = await ImageManipulator.manipulateAsync(asset.uri, actions, { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG });
+  const initial = await ImageManipulator.manipulateAsync(uri, actions, { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG });
+  const initialLongestEdge = Math.max(initial.width, initial.height);
+  const result = initialLongestEdge > MAX_IMAGE_EDGE
+    ? await ImageManipulator.manipulateAsync(initial.uri, [{ resize: initial.width >= initial.height ? { width: MAX_IMAGE_EDGE } : { height: MAX_IMAGE_EDGE } }], { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG })
+    : initial;
   const response = await fetch(result.uri);
   const blob = await response.blob();
   if (!blob.size) throw new Error("Foto hasil kompresi kosong.");
   if (blob.size > MAX_UPLOAD_BYTES) throw new Error("Foto harus berukuran maksimal 10 MB.");
-  const baseName = (asset.fileName ?? fallbackName).replace(/\.[^/.]+$/, "") || fallbackName;
+  const baseName = (originalName ?? fallbackName).replace(/\.[^/.]+$/, "") || fallbackName;
   return { uri: result.uri, name: `${baseName}.jpg`, contentType: "image/jpeg", sizeBytes: blob.size };
+}
+
+export function optimizeImage(asset: ImagePicker.ImagePickerAsset, fallbackName: string): Promise<OptimizedImage> {
+  return optimizeImageSource(asset.uri, fallbackName, asset.fileName ?? undefined, asset.width, asset.height);
+}
+
+export function optimizeImageUri(uri: string, fallbackName: string, originalName?: string): Promise<OptimizedImage> {
+  return optimizeImageSource(uri, fallbackName, originalName);
 }
 
 export async function uploadOptimizedImage(uploadUrl: string, image: OptimizedImage, options: { maxAttempts?: number } = {}): Promise<void> {

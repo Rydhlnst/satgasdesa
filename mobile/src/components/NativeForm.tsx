@@ -7,7 +7,7 @@ import { Button, ButtonSpinner, ButtonText } from "./ui/button";
 import { FormControl, FormControlError, FormControlErrorText, FormControlHelper, FormControlHelperText, FormControlLabel, FormControlLabelText } from "./ui/form-control";
 import { Input, InputField, InputSlot } from "./ui/input";
 import { Select, SelectBackdrop, SelectContent, SelectDragIndicator, SelectDragIndicatorWrapper, SelectIcon, SelectInput, SelectItem, SelectPortal, SelectTrigger } from "./ui/select";
-import { showActionError } from "../lib/feedback";
+import { localizeUserMessage, showActionError } from "../lib/feedback";
 import { CalendarSheet } from "./CalendarPicker";
 import { formatMoneyInput, parseMoneyInput } from "../lib/format";
 
@@ -16,12 +16,12 @@ export type SelectOption = { label: string; value: string };
 
 function errorMessage(value: unknown): string | undefined {
   if (!value) return undefined;
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return localizeUserMessage(value);
   if (typeof value === "object" && value !== null && "message" in value) {
     const message = (value as { message?: unknown }).message;
-    return message ? String(message) : undefined;
+    return message ? localizeUserMessage(String(message)) : undefined;
   }
-  return String(value);
+  return localizeUserMessage(String(value));
 }
 
 function normalizedOptions(options: SelectOption[]): SelectOption[] {
@@ -54,7 +54,7 @@ function UncontrolledRHFInputField<T extends FieldValues>({ name, label, registe
   const [visible, setVisible] = useState(false);
   const registered = register(name as never);
   const message = errorMessage(errors[name as keyof T]);
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={registered.onBlur} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={registered.onBlur} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 function ControlledRHFInputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder, secureTextEntry = false, required = false, helper, currency = false, control }: RHFInputProps<T> & { control: Control<T> }) {
@@ -64,7 +64,7 @@ function ControlledRHFInputField<T extends FieldValues>({ name, label, register,
   const watchedValue = useWatch({ control, name: name as never });
   const message = errorMessage(errors[name as keyof T]);
   const displayValue = currency ? (focused ? String(watchedValue ?? "") : formatMoneyInput(watchedValue as unknown as string | number | null | undefined)) : String(watchedValue ?? "");
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); registered.onBlur(event); }} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} value={displayValue} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); registered.onBlur(event); }} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} value={displayValue} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 export function TextInputField(props: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string; secureTextEntry?: boolean; currency?: boolean }) {
@@ -77,7 +77,7 @@ function RegularTextInputField({ label, value, onChange, error, multiline = fals
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const displayValue = currency && !focused ? formatMoneyInput(value) : String(value ?? "");
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={() => setFocused(false)} onChangeText={(next) => onChange(currency ? parseMoneyInput(next) : next)} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" value={displayValue} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Hide " + label : "Show " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 4 : 1} onBlur={() => setFocused(false)} onChangeText={(next) => onChange(currency ? parseMoneyInput(next) : next)} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" value={displayValue} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-28 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 function MonthTextInput({ label, value, onChange, error, required = false, helper }: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; required?: boolean; helper?: string }) {
@@ -113,7 +113,7 @@ export function SelectField({ label, value, options, onChange, error, required =
   const safeValue = String(value ?? "");
   const message = errorMessage(error);
   const selected = safeOptions.some((option) => option.value === safeValue) ? safeValue : "";
-  return <FieldShell label={label} required={required} error={message}><Select selectedValue={selected} onValueChange={(next) => onChange(String(next ?? ""))} isDisabled={!safeOptions.length}><SelectTrigger size="lg" variant="outline" className="min-h-12 w-full rounded-xl border-[#DFE4EC] bg-white px-3"><SelectInput placeholder={safeOptions.length ? "Pilih opsi" : "Belum ada pilihan tersedia"} className="flex-1 text-sm text-[#0F234D]" /><SelectIcon as={ChevronDown} className="ml-auto mr-0 text-[#6E7785]" /></SelectTrigger><SelectPortal><SelectBackdrop /><SelectContent className="min-h-[320px] rounded-t-3xl bg-white pb-safe"><SelectDragIndicatorWrapper><SelectDragIndicator /></SelectDragIndicatorWrapper>{safeOptions.map((option) => <SelectItem key={option.value || "option-" + option.label} label={option.label} value={option.value} />)}</SelectContent></SelectPortal></Select></FieldShell>;
+  return <FieldShell label={label} required={required} error={message}><Select selectedValue={selected} onValueChange={(next) => onChange(String(next ?? ""))} isDisabled={!safeOptions.length}><SelectTrigger size="lg" variant="outline" className="min-h-12 w-full rounded-xl border-[#DFE4EC] bg-white px-3"><SelectInput placeholder={safeOptions.length ? "Pilih opsi" : "Belum ada pilihan tersedia"} className="flex-1 text-sm text-[#0F234D]" /><SelectIcon as={ChevronDown} className="ml-auto mr-0 text-[#6E7785]" /></SelectTrigger><SelectPortal><SelectBackdrop /><SelectContent className="min-h-[320px] rounded-t-2xl bg-white pb-safe"><SelectDragIndicatorWrapper><SelectDragIndicator /></SelectDragIndicatorWrapper>{safeOptions.map((option) => <SelectItem key={option.value || "option-" + option.label} label={option.label} value={option.value} />)}</SelectContent></SelectPortal></Select></FieldShell>;
 }
 
 export function SubmitButton({ label, loading, loadingLabel = "Menyimpan…", onPress }: { label: string; loading: boolean; loadingLabel?: string; onPress: () => void | Promise<void> }) {

@@ -8,11 +8,11 @@ describe("due payment rules", () => {
   it("records partial and full payments without exceeding the balance", () => {
     expect(applyDuePayment(unpaidDue, 400_000)).toEqual({ amountPaid: 400_000, status: "PARTIAL" });
     expect(applyDuePayment({ ...unpaidDue, amountPaid: 400_000, status: "PARTIAL" }, 600_000)).toEqual({ amountPaid: 1_000_000, status: "PAID" });
-    expect(() => applyDuePayment(unpaidDue, 1_000_001)).toThrow("Payment exceeds the outstanding balance.");
+    expect(() => applyDuePayment(unpaidDue, 1_000_001)).toThrow("Jumlah pembayaran melebihi sisa tagihan.");
   });
 
   it("does not permit payments against a settled due and restores the right state on reversal", () => {
-    expect(() => applyDuePayment({ ...unpaidDue, amountPaid: 1_000_000, status: "PAID" }, 1)).toThrow("already been fully paid");
+    expect(() => applyDuePayment({ ...unpaidDue, amountPaid: 1_000_000, status: "PAID" }, 1)).toThrow("Iuran ini sudah lunas.");
     expect(reverseDuePayment({ ...unpaidDue, amountPaid: 400_000, status: "PARTIAL" }, 400_000)).toEqual({ amountPaid: 0, status: "UNPAID" });
     expect(reverseDuePayment({ ...unpaidDue, amountPaid: 1_000_000, status: "PAID" }, 400_000)).toEqual({ amountPaid: 600_000, status: "PARTIAL" });
   });

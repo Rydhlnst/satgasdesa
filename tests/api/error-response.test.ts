@@ -36,20 +36,20 @@ describe("mobile API error responses", () => {
 
     expect(syntaxResponse.status).toBe(400);
     expect(syntaxBody.error).toBe("VALIDATION_FAILED");
-    expect(syntaxBody.message).toBe("Invalid request data.");
+    expect(syntaxBody.message).toBe("Data permintaan tidak valid.");
     expect(zodResponse.status).toBe(400);
-    expect(await json(zodResponse)).toMatchObject({ error: "VALIDATION_FAILED", message: "id: Invalid UUID", fields: { id: "Invalid UUID" }, diagnostics: { appRevision: "unknown" } });
+    expect(await json(zodResponse)).toMatchObject({ error: "VALIDATION_FAILED", message: "id: ID tidak valid.", fields: { id: "ID tidak valid." }, diagnostics: { appRevision: "unknown" } });
   });
 
   it("returns the stable unauthorized contract", async () => {
     const response = unauthorizedResponse();
     expect(response.status).toBe(401);
-    expect(await json(response)).toMatchObject({ error: "UNAUTHORIZED", message: "Your session is invalid or expired.", diagnostics: { appRevision: "unknown" } });
+    expect(await json(response)).toMatchObject({ error: "UNAUTHORIZED", message: "Sesi Anda tidak valid atau sudah berakhir.", diagnostics: { appRevision: "unknown" } });
   });
 
   it("returns actionable messages for expected domain validation errors", async () => {
-    const response = apiErrorResponse(new Error("Monthly payments can only be recorded from day 1 through day 10 of the month."));
+    const response = apiErrorResponse(new Error("Pembayaran bulanan hanya dapat dicatat dari tanggal 1 sampai 10 setiap bulan."));
     expect(response.status).toBe(400);
-    expect(await json(response)).toMatchObject({ error: "VALIDATION_FAILED", message: "Monthly payments can only be recorded from day 1 through day 10 of the month." });
+    expect(await json(response)).toMatchObject({ error: "VALIDATION_FAILED", message: "Pembayaran bulanan hanya dapat dicatat dari tanggal 1 sampai 10 setiap bulan." });
   });
 });

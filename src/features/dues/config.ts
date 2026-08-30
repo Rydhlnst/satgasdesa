@@ -10,7 +10,7 @@ export const MONTHLY_PAYMENT_WINDOW = { startDay: 1, endDay: 10 } as const;
 export function assertMonthlyPaymentDate(paymentDate: string): void {
   const day = Number(paymentDate.slice(-2));
   if (!Number.isInteger(day) || day < MONTHLY_PAYMENT_WINDOW.startDay || day > MONTHLY_PAYMENT_WINDOW.endDay) {
-    throw new Error("Monthly payments can only be recorded from day 1 through day 10 of the month.");
+    throw new Error("Pembayaran bulanan hanya dapat dicatat dari tanggal 1 sampai 10 setiap bulan.");
   }
 }
 
