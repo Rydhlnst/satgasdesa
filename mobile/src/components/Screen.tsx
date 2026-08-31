@@ -15,7 +15,7 @@ import { Button, ButtonText } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 import appIcon from "../../assets/icon.png";
 
-export function Screen({ children, refreshing, onRefresh, scroll = true, showDateRange = false }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; showDateRange?: boolean }) {
+export function Screen({ children, refreshing, onRefresh, scroll = true, showDateRange = false, reserveBottomNavSpace = false }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; showDateRange?: boolean; reserveBottomNavSpace?: boolean }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
@@ -31,7 +31,8 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, showDat
   const banner = notice ? <Pressable disabled={sync.isSyncing} onPress={() => void (sync.summary.BLOCKED ? router.push("/offline-queue") : retrySync())} style={[styles.syncBanner, sync.summary.FAILED || sync.summary.BLOCKED ? styles.syncBannerFailed : null]}><Text style={styles.syncBannerText}>{sync.isSyncing ? "Menyinkronkan data…" : notice}</Text></Pressable> : null;
   const dateRangeEnabled = showDateRange || DATE_RANGE_ROUTES.includes(pathname);
   const dateRange = dateRangeEnabled ? <DateRangePicker /> : null;
-  const content = scroll ? <ScrollView style={{ flex: 1, minHeight: 0 }} automaticallyAdjustKeyboardInsets={Platform.OS === "ios"} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { flexGrow: 1, paddingBottom: 84 + insets.bottom + keyboardHeight }]} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false} refreshControl={onRefresh ? <RefreshControl onRefresh={onRefresh} refreshing={Boolean(refreshing)} tintColor={colors.primary} /> : undefined}>{dateRange}{banner}{children}</ScrollView> : <View style={styles.nonScrollContent}>{dateRange}{banner}{children}</View>;
+  const bottomContentPadding = 128 + insets.bottom + keyboardHeight;
+  const content = scroll ? <ScrollView style={{ flex: 1, minHeight: 0 }} automaticallyAdjustKeyboardInsets={Platform.OS === "ios"} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { flexGrow: 1, paddingBottom: bottomContentPadding }]} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false} refreshControl={onRefresh ? <RefreshControl onRefresh={onRefresh} refreshing={Boolean(refreshing)} tintColor={colors.primary} /> : undefined}>{dateRange}{banner}{children}</ScrollView> : <View style={[styles.nonScrollContent, reserveBottomNavSpace ? { paddingBottom: bottomContentPadding } : null]}>{dateRange}{banner}{children}</View>;
   return <SafeAreaView edges={["bottom"]} style={styles.safe}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0} style={{ flex: 1 }}>{content}</KeyboardAvoidingView></SafeAreaView>;
 }
 
@@ -97,8 +98,8 @@ function NavItem({ label, active, href, icon: Icon }: { label: string; active: b
 
 const styles = StyleSheet.create({
   safe: { backgroundColor: colors.page, flex: 1 },
-  content: { gap: spacing.sm, padding: spacing.md, paddingBottom: spacing.lg, paddingTop: spacing.xs },
-  nonScrollContent: { flex: 1, gap: spacing.sm, minHeight: 0, padding: spacing.md, paddingTop: spacing.xs },
+  content: { gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.lg, paddingTop: spacing.sm },
+  nonScrollContent: { flex: 1, gap: spacing.md, minHeight: 0, padding: spacing.lg, paddingTop: spacing.sm },
   syncBanner: { backgroundColor: colors.warningSoft, borderColor: "#F1C554", borderRadius: radii.md, borderWidth: 1, padding: spacing.sm },
   syncBannerFailed: { backgroundColor: colors.dangerSoft, borderColor: "#EA8D89" },
   syncBannerText: { color: colors.text, fontSize: typography.caption, fontWeight: "700", lineHeight: 16 },

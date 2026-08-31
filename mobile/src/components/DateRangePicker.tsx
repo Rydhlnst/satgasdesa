@@ -15,6 +15,8 @@ export function DateRangePicker() {
 
   function changeDate(key: "from" | "to", value: string) {
     const next = { ...draft, [key === "from" ? "dateFrom" : "dateTo"]: value };
+    if (key === "from" && value > next.dateTo) next.dateTo = value;
+    if (key === "to" && value < next.dateFrom) next.dateFrom = value;
     setDraft(next);
     if (isValidDate(next.dateFrom) && isValidDate(next.dateTo) && next.dateFrom <= next.dateTo) setRange(next);
   }

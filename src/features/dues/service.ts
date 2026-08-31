@@ -16,6 +16,7 @@ import { applyDuePayment, hasMatchingPaymentIdentity, reverseDuePayment as rever
 import { confirmDuePaymentSchema, createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, rejectDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
 import { assertMonthlyPaymentDate } from "./config";
 import { getFinanceDefaults } from "../settings/service";
+import { generateMonthlyDuesForPeriod } from "./automation";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
 import { parseValidatedInput } from "@/src/lib/validation";
 
@@ -25,6 +26,22 @@ function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }):
 
 function optionalValue(value?: string): string | null {
   return value?.trim() ? value.trim() : null;
+}
+
+function monthKeysInRange(dateFrom?: string, dateTo?: string): string[] {
+  const startValue = (dateFrom ?? dateTo)?.slice(0, 7);
+  const endValue = (dateTo ?? dateFrom)?.slice(0, 7);
+  if (!startValue || !endValue) return [];
+  const [startYear, startMonth] = startValue.split("-").map(Number);
+  const [endYear, endMonth] = endValue.split("-").map(Number);
+  const current = new Date(Date.UTC(startYear, startMonth - 1, 1));
+  const end = new Date(Date.UTC(endYear, endMonth - 1, 1));
+  const result: string[] = [];
+  while (current <= end) {
+    result.push(`${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, "0")}`);
+    current.setUTCMonth(current.getUTCMonth() + 1);
+  }
+  return result;
 }
 
 function createPaymentTransactionCode(): string {
@@ -91,8 +108,12 @@ export async function getDueCreationConfig() {
 }
 
 export async function getDuesPage(input?: unknown) {
-  await requirePermission(PERMISSIONS.DUES_READ);
+  const session = await requirePermission(PERMISSIONS.DUES_READ);
   const filters = duesFiltersSchema.parse(input ?? {});
+  const monthlyPeriodKeys = filters.periodKey ? [filters.periodKey] : monthKeysInRange(filters.dateFrom, filters.dateTo);
+  if (filters.dueType === "MONTHLY" && monthlyPeriodKeys.length && await hasPermission(session.user.id, PERMISSIONS.DUES_MANAGE)) {
+    for (const monthlyPeriodKey of monthlyPeriodKeys) await generateMonthlyDuesForPeriod(monthlyPeriodKey, session.user.id);
+  }
   const assignedBlockIds = await getAssignedBlockIdsForCurrentUser();
   if (assignedBlockIds && !assignedBlockIds.length) return { rows: [], pagination: { page: filters.page, pageSize: filters.pageSize, total: 0, totalPages: 0 } };
   const baseConditions = buildDueConditions(filters);

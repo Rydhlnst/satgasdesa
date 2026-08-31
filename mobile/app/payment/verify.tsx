@@ -15,11 +15,12 @@ import { paymentVerificationFormSchema as schema } from "../../src/form-schemas"
 import { createDuePaymentVerificationUploadUrl, verifyDuePayment } from "../../src/lib/api";
 import { optimizeImage, uploadOptimizedImage } from "../../src/lib/media";
 import { getCurrentLocation } from "../../src/lib/location";
+import { routeParam } from "../../src/lib/id";
 
 type Values = z.infer<typeof schema>;
 
 export default function VerifyPayment() {
-  const { duePaymentId } = useLocalSearchParams<{ duePaymentId: string }>(); const { role } = useAuth(); const router = useRouter(); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [evidence, setEvidence] = useState<ImagePicker.ImagePickerAsset[]>([]); const form = useForm<Values>({ resolver: zodResolver(schema), mode: "onBlur", reValidateMode: "onChange", defaultValues: { verificationStatus: "CONFIRMED", verifiedAt: new Date().toISOString().slice(0, 10) } });
+  const params = useLocalSearchParams<{ duePaymentId?: string | string[] }>(); const duePaymentId = routeParam(params.duePaymentId); const { role } = useAuth(); const router = useRouter(); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [evidence, setEvidence] = useState<ImagePicker.ImagePickerAsset[]>([]); const form = useForm<Values>({ resolver: zodResolver(schema), mode: "onBlur", reValidateMode: "onChange", defaultValues: { verificationStatus: "CONFIRMED", verifiedAt: new Date().toISOString().slice(0, 10) } });
   if (!role) return null;
   async function uploadEvidence() { const selected = evidence[0]; if (!selected) return undefined; const image = await optimizeImage(selected, `verifikasi-${duePaymentId}`); const upload = await createDuePaymentVerificationUploadUrl({ duePaymentId, contentType: image.contentType, size: image.sizeBytes, originalName: image.name }); await uploadOptimizedImage(upload.uploadUrl, image); return upload.key; }
   async function captureLocation() { setLocationLoading(true); try { const result = await getCurrentLocation("verifikasi lapangan"); const next = { latitude: result.coords.latitude, longitude: result.coords.longitude, accuracy: result.coords.accuracy, capturedAt: new Date().toISOString() }; setCapturedLocation(next); return next; } catch (error) { showActionError(error, "Lokasi perangkat belum dapat dibaca."); throw error; } finally { setLocationLoading(false); } }

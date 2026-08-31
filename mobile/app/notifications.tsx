@@ -4,7 +4,7 @@ import { Bell, CheckCheck } from "lucide-react-native";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../src/auth";
-import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
+import { EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
 import { showActionError } from "../src/lib/feedback";
 import { getNotifications, markAllNotificationsRead, markNotificationRead } from "../src/lib/api";
 import { notificationTarget } from "../src/notifications/target";

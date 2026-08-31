@@ -5,6 +5,19 @@ import { AppAlert as Alert } from "./feedback";
 const MAX_IMAGE_EDGE = 1600;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
+export type ImageSource = "camera" | "library";
+
+export async function pickImagesFromSource(source: ImageSource, { max = 1, currentCount = 0, cameraPermissionMessage = "Izinkan kamera untuk mengambil foto.", libraryPermissionMessage = "Izinkan akses galeri untuk memilih foto." }: { max?: number; currentCount?: number; cameraPermissionMessage?: string; libraryPermissionMessage?: string } = {}) {
+  const remaining = max - currentCount;
+  if (remaining <= 0) { Alert.alert("Batas foto", `Maksimal ${max} foto dapat dilampirkan.`); return []; }
+  try {
+    const permission = source === "camera" ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) { Alert.alert("Izin diperlukan", source === "camera" ? cameraPermissionMessage : libraryPermissionMessage); return []; }
+    const result = source === "camera" ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.78 }) : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: remaining > 1, selectionLimit: remaining, quality: 0.78 });
+    return result.canceled ? [] : (result.assets ?? []).slice(0, remaining);
+  } catch { Alert.alert("Tidak dapat memilih foto", "Periksa izin kamera atau galeri, lalu coba lagi."); return []; }
+}
+
 export async function pickImagesFromCameraOrLibrary({
   max = 1,
   currentCount = 0,
@@ -31,25 +44,7 @@ export async function pickImagesFromCameraOrLibrary({
       finished = true;
       resolve(assets);
     };
-    const choose = async (source: "camera" | "library") => {
-      try {
-        const permission = source === "camera"
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          Alert.alert("Izin diperlukan", source === "camera" ? cameraPermissionMessage : libraryPermissionMessage);
-          finish([]);
-          return;
-        }
-        const result = source === "camera"
-          ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.78 })
-          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: remaining > 1, selectionLimit: remaining, quality: 0.78 });
-        finish(result.canceled ? [] : (result.assets ?? []).slice(0, remaining));
-      } catch {
-        Alert.alert("Tidak dapat memilih foto", "Periksa izin kamera atau galeri, lalu coba lagi.");
-        finish([]);
-      }
-    };
+    const choose = async (source: ImageSource) => finish(await pickImagesFromSource(source, { max, currentCount, cameraPermissionMessage, libraryPermissionMessage }));
     Alert.alert(title, "Pilih sumber foto.", [
       { text: "Kamera", onPress: () => void choose("camera") },
       { text: "Galeri", onPress: () => void choose("library") },

@@ -20,7 +20,8 @@ type MapStatus = "ALL" | "ACTIVE" | "STOPPED" | "NOT_OPERATING";
 type LocationState = "idle" | "loading" | "ready" | "denied" | "error";
 
 const DEFAULT_CENTER: LngLat = [106.816, -6.2];
-const MAPTILER_API_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY?.trim();
+const runtimeMapTilerApiKey = Constants.expoConfig?.extra?.mapTilerApiKey;
+const MAPTILER_API_KEY = (typeof runtimeMapTilerApiKey === "string" ? runtimeMapTilerApiKey : process.env.EXPO_PUBLIC_MAPTILER_API_KEY)?.trim();
 const MAP_STYLE_URL = MAPTILER_API_KEY
   ? `https://api.maptiler.com/maps/streets-v4/style.json?key=${encodeURIComponent(MAPTILER_API_KEY)}`
   : null;
@@ -28,7 +29,7 @@ const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.Store
   || Constants.appOwnership === "expo"
   || Boolean(Constants.expoGoConfig);
 type MapLibreModule = typeof import("@maplibre/maplibre-react-native");
-const mapLibreModule: MapLibreModule | null = __DEV__ || IS_EXPO_GO ? null : (() => {
+const mapLibreModule: MapLibreModule | null = IS_EXPO_GO ? null : (() => {
   try { return require("@maplibre/maplibre-react-native") as MapLibreModule; } catch { return null; }
 })();
 const NativeMap = mapLibreModule?.Map;
