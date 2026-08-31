@@ -24,6 +24,7 @@ export type OutboxItem<T = unknown> = {
   lastErrorCode: string | null;
   lastErrorStatus: number | null;
   lastErrorRetryable: boolean | null;
+  lastErrorRequestId: string | null;
   createdAt: number;
   updatedAt: number;
   syncedAt: number | null;
@@ -47,6 +48,7 @@ async function ensureOutboxColumns(): Promise<void> {
     ["last_error_code", "TEXT"],
     ["last_error_status", "INTEGER"],
     ["last_error_retryable", "INTEGER"],
+    ["last_error_request_id", "TEXT"],
   ];
   for (const [name, definition] of additions) {
     if (!existing.has(name)) await db.execAsync(`ALTER TABLE sync_outbox ADD COLUMN ${name} ${definition}`);
@@ -75,6 +77,7 @@ export async function initializeOfflineStore(): Promise<void> {
           last_error_code TEXT,
           last_error_status INTEGER,
           last_error_retryable INTEGER,
+          last_error_request_id TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
           synced_at INTEGER
@@ -98,11 +101,12 @@ export async function initializeOfflineStore(): Promise<void> {
             last_error_code TEXT,
             last_error_status INTEGER,
             last_error_retryable INTEGER,
+            last_error_request_id TEXT,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             synced_at INTEGER
           );
-          INSERT INTO sync_outbox SELECT id, operation, payload, status, retry_count, last_error, next_attempt_at, last_error_code, last_error_status, last_error_retryable, created_at, updated_at, synced_at FROM sync_outbox_legacy;
+          INSERT INTO sync_outbox SELECT id, operation, payload, status, retry_count, last_error, next_attempt_at, last_error_code, last_error_status, last_error_retryable, NULL, created_at, updated_at, synced_at FROM sync_outbox_legacy;
           DROP TABLE sync_outbox_legacy;
         `);
       }
@@ -153,9 +157,9 @@ export async function enqueueOutbox<T>(item: { id: string; operation: SyncOperat
   const now = Date.now();
   const db = await database();
   await db.runAsync(
-    `INSERT INTO sync_outbox(id, operation, payload, status, retry_count, last_error, next_attempt_at, last_error_code, last_error_status, last_error_retryable, created_at, updated_at, synced_at)
-     VALUES (?, ?, ?, 'PENDING', 0, NULL, NULL, NULL, NULL, NULL, ?, ?, NULL)
-     ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, status = 'PENDING', retry_count = 0, last_error = NULL, next_attempt_at = NULL, last_error_code = NULL, last_error_status = NULL, last_error_retryable = NULL, updated_at = excluded.updated_at`,
+    `INSERT INTO sync_outbox(id, operation, payload, status, retry_count, last_error, next_attempt_at, last_error_code, last_error_status, last_error_retryable, last_error_request_id, created_at, updated_at, synced_at)
+     VALUES (?, ?, ?, 'PENDING', 0, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, NULL)
+     ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, status = 'PENDING', retry_count = 0, last_error = NULL, next_attempt_at = NULL, last_error_code = NULL, last_error_status = NULL, last_error_retryable = NULL, last_error_request_id = NULL, updated_at = excluded.updated_at`,
     item.id,
     item.operation,
     JSON.stringify(item.payload),
@@ -178,6 +182,7 @@ export async function getSyncableOutbox(includeDeferred = false): Promise<Outbox
     last_error_code: string | null;
     last_error_status: number | null;
     last_error_retryable: number | null;
+    last_error_request_id: string | null;
     created_at: number;
     updated_at: number;
     synced_at: number | null;
@@ -199,6 +204,7 @@ export async function getSyncableOutbox(includeDeferred = false): Promise<Outbox
         lastErrorCode: row.last_error_code,
         lastErrorStatus: row.last_error_status,
         lastErrorRetryable: row.last_error_retryable === null ? null : row.last_error_retryable === 1,
+        lastErrorRequestId: row.last_error_request_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         syncedAt: row.synced_at,
@@ -228,7 +234,7 @@ export async function markOutboxSynced(id: string): Promise<void> {
   const now = Date.now();
   const db = await database();
   await db.runAsync(
-    "UPDATE sync_outbox SET status = 'SYNCED', last_error = NULL, last_error_code = NULL, last_error_status = NULL, last_error_retryable = NULL, next_attempt_at = NULL, updated_at = ?, synced_at = ? WHERE id = ?",
+    "UPDATE sync_outbox SET status = 'SYNCED', last_error = NULL, last_error_code = NULL, last_error_status = NULL, last_error_retryable = NULL, last_error_request_id = NULL, next_attempt_at = NULL, updated_at = ?, synced_at = ? WHERE id = ?",
     now,
     now,
     id,
@@ -239,10 +245,11 @@ export async function markOutboxFailed(id: string, failure: SyncFailure, retryCo
   await initializeOfflineStore();
   const db = await database();
   await db.runAsync(
-    "UPDATE sync_outbox SET status = 'FAILED', retry_count = retry_count + 1, last_error = ?, last_error_code = ?, last_error_status = ?, last_error_retryable = 1, next_attempt_at = ?, updated_at = ? WHERE id = ?",
+    "UPDATE sync_outbox SET status = 'FAILED', retry_count = retry_count + 1, last_error = ?, last_error_code = ?, last_error_status = ?, last_error_retryable = 1, last_error_request_id = ?, next_attempt_at = ?, updated_at = ? WHERE id = ?",
     failure.message.slice(0, 500),
     failure.code,
     failure.status,
+    failure.requestId ?? null,
     Date.now() + retryDelayMs(retryCount),
     Date.now(),
     id,
@@ -253,10 +260,11 @@ export async function markOutboxBlocked(id: string, failure: SyncFailure): Promi
   await initializeOfflineStore();
   const db = await database();
   await db.runAsync(
-    "UPDATE sync_outbox SET status = 'BLOCKED', last_error = ?, last_error_code = ?, last_error_status = ?, last_error_retryable = 0, next_attempt_at = NULL, updated_at = ? WHERE id = ?",
+    "UPDATE sync_outbox SET status = 'BLOCKED', last_error = ?, last_error_code = ?, last_error_status = ?, last_error_retryable = 0, last_error_request_id = ?, next_attempt_at = NULL, updated_at = ? WHERE id = ?",
     failure.message.slice(0, 500),
     failure.code,
     failure.status,
+    failure.requestId ?? null,
     Date.now(),
     id,
   );
@@ -265,18 +273,18 @@ export async function markOutboxBlocked(id: string, failure: SyncFailure): Promi
 export async function getAttentionOutbox(): Promise<OutboxItem[]> {
   await initializeOfflineStore();
   const db = await database();
-  const rows = await db.getAllAsync<{ id: string; operation: SyncOperation; payload: string; status: SyncStatus; retry_count: number; last_error: string | null; last_error_code: string | null; last_error_status: number | null; last_error_retryable: number | null; next_attempt_at: number | null; created_at: number; updated_at: number; synced_at: number | null }>(
+  const rows = await db.getAllAsync<{ id: string; operation: SyncOperation; payload: string; status: SyncStatus; retry_count: number; last_error: string | null; last_error_code: string | null; last_error_status: number | null; last_error_retryable: number | null; last_error_request_id: string | null; next_attempt_at: number | null; created_at: number; updated_at: number; synced_at: number | null }>(
     "SELECT * FROM sync_outbox WHERE status = 'BLOCKED' ORDER BY created_at ASC",
   );
   return rows.flatMap((row) => {
-    try { return [{ id: row.id, operation: row.operation, payload: JSON.parse(row.payload), status: row.status, retryCount: row.retry_count, nextAttemptAt: row.next_attempt_at, lastError: row.last_error, lastErrorCode: row.last_error_code, lastErrorStatus: row.last_error_status, lastErrorRetryable: row.last_error_retryable === null ? null : row.last_error_retryable === 1, createdAt: row.created_at, updatedAt: row.updated_at, syncedAt: row.synced_at }]; } catch { return []; }
+    try { return [{ id: row.id, operation: row.operation, payload: JSON.parse(row.payload), status: row.status, retryCount: row.retry_count, nextAttemptAt: row.next_attempt_at, lastError: row.last_error, lastErrorCode: row.last_error_code, lastErrorStatus: row.last_error_status, lastErrorRetryable: row.last_error_retryable === null ? null : row.last_error_retryable === 1, lastErrorRequestId: row.last_error_request_id, createdAt: row.created_at, updatedAt: row.updated_at, syncedAt: row.synced_at }]; } catch { return []; }
   });
 }
 
 export async function retryOutboxItem(id: string): Promise<void> {
   await initializeOfflineStore();
   const db = await database();
-  await db.runAsync("UPDATE sync_outbox SET status = 'PENDING', retry_count = 0, last_error = NULL, last_error_code = NULL, last_error_status = NULL, last_error_retryable = NULL, next_attempt_at = NULL, updated_at = ? WHERE id = ? AND status = 'BLOCKED'", Date.now(), id);
+  await db.runAsync("UPDATE sync_outbox SET status = 'PENDING', retry_count = 0, last_error = NULL, last_error_code = NULL, last_error_status = NULL, last_error_retryable = NULL, last_error_request_id = NULL, next_attempt_at = NULL, updated_at = ? WHERE id = ? AND status = 'BLOCKED'", Date.now(), id);
 }
 
 export async function discardOutboxItem(id: string): Promise<void> {

@@ -1,3 +1,4 @@
+import { showActionError } from "../../src/lib/feedback";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -36,7 +37,7 @@ export default function NewInformation() {
       setCapturedLocation(next);
       return next;
     } catch (error) {
-      Alert.alert("Lokasi tidak tersedia", error instanceof Error ? error.message : "Lokasi perangkat belum dapat dibaca.");
+      showActionError(error, "Lokasi perangkat belum dapat dibaca.");
       throw error;
     } finally { setLocationLoading(false); }
   }
@@ -60,7 +61,7 @@ export default function NewInformation() {
         Alert.alert("Data diantrikan", "Informasi dan foto tersimpan aman di perangkat. Data akan dikirim otomatis saat koneksi kembali.", [{ text: "OK", onPress: () => router.replace("/information") }]);
       }
     } catch (error) {
-      Alert.alert("Tidak dapat mengirim", error instanceof Error ? error.message : "Periksa data, lokasi, dan koneksi.");
+      showActionError(error, "Periksa data, lokasi, dan koneksi.");
     } finally {
       setSaving(false);
     }

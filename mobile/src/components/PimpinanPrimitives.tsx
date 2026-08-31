@@ -34,11 +34,11 @@ export function statusTone(status: string): "green" | "red" | "orange" | "blue" 
   return "gray";
 }
 
-export function Card({ children, style }: { children: ReactNode; style?: object }) { return <UICard className="rounded-2xl border-[#DFE4EC] bg-white p-4 shadow-sm" style={[styles.card, style]}>{children}</UICard>; }
+export function Card({ children, style }: { children: ReactNode; style?: object }) { return <UICard className="rounded-xl border-[#DFE4EC] bg-white p-2.5 shadow-sm" style={[styles.card, style]}>{children}</UICard>; }
 
 export function MetricCard({ label, value, hint, tone = "blue" }: { label: string; value: string; hint?: string; tone?: "green" | "red" | "orange" | "blue" }) {
   const accent = tone === "green" ? colors.finance : tone === "red" ? colors.danger : tone === "orange" ? colors.warning : colors.primary;
-  return <UICard className="min-h-28 flex-1 overflow-hidden rounded-2xl border-[#DFE4EC] bg-white p-4 shadow-sm" style={styles.card}><View style={styles.metricHeader}><View style={[styles.metricAccent, { backgroundColor: accent }]} /><View style={[styles.metricDot, { backgroundColor: accent }]} /></View><Text style={styles.metricLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.metricValue}>{value}</Text>{hint ? <Text style={styles.metricHint}>{hint}</Text> : null}</UICard>;
+  return <UICard className="min-h-20 flex-1 overflow-hidden rounded-xl border-[#DFE4EC] bg-white p-2.5 shadow-sm" style={styles.card}><View style={styles.metricHeader}><View style={[styles.metricAccent, { backgroundColor: accent }]} /><View style={[styles.metricDot, { backgroundColor: accent }]} /></View><Text style={styles.metricLabel}>{label}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.metricValue}>{value}</Text>{hint ? <Text style={styles.metricHint}>{hint}</Text> : null}</UICard>;
 }
 
 export function FilterChip({ label, active = false, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
@@ -55,21 +55,21 @@ export function ActionButton({ children, onPress }: { children: ReactNode; onPre
     setPending(true);
     try { await onPress(); } catch (error) { showActionError(error); } finally { inFlight.current = false; setPending(false); }
   }
-  return <Button accessibilityRole="button" accessibilityState={{ busy: pending, disabled: pending }} disabled={pending} onPress={() => void handlePress()} className="min-h-12 rounded-2xl bg-[#1454C4] shadow-sm" style={styles.actionButton}><Plus color="#FFFFFF" size={18} strokeWidth={2.5} /><ButtonText className="text-sm font-extrabold">{children}</ButtonText></Button>;
+  return <Button accessibilityRole="button" accessibilityState={{ busy: pending, disabled: pending }} disabled={pending} onPress={() => void handlePress()} className="min-h-12 rounded-xl bg-[#1454C4] shadow-sm" style={styles.actionButton}><Plus color="#FFFFFF" size={18} strokeWidth={2.5} /><ButtonText className="text-sm font-extrabold">{children}</ButtonText></Button>;
 }
 
 export function RowCard({ title, subtitle, meta, status, tone = "green", icon, thumbnail, onPress }: { title: string; subtitle?: string; meta?: string; status?: string; tone?: "green" | "red" | "orange" | "blue" | "gray"; icon?: ReactNode; thumbnail?: ReactNode; onPress?: () => void | Promise<void> }) {
   const inFlight = useRef(false);
   const surfaceStyle = cardSurfaceStyles[tone];
   const content = <><View style={[styles.rowIcon, cardIconStyles[tone]]}>{thumbnail ?? icon}</View><View style={styles.rowCopy}><Text numberOfLines={2} style={styles.rowTitle}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={styles.rowSubtitle}>{subtitle}</Text> : null}{meta ? <Text numberOfLines={1} style={styles.rowMeta}>{meta}</Text> : null}</View>{status ? <StatusPill tone={tone}>{status}</StatusPill> : null}{onPress ? <View style={styles.rowArrow}><ChevronRight color={colors.primary} size={17} strokeWidth={2.4} /></View> : null}</>;
-  if (!onPress) return <UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl p-3 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard>;
+  if (!onPress) return <UICard className="min-h-[64px] flex-row items-center gap-2 rounded-xl p-2.5 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard>;
   const press = onPress;
   async function handlePress() {
     if (inFlight.current) return;
     inFlight.current = true;
     try { await press(); } catch (error) { showActionError(error); } finally { inFlight.current = false; }
   }
-  return <Pressable accessibilityRole="button" onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-20 flex-row items-center gap-3 rounded-2xl p-3 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard></Pressable>;
+  return <Pressable accessibilityRole="button" onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-[64px] flex-row items-center gap-2 rounded-xl p-2.5 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard></Pressable>;
 }
 
 export function SectionTitle({ children, action, icon }: { children: ReactNode; action?: string; icon?: ReactNode }) {
@@ -82,13 +82,13 @@ const styles = StyleSheet.create({
   tabTriggerActive: { backgroundColor: colors.primarySoft, elevation: 1 },
   tabTriggerText: { color: colors.textMuted, fontSize: typography.caption, fontWeight: "800" },
   tabTriggerTextActive: { color: colors.primary },
-  card: { elevation: 2, shadowColor: colors.ink, shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } },
-  metricHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 9 },
+  card: { elevation: 1, shadowColor: colors.ink, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  metricHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   metricAccent: { borderRadius: radii.pill, height: 5, width: 30 },
   metricDot: { borderRadius: radii.pill, height: 7, opacity: 0.22, width: 7 },
   metricLabel: { color: colors.textMuted, fontSize: typography.micro, fontWeight: "800", textTransform: "uppercase" },
-  metricValue: { color: colors.textStrong, fontSize: 18, fontWeight: "900", marginTop: 4 },
-  metricHint: { color: colors.textSubtle, fontSize: typography.micro, marginTop: 3 },
+  metricValue: { color: colors.textStrong, fontSize: 17, fontWeight: "900", marginTop: 2 },
+  metricHint: { color: colors.textSubtle, fontSize: typography.micro, marginTop: 2 },
   filterChip: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.pill, borderWidth: 1, flexDirection: "row", gap: 5, minHeight: 36, paddingHorizontal: 12 },
   filterText: { color: colors.textMuted, fontSize: typography.caption, fontWeight: "800" },
   filterTextActive: { color: colors.primary },
@@ -96,11 +96,11 @@ const styles = StyleSheet.create({
   rowPressable: { borderRadius: radii.lg },
   pressed: { opacity: 0.76 },
   rowCard: { borderWidth: 1 },
-  rowIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, height: 48, justifyContent: "center", width: 48 },
+  rowIcon: { alignItems: "center", backgroundColor: colors.primarySoft, borderColor: colors.border, borderRadius: radii.sm, borderWidth: 1, height: 40, justifyContent: "center", width: 40 },
   rowCopy: { flex: 1 },
-  rowTitle: { color: colors.textStrong, fontSize: typography.body, fontWeight: "800" },
-  rowSubtitle: { color: colors.textMuted, fontSize: typography.caption, marginTop: 4 },
-  rowMeta: { color: colors.textMuted, fontSize: typography.micro, marginTop: 4 },
+  rowTitle: { color: colors.textStrong, fontSize: 13, fontWeight: "800" },
+  rowSubtitle: { color: colors.textMuted, fontSize: typography.caption, marginTop: 2 },
+  rowMeta: { color: colors.textMuted, fontSize: typography.micro, marginTop: 2 },
   rowArrow: { alignItems: "center", backgroundColor: colors.primarySoft, borderRadius: radii.pill, height: 28, justifyContent: "center", width: 28 },
   section: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: spacing.xs },
   sectionCopy: { alignItems: "center", flexDirection: "row", gap: 7 },

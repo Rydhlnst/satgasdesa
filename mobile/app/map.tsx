@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useRouter } from "expo-router";
 import { Filter, List, LocateFixed, MapPinned, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Camera, Map as MapLibreView, Marker } from "@maplibre/maplibre-react-native";
 import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 
 import { useAuth } from "../src/auth";
@@ -23,6 +24,16 @@ const MAPTILER_API_KEY = process.env.EXPO_PUBLIC_MAPTILER_API_KEY?.trim();
 const MAP_STYLE_URL = MAPTILER_API_KEY
   ? `https://api.maptiler.com/maps/streets-v4/style.json?key=${encodeURIComponent(MAPTILER_API_KEY)}`
   : null;
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+  || Constants.appOwnership === "expo"
+  || Boolean(Constants.expoGoConfig);
+type MapLibreModule = typeof import("@maplibre/maplibre-react-native");
+const mapLibreModule: MapLibreModule | null = __DEV__ || IS_EXPO_GO ? null : (() => {
+  try { return require("@maplibre/maplibre-react-native") as MapLibreModule; } catch { return null; }
+})();
+const NativeMap = mapLibreModule?.Map;
+const NativeCamera = mapLibreModule?.Camera;
+const NativeMarker = mapLibreModule?.Marker;
 
 export default function MapScreen() {
   const { role } = useAuth();
@@ -136,9 +147,9 @@ export default function MapScreen() {
           <Text style={styles.filterText}>Filter</Text>
         </Pressable>
       </View>
-      {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Lokasi blok tidak dapat dimuat." onRetry={() => query.refetch()} /> : <>
-        {!MAP_STYLE_URL ? <MapConfigurationState /> : <View style={styles.map}>
-          <MapLibreView
+      {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Lokasi blok tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /> : <>
+        {IS_EXPO_GO || !NativeMap || !NativeCamera || !NativeMarker ? <ExpoGoMapState /> : !MAP_STYLE_URL ? <MapConfigurationState /> : <View style={styles.map}>
+          <NativeMap
             key={mapInstance}
             attribution
             attributionPosition={{ bottom: 8, right: 8 }}
@@ -152,18 +163,18 @@ export default function MapScreen() {
             scaleBarPosition={{ top: 12, left: 12 }}
             style={StyleSheet.absoluteFill}
           >
-            <Camera ref={cameraRef} initialViewState={{ center: initialCenter, zoom: 11 }} minZoom={4} maxZoom={19} />
-            {deviceLocation ? <Marker id="device-location" lngLat={[deviceLocation.coords.longitude, deviceLocation.coords.latitude]}>
+            <NativeCamera ref={cameraRef} initialViewState={{ center: initialCenter, zoom: 11 }} minZoom={4} maxZoom={19} />
+            {deviceLocation ? <NativeMarker id="device-location" lngLat={[deviceLocation.coords.longitude, deviceLocation.coords.latitude]}>
               <View style={styles.deviceMarker}>
                 <LocateFixed color="#FFFFFF" size={17} />
               </View>
-            </Marker> : null}
-            {mapBlocks.map(({ item, coordinate }) => <Marker key={item.id} id={item.id} lngLat={coordinate} anchor="bottom" onPress={() => focusBlock({ item, coordinate })}>
+            </NativeMarker> : null}
+            {mapBlocks.map(({ item, coordinate }) => <NativeMarker key={item.id} id={item.id} lngLat={coordinate} anchor="bottom" onPress={() => focusBlock({ item, coordinate })}>
               <View style={[styles.blockMarker, { backgroundColor: markerColor(item.status) }]}>
                 <MapPinned color="#FFFFFF" size={16} />
               </View>
-            </Marker>)}
-          </MapLibreView>
+            </NativeMarker>)}
+          </NativeMap>
           <View style={styles.mapControls}>
             <Pressable accessibilityLabel="Use my location" accessibilityRole="button" disabled={locationState === "loading"} onPress={focusDevice} style={styles.mapControl}>
               <LocateFixed color={colors.primary} size={18} />
@@ -232,6 +243,14 @@ function MapConfigurationState() {
     <MapPinned color={colors.primary} size={28} />
     <Text style={styles.mapMessageTitle}>Peta belum dikonfigurasi</Text>
     <Text style={styles.mapMessageText}>Tambahkan EXPO_PUBLIC_MAPTILER_API_KEY sebelum membuat build aplikasi.</Text>
+  </View>;
+}
+
+function ExpoGoMapState() {
+  return <View style={[styles.map, styles.mapMessage]}>
+    <MapPinned color={colors.primary} size={28} />
+    <Text style={styles.mapMessageTitle}>Peta tersedia di build aplikasi</Text>
+    <Text style={styles.mapMessageText}>Expo Go tidak membawa modul peta native. Gunakan APK development/EAS untuk menguji peta interaktif.</Text>
   </View>;
 }
 

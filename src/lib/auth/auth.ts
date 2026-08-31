@@ -64,6 +64,6 @@ export function createAuth() {
         });
       },
     },
-    plugins: [nextCookies(), bearer()],
+    plugins: [bearer(), nextCookies()],
   });
 }

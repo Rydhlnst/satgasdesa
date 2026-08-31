@@ -52,4 +52,20 @@ describe("mobile API error responses", () => {
     expect(response.status).toBe(400);
     expect(await json(response)).toMatchObject({ error: "VALIDATION_FAILED", message: "Pembayaran bulanan hanya dapat dicatat dari tanggal 1 sampai 10 setiap bulan." });
   });
+
+  it("does not report a configured due amount mismatch as a server failure", async () => {
+    const response = apiErrorResponse(new Error("The configured monthly due is Rp10.000.000."));
+    expect(response.status).toBe(400);
+    expect(await json(response)).toMatchObject({ error: "VALIDATION_FAILED", message: "Jumlah iuran tidak sesuai dengan pengaturan keuangan yang berlaku." });
+  });
+
+  it("classifies database connection failures without exposing driver details", async () => {
+    const response = apiErrorResponse(new Error("connect ECONNREFUSED 127.0.0.1:3306"));
+    const body = await json(response);
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe("SERVICE_UNAVAILABLE");
+    expect(body.message).toContain("Database aplikasi tidak tersedia");
+    expect(JSON.stringify(body)).not.toContain("ECONNREFUSED");
+  });
 });

@@ -13,7 +13,7 @@ type AppTextInputProps = TextInputProps & { currency?: boolean };
 export const TextInput = forwardRef<React.ElementRef<typeof InputField>, AppTextInputProps>(function GluestackTextInput({ style, currency, ...props }, ref) {
   if (props.placeholder?.includes("YYYY-MM-DD")) return <CalendarTextInput {...props} style={style} />;
   if (currency) return <CurrencyTextInput {...props} style={style} ref={ref} />;
-  return <Input style={[{ backgroundColor: colors.surface, borderColor: colors.border }, style]} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField ref={ref} {...props} className={props.multiline ? "min-h-28 py-3" : "py-3"} /></Input>;
+  return <Input style={[{ backgroundColor: colors.surface, borderColor: colors.border }, style]} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField ref={ref} {...props} className={props.multiline ? "min-h-24 py-3" : "py-3"} /></Input>;
 });
 
 TextInput.displayName = "TextInput";
@@ -26,7 +26,7 @@ function CalendarTextInput({ style, ...props }: TextInputProps) {
 
 const CurrencyTextInput = forwardRef<React.ElementRef<typeof InputField>, TextInputProps>(function CurrencyTextInput({ style, value, onChangeText, onFocus, onBlur, ...props }, ref) {
   const [focused, setFocused] = useState(false);
-  return <Input style={[{ backgroundColor: colors.surface, borderColor: colors.border }, style]} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField ref={ref} {...props} keyboardType={props.keyboardType ?? "numeric"} value={focused ? String(value ?? "") : formatMoneyInput(value as string | number | null | undefined)} onChangeText={(next) => onChangeText?.(parseMoneyInput(next))} onFocus={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(true); onFocus?.(event); }} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); onBlur?.(event); }} className={props.multiline ? "min-h-28 py-3" : "py-3"} /></Input>;
+  return <Input style={[{ backgroundColor: colors.surface, borderColor: colors.border }, style]} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField ref={ref} {...props} keyboardType={props.keyboardType ?? "numeric"} value={focused ? String(value ?? "") : formatMoneyInput(value as string | number | null | undefined)} onChangeText={(next) => onChangeText?.(parseMoneyInput(next))} onFocus={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(true); onFocus?.(event); }} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); onBlur?.(event); }} className={props.multiline ? "min-h-24 py-3" : "py-3"} /></Input>;
 });
 
 const styles = StyleSheet.create({ input: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 8, minHeight: 48, paddingHorizontal: 12 }, text: { color: colors.textStrong, flex: 1, fontSize: 12 }, placeholder: { color: colors.textSubtle } });

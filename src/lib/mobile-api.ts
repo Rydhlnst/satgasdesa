@@ -22,6 +22,7 @@ function localizeApiMessage(message: string) {
     [/^Only confirmed payments can be reversed\.?$/i, "Hanya pembayaran yang sudah dikonfirmasi yang dapat dibatalkan."],
     [/^Only approved payment transactions can be reversed\.?$/i, "Hanya transaksi pembayaran yang sudah disahkan yang dapat dibatalkan."],
     [/^Monthly payments can only be recorded from day 1 through day 10 of the month\.?$/i, "Pembayaran bulanan hanya dapat dicatat dari tanggal 1 sampai 10 setiap bulan."],
+    [/^The configured (?:monthly|road-entry) due is Rp[\d.,]+\.?$/i, "Jumlah iuran tidak sesuai dengan pengaturan keuangan yang berlaku."],
     [/^Due payment was not found\.?$/i, "Pembayaran iuran tidak ditemukan."],
     [/^Due was not found\.?$/i, "Iuran tidak ditemukan."],
     [/^Payment cash transaction was not found\.?$/i, "Transaksi kas pembayaran tidak ditemukan."],
@@ -129,6 +130,7 @@ export function apiErrorResponse(error: unknown) {
     : undefined;
   const rawMessage = validationMessage || (error instanceof Error ? error.message : "Data yang diminta tidak dapat dimuat.");
   const message = localizeApiMessage(rawMessage);
+  const databaseUnavailable = /ECONNREFUSED|ETIMEDOUT|PROTOCOL_CONNECTION_LOST|connection.*(?:database|mysql)|(?:database|mysql).*connection|cannot connect to/i.test(rawMessage);
   const explicitStatus = typeof error === "object" && error && "status" in error && typeof error.status === "number" ? error.status : undefined;
   const inferredStatus = error instanceof ZodError || error instanceof SyntaxError
     ? 400
@@ -136,16 +138,18 @@ export function apiErrorResponse(error: unknown) {
       ? 409
       : /not found/i.test(rawMessage)
         ? 404
-      : /check the|invalid |required\.|must use|unsupported|outside the permitted|must be supplied|monthly payments can only|bukti pembayaran wajib|iuran .* ditetapkan|\b(wajib|harus|hanya dapat|cannot|requires?)\b/i.test(rawMessage)
+      : /check the|invalid |required\.|must use|unsupported|outside the permitted|must be supplied|monthly payments can only|bukti pembayaran wajib|iuran .* ditetapkan|the configured (?:monthly|road-entry) due is|\b(wajib|harus|hanya dapat|cannot|requires?)\b/i.test(rawMessage)
           ? 400
           : /storage is not configured|storage is not fully configured/i.test(message)
             ? 503
+            : databaseUnavailable
+              ? 503
             : 500;
   const status = [400, 401, 403, 404, 409, 422, 429, 500, 503].includes(explicitStatus ?? -1) ? explicitStatus! : inferredStatus;
   const codeByStatus: Record<number, string> = { 400: "VALIDATION_FAILED", 401: "UNAUTHORIZED", 403: "FORBIDDEN", 404: "NOT_FOUND", 409: "CONFLICT", 422: "VALIDATION_FAILED", 429: "RATE_LIMITED", 500: "REQUEST_FAILED", 503: "SERVICE_UNAVAILABLE" };
   const candidateCode = typeof error === "object" && error && "code" in error && typeof error.code === "string" ? error.code : "";
   const code = /^[A-Z][A-Z0-9_]{1,63}$/.test(candidateCode) ? candidateCode : codeByStatus[status] ?? "REQUEST_FAILED";
-  const safeMessages: Record<number, string> = { 400: "Data permintaan tidak valid.", 401: "Sesi Anda tidak valid atau sudah berakhir.", 403: "Anda tidak memiliki izin untuk melakukan tindakan ini.", 404: "Rute API atau data yang diminta tidak ditemukan. Pastikan Coolify sudah menerapkan commit GitHub terbaru dan URL API mobile sudah benar.", 409: "Permintaan bertentangan dengan data terbaru.", 422: "Permintaan tidak dapat diproses.", 429: "Terlalu banyak permintaan. Coba lagi nanti.", 500: "Server gagal memproses permintaan. Periksa log Coolify, koneksi database, dan migrasi.", 503: "Layanan belum siap. Coolify mungkin sedang melakukan redeploy, migrasi masih berjalan, atau database tidak tersedia." };
+  const safeMessages: Record<number, string> = { 400: "Data permintaan tidak valid.", 401: "Sesi Anda tidak valid atau sudah berakhir.", 403: "Anda tidak memiliki izin untuk melakukan tindakan ini.", 404: "Rute API atau data yang diminta tidak ditemukan. Pastikan Coolify sudah menerapkan commit GitHub terbaru dan URL API mobile sudah benar.", 409: "Permintaan bertentangan dengan data terbaru.", 422: "Permintaan tidak dapat diproses.", 429: "Terlalu banyak permintaan. Coba lagi nanti.", 500: "Server gagal memproses permintaan. Periksa log Coolify, koneksi database, dan migrasi.", 503: databaseUnavailable ? "Database aplikasi tidak tersedia. Pastikan layanan database dan migrasi sudah siap, lalu coba lagi." : "Layanan belum siap. Coolify mungkin sedang melakukan redeploy, migrasi masih berjalan, atau database tidak tersedia." };
   const diagnostics = getApiDiagnostics();
   const safeDomainMessage = error instanceof Error && !(error instanceof SyntaxError) && !(error instanceof ZodError) && message.length <= 500 && !/(mysql|sql|password|secret|ER_[A-Z_]+|ECONN|ENOENT|stack trace)/i.test(message);
   const response = { error: code, message: validationMessage || (status < 500 && safeDomainMessage ? message : safeMessages[status] ?? safeMessages[500]), diagnostics } as { error: string; message: string; fields?: Record<string, string>; diagnostics: ApiDiagnostics };

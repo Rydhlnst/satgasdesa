@@ -84,6 +84,12 @@ export async function getDues(status?: "UNPAID" | "PARTIAL" | "PAID") {
     : query.orderBy(desc(due.dueDate)).limit(100);
 }
 
+export async function getDueCreationConfig() {
+  await requirePermission(PERMISSIONS.DUES_MANAGE);
+  const defaults = await getFinanceDefaults();
+  return { monthlyDueAmount: defaults.monthlyDueAmount, monthlyDueDay: defaults.monthlyDueDay };
+}
+
 export async function getDuesPage(input?: unknown) {
   await requirePermission(PERMISSIONS.DUES_READ);
   const filters = duesFiltersSchema.parse(input ?? {});

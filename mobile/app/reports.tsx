@@ -63,7 +63,7 @@ export default function Reports() {
   }
 
   if (!role) return null;
-  return <><Header role={role} title="Laporan" subtitle="Ringkasan operasional dan keuangan" /><Screen>{query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Laporan tidak dapat dimuat." onRetry={() => void query.refetch()} /> : <>
+  return <><Header role={role} title="Laporan" subtitle="Ringkasan operasional dan keuangan" /><Screen>{query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Laporan tidak dapat dimuat." error={query.error} onRetry={() => void query.refetch()} /> : <>
     <View style={styles.hero}>
       <View style={styles.heroIcon}><CalendarRange color="#FFFFFF" size={22} strokeWidth={1.8} /></View>
       <View style={styles.heroCopy}><Text style={styles.heroEyebrow}>LAPORAN TERPADU</Text><Text style={styles.heroTitle}>Ringkasan kinerja</Text><Text style={styles.heroDate}>{range.dateFrom} — {range.dateTo}</Text></View>

@@ -1,22 +1,27 @@
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
 
 import { getActiveDateRange } from "../date-range";
 import { createClientId } from "./id";
+import { PRODUCTION_API_URL, resolveMobileApiUrl } from "./api-config";
 import type { Block, BlockDetails, DashboardResponse, FieldAssignmentItem, NotificationItem, Profile, Session } from "../types";
 
 const TOKEN_KEY = "satgas.mobile.session-token";
-const DEFAULT_API_URL = "https://satgas.beres.io";
 const REQUEST_TIMEOUT_MS = 15_000;
 const isProductionEasBuild = Boolean(process.env.EAS_BUILD && ["production-apk", "production"].includes(process.env.EAS_BUILD_PROFILE ?? ""));
-const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
-const baseUrl = (isProductionEasBuild ? DEFAULT_API_URL : (configuredApiUrl || DEFAULT_API_URL)).replace(/\/+$/, "");
-const authOrigin = (isProductionEasBuild ? DEFAULT_API_URL : (process.env.EXPO_PUBLIC_AUTH_ORIGIN?.trim() || baseUrl)).replace(/\/+$/, "");
+const configuredApiUrl = typeof Constants.expoConfig?.extra?.apiUrl === "string"
+  ? Constants.expoConfig.extra.apiUrl
+  : PRODUCTION_API_URL;
+const baseUrl = resolveMobileApiUrl({ isProductionBuild: isProductionEasBuild, configuredApiUrl });
+const authOrigin = baseUrl === PRODUCTION_API_URL
+  ? PRODUCTION_API_URL
+  : resolveMobileApiUrl({ isProductionBuild: isProductionEasBuild, configuredApiUrl: process.env.EXPO_PUBLIC_AUTH_ORIGIN?.trim() || baseUrl });
 
 type ErrorDiagnostics = { requestId?: string; appRevision?: string };
 type ErrorBody = { error?: string; message?: string; fields?: Record<string, string>; diagnostics?: ErrorDiagnostics };
 type AuthResponse = ErrorBody & { token?: string | null };
 
-type MobileApiError = Error & { status?: number; code?: string; fields?: Record<string, string>; requestId?: string; appRevision?: string };
+export type MobileApiError = Error & { status?: number; code?: string; fields?: Record<string, string>; requestId?: string; appRevision?: string; userMessage?: string };
 
 async function readJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -32,17 +37,19 @@ function diagnosticSuffix(response: Response, body: ErrorBody | null, clientRequ
 
 function apiError(response: Response, body: ErrorBody | null, clientRequestId?: string): MobileApiError {
   if (__DEV__) console.warn("[mobile-api]", response.status, response.url, body?.error ?? "UNKNOWN_ERROR");
-  const message = (response.status === 404
+  const fallbackMessage = response.status === 404
     ? "API route atau data tidak ditemukan. Kemungkinan aplikasi mobile lebih baru daripada server, Coolify belum redeploy dari commit GitHub terbaru, atau URL API salah."
     : response.status === 503
       ? "Server belum siap. Coolify mungkin sedang redeploy, migrasi database belum selesai, atau database tidak tersedia."
       : response.status >= 500
         ? "Server gagal memproses permintaan. Periksa log Coolify, status database, dan migrasi deployment terbaru."
-        : body?.message) ?? (response.status === 401
-    ? "Sesi Anda telah berakhir."
-    : "Tidak dapat terhubung ke server.") + ` ${diagnosticSuffix(response, body, clientRequestId)}`;
+        : response.status === 401
+          ? "Sesi Anda telah berakhir."
+          : "Tidak dapat terhubung ke server.";
+  const userMessage = body?.message?.trim() || fallbackMessage;
+  const message = `${userMessage} ${diagnosticSuffix(response, body, clientRequestId)}`;
   const error = new Error(message) as MobileApiError;
-  Object.assign(error, { status: response.status, code: body?.error, fields: body?.fields, requestId: response.headers.get("x-request-id") || body?.diagnostics?.requestId || clientRequestId, appRevision: response.headers.get("x-app-revision") || body?.diagnostics?.appRevision });
+  Object.assign(error, { status: response.status, code: body?.error, fields: body?.fields, userMessage, requestId: response.headers.get("x-request-id") || body?.diagnostics?.requestId || clientRequestId, appRevision: response.headers.get("x-app-revision") || body?.diagnostics?.appRevision });
   return error;
 }
 
@@ -63,6 +70,9 @@ async function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit, cl
 export async function getToken() { return SecureStore.getItemAsync(TOKEN_KEY); }
 export async function saveToken(token: string) { return SecureStore.setItemAsync(TOKEN_KEY, token); }
 export async function clearToken() { return SecureStore.deleteItemAsync(TOKEN_KEY); }
+
+export function getMobileApiBaseUrl() { return baseUrl; }
+export { PRODUCTION_API_URL };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken();
@@ -197,6 +207,7 @@ export async function getApiHealth(): Promise<ApiHealth> {
 
 export function getSession() { return request<Session>("/api/mobile/session"); }
 export function getProfile() { return request<{ profile: Profile }>("/api/mobile/profile"); }
+export function getDueCreationConfig() { return request<{ monthlyDueAmount: number; monthlyDueDay: number }>("/api/mobile/dues/config"); }
 export function updateProfile(input: Pick<Profile, "name" | "phone" | "image">) { return request<{ profile: Profile }>("/api/mobile/profile", { method: "PATCH", body: JSON.stringify(input) }); }
 export async function changePassword(input: { currentPassword: string; newPassword: string; revokeOtherSessions?: boolean }) {
   const result = await request<{ token?: string | null }>("/api/auth/change-password", { method: "POST", body: JSON.stringify(input) });

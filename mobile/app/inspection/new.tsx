@@ -1,3 +1,4 @@
+import { showActionError } from "../../src/lib/feedback";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
@@ -43,7 +44,7 @@ export default function NewInspection() {
       setCapturedLocation(next);
       return next;
     } catch (error) {
-      Alert.alert("Lokasi tidak tersedia", error instanceof Error ? error.message : "Lokasi perangkat belum dapat dibaca.");
+      showActionError(error, "Lokasi perangkat belum dapat dibaca.");
       throw error;
     } finally { setLocationLoading(false); }
   }
@@ -97,7 +98,7 @@ export default function NewInspection() {
       }
     } catch (error) {
       await saveInspectionDraftLocally(values);
-      Alert.alert("Draf tersimpan di perangkat", error instanceof Error ? error.message : "Data belum dapat diproses. Coba lagi saat lokasi dan koneksi tersedia.");
+      showActionError(error, "Data belum dapat diproses. Coba lagi saat lokasi dan koneksi tersedia.");
     } finally {
       setSaving(false);
     }

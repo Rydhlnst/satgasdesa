@@ -24,7 +24,7 @@ export function BackLink({ label = "Kembali", onPress }: { label?: string; onPre
 const styles = StyleSheet.create({
   dropdown: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 48, paddingHorizontal: spacing.md },
   dropdownCopy: { flex: 1, minWidth: 0 },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, minHeight: 320, padding: spacing.lg, paddingBottom: spacing.xxl },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, minHeight: 280, padding: spacing.lg, paddingBottom: spacing.xxl },
   back: { alignItems: "center", flexDirection: "row", gap: 6, minHeight: 44, paddingVertical: 4 },
   backLabel: { color: colors.primary, fontSize: typography.caption, fontWeight: "800" },
   pressed: { opacity: 0.72 },

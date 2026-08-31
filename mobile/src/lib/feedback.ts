@@ -6,6 +6,15 @@ export type FeedbackEvent =
   | { kind: "toast"; tone: FeedbackTone; title: string; message: string }
   | { kind: "confirm"; title: string; message: string; buttons: FeedbackButton[] };
 
+export type UserFacingError = {
+  title: string;
+  reason: string;
+  nextStep: string;
+  requestId?: string;
+  appRevision?: string;
+  fieldErrors?: Record<string, string>;
+};
+
 const listeners = new Set<(event: FeedbackEvent) => void>();
 
 export function subscribeFeedback(listener: (event: FeedbackEvent) => void) {
@@ -47,6 +56,8 @@ const messageTranslations: Array<[RegExp, string]> = [
   [/^Too many requests\. Try again later\.?$/i, "Terlalu banyak permintaan. Coba lagi nanti."],
   [/^The server failed to process the request\.?$/i, "Server gagal memproses permintaan."],
   [/^The service is not ready\.?$/i, "Layanan belum siap."],
+  [/^The application database is unavailable\.?$/i, "Database aplikasi tidak tersedia."],
+  [/^The storage service is not configured\.?$/i, "Penyimpanan bukti belum dikonfigurasi."],
 ];
 
 export function localizeUserMessage(message: string) {
@@ -71,6 +82,60 @@ export function errorMessage(error: unknown, fallback: string) {
   return localizeUserMessage(message);
 }
 
+function errorDetails(error: unknown) {
+  if (typeof error !== "object" || error === null) return {};
+  const value = error as { status?: unknown; code?: unknown; requestId?: unknown; appRevision?: unknown; fields?: unknown; userMessage?: unknown };
+  const source = error instanceof Error ? error.message : "";
+  const diagnostic = /\bID\s+([^\s·.]+).*?revisi server\s+([^\s.]+)\.?/i.exec(source);
+  return {
+    status: typeof value.status === "number" ? value.status : undefined,
+    code: typeof value.code === "string" ? value.code : undefined,
+    requestId: typeof value.requestId === "string" ? value.requestId : diagnostic?.[1],
+    appRevision: typeof value.appRevision === "string" ? value.appRevision : diagnostic?.[2],
+    fields: typeof value.fields === "object" && value.fields !== null ? value.fields as Record<string, string> : undefined,
+    userMessage: typeof value.userMessage === "string" ? value.userMessage : undefined,
+  };
+}
+
+function stripTechnicalDetail(message: string) {
+  return message.split(/\s+Detail teknis:/i, 1)[0].trim();
+}
+
+export function describeError(error: unknown, fallback: string): UserFacingError {
+  const details = errorDetails(error);
+  const raw = details.userMessage || (error instanceof Error ? error.message : "") || fallback;
+  const reason = localizeUserMessage(stripTechnicalDetail(raw));
+  const rawStatus = details.status;
+  const rawCode = details.code;
+  const status = rawStatus ?? (rawCode === "UNAUTHORIZED" ? 401 : rawCode === "FORBIDDEN" ? 403 : rawCode === "NOT_FOUND" ? 404 : rawCode === "CONFLICT" ? 409 : rawCode === "VALIDATION_FAILED" ? 400 : rawCode === "SERVICE_UNAVAILABLE" ? 503 : /sesi .*berakhir|sesi .*tidak valid/i.test(reason) ? 401 : /tidak memiliki izin|akses/i.test(reason) ? 403 : /tidak ditemukan/i.test(reason) ? 404 : /data berubah|bertentangan/i.test(reason) ? 409 : /wajib|tidak valid|tidak sesuai|hanya dapat|periksa data/i.test(reason) ? 400 : /database|layanan belum siap|server gagal|tidak merespons|tidak dapat terhubung/i.test(reason) ? 503 : undefined);
+  const code = rawCode;
+  const title = status === 401 || code === "UNAUTHORIZED"
+    ? "Sesi berakhir"
+    : status === 403 || code === "FORBIDDEN"
+      ? "Akses tidak tersedia"
+      : status === 404 || code === "NOT_FOUND"
+        ? "Data tidak ditemukan"
+        : status === 409 || code === "CONFLICT"
+          ? "Data berubah"
+          : status === 400 || code === "VALIDATION_FAILED"
+            ? "Periksa data"
+          : status === 503 || code === "SERVICE_UNAVAILABLE"
+            ? "Layanan belum siap"
+            : "Terjadi masalah";
+  const nextStep = status === 401 || code === "UNAUTHORIZED"
+    ? "Masuk kembali untuk melanjutkan."
+    : status === 403 || code === "FORBIDDEN"
+      ? "Hubungi pengelola jika Anda membutuhkan akses ini."
+      : status === 404 || code === "NOT_FOUND"
+        ? "Muat ulang data dan pastikan deployment server sudah terbaru."
+        : status === 409 || code === "CONFLICT"
+          ? "Muat ulang data terbaru, lalu ulangi tindakan."
+          : status === 400 || code === "VALIDATION_FAILED"
+            ? "Periksa data yang ditandai lalu coba lagi."
+            : "Periksa koneksi dan status layanan, lalu coba lagi.";
+  return { title, reason, nextStep, requestId: details.requestId, appRevision: details.appRevision, fieldErrors: details.fields };
+}
+
 export function isRetryableNetworkError(error: unknown) {
   if (typeof error === "object" && error !== null && "status" in error && typeof error.status === "number") return false;
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -78,7 +143,9 @@ export function isRetryableNetworkError(error: unknown) {
 }
 
 export function showActionError(error: unknown, fallback = "Periksa data dan koneksi lalu coba lagi.") {
-  emit({ kind: "toast", tone: "error", title: "Aksi gagal", message: errorMessage(error, fallback) });
+  const details = describeError(error, fallback);
+  const diagnostic = details.requestId ? ` ID dukungan: ${details.requestId}.` : "";
+  emit({ kind: "toast", tone: "error", title: details.title === "Terjadi masalah" ? "Aksi gagal" : details.title, message: `${details.reason} ${details.nextStep}${diagnostic}` });
 }
 
 export function showActionSuccess(message: string, title = "Berhasil") {
@@ -97,7 +164,11 @@ export const AppAlert = {
     const localizedButtons = buttons?.map((button) => ({ ...button, text: localizeUserMessage(button.text) }));
     if (!buttons?.length) {
       const tone: FeedbackTone = /gagal|tidak dapat|error|invalid|tidak tersedia|periksa|wajib|diperlukan|izin|tidak valid/i.test(`${localizedTitle} ${localizedMessage}`) ? "error" : "success";
-      emit({ kind: "toast", tone, title: localizedTitle, message: localizedMessage });
+      if (tone === "error") {
+        const details = describeError(new Error(localizedMessage), localizedMessage);
+        const diagnostic = details.requestId ? ` ID dukungan: ${details.requestId}.` : "";
+        emit({ kind: "toast", tone, title: details.title === "Terjadi masalah" ? localizedTitle : details.title, message: `${details.reason} ${details.nextStep}${diagnostic}` });
+      } else emit({ kind: "toast", tone, title: localizedTitle, message: localizedMessage });
       return;
     }
     const hasConfirmation = localizedButtons!.length > 1 || localizedButtons!.some((button) => button.style === "destructive" || button.style === "cancel" || /batal|hapus/i.test(button.text));

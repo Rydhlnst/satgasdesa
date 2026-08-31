@@ -1,3 +1,4 @@
+import { showActionError } from "../../../src/lib/feedback";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -46,7 +47,7 @@ export default function EditBlock() {
       updateField("latitude", String(location.coords.latitude));
       updateField("longitude", String(location.coords.longitude));
     } catch (error) {
-      Alert.alert("Lokasi tidak tersedia", `${error instanceof Error ? error.message : "Lokasi belum dapat dibaca."} Anda juga dapat mengisi latitude dan longitude secara manual.`);
+      showActionError(error, "Lokasi belum dapat dibaca. Anda juga dapat mengisi latitude dan longitude secara manual.");
     }
   }
 
@@ -67,7 +68,7 @@ export default function EditBlock() {
       await client.invalidateQueries({ queryKey: ["blocks"] });
       router.back();
     } catch (error) {
-      Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Periksa data blok.");
+      showActionError(error, "Periksa data blok.");
     } finally { setSaving(false); }
   }
 

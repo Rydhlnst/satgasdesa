@@ -1,3 +1,4 @@
+import { showActionError } from "../src/lib/feedback";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -46,7 +47,7 @@ export default function BudgetCategories() {
       if (categoryId) await updateBudgetCategory({ id: categoryId, ...parsed.data, isActive: true });
       else await createBudgetCategory(parsed.data);
       resetCategory(); await refresh();
-    } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
+    } catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); }
   }
 
   async function saveSubcategory() {
@@ -57,21 +58,21 @@ export default function BudgetCategories() {
       if (subcategoryId) await updateBudgetSubcategory({ id: subcategoryId, ...parsed.data, isActive: true });
       else await createBudgetSubcategory(parsed.data);
       resetSubcategory(); await refresh();
-    } catch (error) { Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
+    } catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); }
   }
 
   async function toggleCategory(item: Category) {
     if (saving) return;
     setSaving(true);
     try { await updateBudgetCategory({ id: text(item, "id"), name: text(item, "name"), sortOrder: Number(item.sortOrder ?? 0), isActive: Number(item.isActive) !== 1 }); await refresh(); }
-    catch (error) { Alert.alert("Tidak dapat memperbarui", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
+    catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); }
   }
 
   async function toggleSubcategory(item: Record<string, unknown>) {
     if (saving) return;
     setSaving(true);
     try { await updateBudgetSubcategory({ id: text(item, "id"), categoryId: text(item, "categoryId"), name: text(item, "name"), sortOrder: Number(item.sortOrder ?? 0), isActive: Number(item.isActive) !== 1 }); await refresh(); }
-    catch (error) { Alert.alert("Tidak dapat memperbarui", error instanceof Error ? error.message : "Coba lagi."); } finally { setSaving(false); }
+    catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); }
   }
 
   return <><Header role={role} title="Kategori Anggaran" subtitle="Master kategori dan subkategori alokasi" /><Screen>
@@ -89,7 +90,7 @@ export default function BudgetCategories() {
       <SubmitButton label={subcategoryId ? "Simpan Subkategori" : "Tambah Subkategori"} loading={saving} onPress={() => void saveSubcategory()} />
       {subcategoryId ? <Button accessibilityLabel="Batal ubah subkategori" onPress={resetSubcategory} variant="outline" className="min-h-11 self-start rounded-xl border-[#D9E1EE] bg-white px-3"><ButtonText className="text-xs font-extrabold text-[#475569]">Batal ubah subkategori</ButtonText></Button> : null}
     </View></> : null}
-    {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Kategori anggaran tidak dapat dimuat." onRetry={() => query.refetch()} /> : categories.length ? categories.map((item) => <View key={text(item, "id")} style={styles.category}>
+    {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Kategori anggaran tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /> : categories.length ? categories.map((item) => <View key={text(item, "id")} style={styles.category}>
       <View style={styles.categoryRow}>
         <Pressable disabled={!canManage} onPress={() => editCategory(item)} style={styles.categoryMain}><View><Text style={styles.name}>{text(item, "name")}</Text><Text style={styles.meta}>Urutan {text(item, "sortOrder", "0")} · {Number(item.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
         {canManage ? <Button accessibilityLabel={Number(item.isActive) === 1 ? "Nonaktifkan kategori" : "Aktifkan kategori"} onPress={() => void toggleCategory(item)} variant="outline" className="min-h-11 self-start rounded-xl border-[#D9E1EE] bg-white px-3"><ButtonText className="text-xs font-extrabold text-[#1454C4]">{Number(item.isActive) === 1 ? "Nonaktifkan" : "Aktifkan"}</ButtonText></Button> : null}

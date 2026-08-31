@@ -1,11 +1,16 @@
 .git
 .next
 node_modules
+**/node_modules
 .pnpm-local
+**/.pnpm-local
 .expo
+**/.expo
 .playwright-cli
 .playwright-mcp
 .docker-local
+.eas-cli-runtime
+mobile/.expo-qa-android
 output
 coverage
 test-results

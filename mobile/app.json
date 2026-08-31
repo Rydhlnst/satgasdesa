@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SATGAS DESA SEJOLI",
-    "slug": "satgas-desa-sejoli",
+    "slug": "deezmiaw-project",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "satgasdesa",
@@ -48,15 +48,13 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "469e567b-1947-48ce-9c44-82a7275b7c80"
+        "projectId": "e67634b8-e958-4d6e-911b-699ab1bb864f"
       }
     },
-    "owner": "riyannas",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "owner": "deezmiaws-team",
+    "runtimeVersion": "0.1.0",
     "updates": {
-      "url": "https://u.expo.dev/469e567b-1947-48ce-9c44-82a7275b7c80"
+      "url": "https://u.expo.dev/e67634b8-e958-4d6e-911b-699ab1bb864f"
     },
     "ios": {}
   }

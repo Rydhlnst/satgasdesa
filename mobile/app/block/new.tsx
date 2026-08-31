@@ -1,3 +1,4 @@
+import { showActionError } from "../../src/lib/feedback";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import type { ImagePickerAsset } from "expo-image-picker";
@@ -45,7 +46,7 @@ export default function NewBlock() {
       form.setValue("longitude", location.coords.longitude, { shouldDirty: true, shouldValidate: true });
       Alert.alert("Lokasi berhasil", "Latitude dan longitude sudah diisi dari lokasi perangkat.");
     } catch (error) {
-      Alert.alert("Lokasi tidak tersedia", `${error instanceof Error ? error.message : "Lokasi belum dapat dibaca."} Anda juga dapat mengisi latitude dan longitude secara manual.`);
+      showActionError(error, "Lokasi belum dapat dibaca. Anda juga dapat mengisi latitude dan longitude secara manual.");
     }
   }
 
@@ -62,7 +63,7 @@ export default function NewBlock() {
       }
       Alert.alert("Berhasil", "Blok berhasil dibuat.", [{ text: "OK", onPress: () => router.back() }]);
     } catch (error) {
-      Alert.alert("Tidak dapat menyimpan", error instanceof Error ? error.message : "Periksa data dan coba lagi.");
+      showActionError(error, "Periksa data dan coba lagi.");
     } finally {
       setSaving(false);
     }
