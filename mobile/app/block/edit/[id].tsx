@@ -38,7 +38,7 @@ export default function EditBlock() {
   }
 
   function field(key: string, label: string, multiline = false, keyboardType: "default" | "numeric" = "default") {
-    return <View style={styles.field} key={key}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} keyboardType={keyboardType} value={values[key] ?? ""} onChangeText={(value) => updateField(key, value)} multiline={multiline} placeholder={multiline ? "Opsional" : undefined} placeholderTextColor={colors.textMuted} style={[styles.input, multiline && styles.multiline, errors[key] ? styles.invalid : undefined]} /><ErrorText value={errors[key]} /></View>;
+    return <View style={styles.field} key={key}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} keyboardType={keyboardType} value={values[key] ?? ""} onChangeText={(value) => updateField(key, value)} multiline={multiline} placeholder={multiline ? `Tambahkan ${label.toLowerCase()} (opsional)` : `Masukkan ${label.toLowerCase()}`} placeholderTextColor={colors.textMuted} style={[styles.input, multiline && styles.multiline, errors[key] ? styles.invalid : undefined]} /><ErrorText value={errors[key]} /></View>;
   }
 
   async function captureLocation() {

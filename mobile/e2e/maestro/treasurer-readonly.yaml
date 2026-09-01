@@ -1,0 +1,34 @@
+appId: id.satgas.desasejoli
+name: Treasurer read-only journey
+tags:
+  - role-treasurer
+  - read-only
+env:
+  TREASURER_EMAIL: ${TREASURER_EMAIL}
+  TREASURER_PASSWORD: ${TREASURER_PASSWORD}
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Masuk"
+    timeout: 30000
+- tapOn: "nama@contoh.id"
+- inputText: ${TREASURER_EMAIL}
+- tapOn: "Kata sandi"
+- inputText: ${TREASURER_PASSWORD}
+- tapOn:
+    point: "50%, 68%"
+- extendedWaitUntil:
+    visible: "Beranda Keuangan"
+    timeout: 15000
+- assertVisible: "SALDO KAS AKTUAL"
+- tapOn: "Keuangan"
+- extendedWaitUntil:
+    visible: "Keuangan – Iuran"
+    timeout: 10000
+- assertVisible: "Pilih opsi"
+- tapOn: "Laporan"
+- extendedWaitUntil:
+    visible: "Laporan"
+    timeout: 10000
+- takeScreenshot: treasurer-readonly

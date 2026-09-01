@@ -110,11 +110,11 @@ const styles = StyleSheet.create({
 });
 
 const cardSurfaceStyles = {
-  blue: { backgroundColor: colors.cardBlue, borderColor: colors.cardBlueBorder },
-  green: { backgroundColor: colors.cardGreen, borderColor: colors.cardGreenBorder },
-  orange: { backgroundColor: colors.cardOrange, borderColor: colors.cardOrangeBorder },
-  red: { backgroundColor: colors.cardRed, borderColor: colors.cardRedBorder },
-  gray: { backgroundColor: colors.cardGray, borderColor: colors.border },
+  blue: { backgroundColor: colors.surface, borderColor: colors.cardBlueBorder },
+  green: { backgroundColor: colors.surface, borderColor: colors.cardGreenBorder },
+  orange: { backgroundColor: colors.surface, borderColor: colors.cardOrangeBorder },
+  red: { backgroundColor: colors.surface, borderColor: colors.cardRedBorder },
+  gray: { backgroundColor: colors.surface, borderColor: colors.border },
 } as const;
 
 const cardIconStyles = {

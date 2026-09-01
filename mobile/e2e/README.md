@@ -1,7 +1,7 @@
 # Mobile E2E tests
 
 These Maestro flows target the installed Android APK and use read-only journeys.
-They do not create, edit, upload, approve, or delete production records.
+They do not create, edit, upload, approve, or delete production records. Run workflow mutations only against the dedicated staging target described in [QA-MATRIX.md](QA-MATRIX.md).
 
 ## Prerequisites
 
@@ -19,6 +19,8 @@ $env:PIMPINAN_EMAIL = "..."
 $env:PIMPINAN_PASSWORD = "..."
 $env:FIELD_EMAIL = "..."
 $env:FIELD_PASSWORD = "..."
+$env:TREASURER_EMAIL = "..."
+$env:TREASURER_PASSWORD = "..."
 
 maestro test `
   --format junit `

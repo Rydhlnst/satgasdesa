@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Controller, useWatch, type Control, type FieldErrors, type FieldValues, type UseFormRegister } from "react-hook-form";
 import { CalendarDays, ChevronDown, Crosshair, Eye, EyeOff, MapPin } from "lucide-react-native";
-import { Keyboard, Pressable, StyleSheet, Text, View, type NativeSyntheticEvent, type TextInputFocusEventData } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, View, useWindowDimensions, type NativeSyntheticEvent, type TextInputFocusEventData } from "react-native";
 
 import { Button, ButtonSpinner, ButtonText } from "./ui/button";
 import { FormControl, FormControlError, FormControlErrorText, FormControlHelper, FormControlHelperText, FormControlLabel, FormControlLabelText } from "./ui/form-control";
@@ -14,6 +14,17 @@ import { formatMoneyInput, parseMoneyInput } from "../lib/format";
 
 type KeyboardType = "default" | "numeric" | "phone-pad" | "email-address";
 export type SelectOption = { label: string; value: string };
+
+function inputPlaceholder({ label, placeholder, multiline, keyboardType, secureTextEntry, currency }: { label: string; placeholder?: string; multiline: boolean; keyboardType: KeyboardType; secureTextEntry: boolean; currency: boolean }) {
+  if (placeholder) return placeholder;
+  if (secureTextEntry) return label.toLowerCase().includes("baru") ? "Minimal 8 karakter" : "Masukkan kata sandi";
+  if (keyboardType === "email-address") return "nama@contoh.id";
+  if (keyboardType === "phone-pad") return "Contoh: 0812 3456 7890";
+  if (currency) return "Contoh: 100.000";
+  if (keyboardType === "numeric") return "Contoh: 0";
+  if (multiline) return `Tulis ${label.toLowerCase()} (opsional)`;
+  return `Masukkan ${label.toLowerCase()}`;
+}
 
 function errorMessage(value: unknown): string | undefined {
   if (!value) return undefined;
@@ -55,7 +66,8 @@ function UncontrolledRHFInputField<T extends FieldValues>({ name, label, registe
   const [visible, setVisible] = useState(false);
   const registered = register(name as never);
   const message = errorMessage(errors[name as keyof T]);
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 3 : 1} onBlur={registered.onBlur} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-24 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  const resolvedPlaceholder = inputPlaceholder({ label, placeholder, multiline, keyboardType, secureTextEntry, currency });
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 3 : 1} onBlur={registered.onBlur} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} placeholder={resolvedPlaceholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-24 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 function ControlledRHFInputField<T extends FieldValues>({ name, label, register, errors, multiline = false, keyboardType = "default", placeholder, secureTextEntry = false, required = false, helper, currency = false, control }: RHFInputProps<T> & { control: Control<T> }) {
@@ -65,7 +77,8 @@ function ControlledRHFInputField<T extends FieldValues>({ name, label, register,
   const watchedValue = useWatch({ control, name: name as never });
   const message = errorMessage(errors[name as keyof T]);
   const displayValue = currency ? (focused ? String(watchedValue ?? "") : formatMoneyInput(watchedValue as unknown as string | number | null | undefined)) : String(watchedValue ?? "");
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 3 : 1} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); registered.onBlur(event); }} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} value={displayValue} className={multiline ? "min-h-24 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  const resolvedPlaceholder = inputPlaceholder({ label, placeholder, multiline, keyboardType, secureTextEntry, currency });
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 3 : 1} onBlur={(event: NativeSyntheticEvent<TextInputFocusEventData>) => { setFocused(false); registered.onBlur(event); }} onChangeText={(value) => void registered.onChange({ target: { name, value: currency ? parseMoneyInput(value) : value }, type: "change" })} onFocus={() => setFocused(true)} placeholder={resolvedPlaceholder} placeholderTextColor="#8A96A8" ref={(node) => registered.ref(node)} secureTextEntry={secureTextEntry && !visible} value={displayValue} className={multiline ? "min-h-24 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 export function TextInputField(props: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; multiline?: boolean; keyboardType?: KeyboardType; placeholder?: string; required?: boolean; helper?: string; secureTextEntry?: boolean; currency?: boolean }) {
@@ -78,7 +91,8 @@ function RegularTextInputField({ label, value, onChange, error, multiline = fals
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const displayValue = currency && !focused ? formatMoneyInput(value) : String(value ?? "");
-  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 3 : 1} onBlur={() => setFocused(false)} onChangeText={(next) => onChange(currency ? parseMoneyInput(next) : next)} onFocus={() => setFocused(true)} placeholder={placeholder} placeholderTextColor="#8A96A8" value={displayValue} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-24 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
+  const resolvedPlaceholder = inputPlaceholder({ label, placeholder, multiline, keyboardType, secureTextEntry, currency });
+  return <FieldShell label={label} required={required} error={message} helper={helper}><Input isInvalid={Boolean(message)} className="min-h-12 rounded-xl border-[#DFE4EC] bg-white px-3"><InputField accessibilityLabel={label} autoCapitalize={keyboardType === "email-address" ? "none" : undefined} keyboardType={keyboardType} multiline={multiline} numberOfLines={multiline ? 3 : 1} onBlur={() => setFocused(false)} onChangeText={(next) => onChange(currency ? parseMoneyInput(next) : next)} onFocus={() => setFocused(true)} placeholder={resolvedPlaceholder} placeholderTextColor="#8A96A8" value={displayValue} secureTextEntry={secureTextEntry && !visible} className={multiline ? "min-h-24 py-3" : "py-3"} />{secureTextEntry ? <InputSlot accessibilityLabel={visible ? "Sembunyikan " + label : "Tampilkan " + label} accessibilityRole="button" onPress={() => setVisible((current) => !current)} className="min-h-11 min-w-10">{visible ? <EyeOff color="#6E7785" size={19} /> : <Eye color="#6E7785" size={19} />}</InputSlot> : null}</Input></FieldShell>;
 }
 
 function MonthTextInput({ label, value, onChange, error, required = false, helper }: { label: string; value: string | number | null | undefined; onChange: (value: string) => void; error?: unknown; required?: boolean; helper?: string }) {
@@ -133,6 +147,8 @@ export function LocationField({ value, onCapture, loading = false, label = "Loka
 }
 
 export { RHFInputField as InputField };
+export function FormGrid({ children }: { children: ReactNode }) { return <View style={formStyles.grid}>{children}</View>; }
+export function FormGridItem({ children, fullWidth = false }: { children: ReactNode; fullWidth?: boolean }) { const { width } = useWindowDimensions(); return <View style={[formStyles.gridItem, width >= 390 && !fullWidth ? formStyles.gridItemWide : undefined]}>{children}</View>; }
 export function ErrorText({ value }: { value: unknown }) { const message = errorMessage(value); return message ? <Text className="text-xs text-[#C5312C]">{message}</Text> : null; }
 
-const formStyles = StyleSheet.create({ locationCard: { backgroundColor: "#F6F9FF", borderColor: "#C8D8F7", borderRadius: 14, borderWidth: 1, padding: 11 }, locationRow: { alignItems: "center", flexDirection: "row", gap: 9 }, locationIcon: { alignItems: "center", backgroundColor: "#E5EEFF", borderRadius: 11, height: 38, justifyContent: "center", width: 38 }, locationCopy: { flex: 1, minWidth: 0 }, locationTitle: { color: "#0F234D", fontSize: 12, fontWeight: "900" }, locationSubtitle: { color: "#6E7785", fontSize: 10, marginTop: 3 }, locationButton: { alignItems: "center", backgroundColor: "#1454C4", borderRadius: 10, flexDirection: "row", gap: 5, paddingHorizontal: 9, paddingVertical: 9 }, locationButtonDisabled: { opacity: 0.55 }, locationButtonText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" } });
+const formStyles = StyleSheet.create({ grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "space-between" }, gridItem: { width: "100%" }, gridItemWide: { width: "48.5%" }, locationCard: { backgroundColor: "#F6F9FF", borderColor: "#C8D8F7", borderRadius: 14, borderWidth: 1, padding: 11 }, locationRow: { alignItems: "center", flexDirection: "row", gap: 9 }, locationIcon: { alignItems: "center", backgroundColor: "#E5EEFF", borderRadius: 11, height: 38, justifyContent: "center", width: 38 }, locationCopy: { flex: 1, minWidth: 0 }, locationTitle: { color: "#0F234D", fontSize: 12, fontWeight: "900" }, locationSubtitle: { color: "#6E7785", fontSize: 10, marginTop: 3 }, locationButton: { alignItems: "center", backgroundColor: "#1454C4", borderRadius: 10, flexDirection: "row", gap: 5, paddingHorizontal: 9, paddingVertical: 9 }, locationButtonDisabled: { opacity: 0.55 }, locationButtonText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" } });

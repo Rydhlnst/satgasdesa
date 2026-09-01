@@ -1,23 +1,55 @@
-import { showActionError } from "../../src/lib/feedback";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text } from "react-native";
-import { AppAlert as Alert } from "../../src/lib/feedback";
-import { TextInput } from "../../src/components/ui/TextInput";
 
 import { useAuth } from "../../src/auth";
+import { FormGrid, FormGridItem, SelectField, SubmitButton, TextInputField } from "../../src/components/NativeForm";
 import { Header, Screen } from "../../src/components/Screen";
-import { ErrorText, SelectField, SubmitButton } from "../../src/components/NativeForm";
-import { createFieldWorker } from "../../src/lib/api";
-import { colors, spacing } from "../../src/theme";
 import { workerFormSchema } from "../../src/form-schemas";
+import { AppAlert as Alert, showActionError } from "../../src/lib/feedback";
+import { createFieldWorker } from "../../src/lib/api";
+import { mergeFormErrors, zodFieldErrors } from "../../src/lib/form-validation";
 
 export default function NewWorkerScreen() {
-  const { role } = useAuth(); const router = useRouter(); const [saving, setSaving] = useState(false); const [fullName, setFullName] = useState(""); const [phone, setPhone] = useState(""); const [position, setPosition] = useState(""); const [notes, setNotes] = useState(""); const [status, setStatus] = useState("ACTIVE"); const [errors, setErrors] = useState<Record<string, string>>({});
-  if (!role) return null;
-  async function save() { const parsed = workerFormSchema.safeParse({ fullName, phone, position, notes, status }); const nextErrors: Record<string, string> = {}; if (!parsed.success) parsed.error.issues.forEach((issue) => { const key = String(issue.path[0] ?? "form"); if (!nextErrors[key]) nextErrors[key] = issue.message; }); setErrors(nextErrors); if (!parsed.success) return; setSaving(true); try { await createFieldWorker(parsed.data); Alert.alert("Pekerja ditambahkan", "Data pekerja berhasil disimpan.", [{ text: "OK", onPress: () => router.back() }]); } catch (error) { showActionError(error, "Periksa koneksi lalu coba lagi."); } finally { setSaving(false); } }
-  return <><Header role={role} title="Pekerja Baru" subtitle="Data induk pekerja lapangan" /><Screen><Field label="Nama lengkap" required error={errors.fullName} value={fullName} onChange={(value) => { setFullName(value); setErrors((current) => ({ ...current, fullName: "" })); }} /><Field label="Nomor telepon" error={errors.phone} value={phone} onChange={(value) => { setPhone(value); setErrors((current) => ({ ...current, phone: "" })); }} keyboardType="phone-pad" /><Field label="Jabatan" error={errors.position} value={position} onChange={(value) => { setPosition(value); setErrors((current) => ({ ...current, position: "" })); }} /><SelectField label="Status" required value={status} onChange={setStatus} options={[{ label: "Aktif", value: "ACTIVE" }, { label: "Nonaktif", value: "INACTIVE" }]} /><Field label="Catatan" error={errors.notes} value={notes} onChange={(value) => { setNotes(value); setErrors((current) => ({ ...current, notes: "" })); }} multiline /><SubmitButton label="Simpan Pekerja" loading={saving} onPress={() => void save()} /></Screen></>;
-}
+  const { role } = useAuth();
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [position, setPosition] = useState("");
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState("ACTIVE");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const update = (key: string, setValue: (value: string) => void) => (value: string) => { setValue(value); setErrors((current) => ({ ...current, [key]: "" })); };
 
-function Field({ label, value, onChange, multiline = false, keyboardType = "default", error, required = false }: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; keyboardType?: "default" | "phone-pad"; error?: string; required?: boolean }) { return <><Text style={styles.label}>{label}{required ? " *" : ""}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={onChange} multiline={multiline} keyboardType={keyboardType} style={[styles.input, multiline && styles.multiline, error && styles.invalid]} /><ErrorText value={error} /></>; }
-const styles = StyleSheet.create({ label: { color: colors.text, fontSize: 11, fontWeight: "800", marginBottom: -spacing.sm }, input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: 12, paddingVertical: 10 }, invalid: { borderColor: colors.danger }, multiline: { minHeight: 96, textAlignVertical: "top" } });
+  if (!role) return null;
+
+  async function save() {
+    const parsed = workerFormSchema.safeParse({ fullName, phone, position, notes, status });
+    if (!parsed.success) {
+      setErrors(zodFieldErrors(parsed.error));
+      return;
+    }
+    setErrors({});
+    setSaving(true);
+    try {
+      await createFieldWorker(parsed.data);
+      Alert.alert("Pekerja ditambahkan", "Data pekerja berhasil disimpan.", [{ text: "OK", onPress: () => router.back() }]);
+    } catch (error) {
+      setErrors((current) => mergeFormErrors(current, error));
+      showActionError(error, "Periksa koneksi lalu coba lagi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <><Header role={role} title="Pekerja Baru" subtitle="Data induk pekerja lapangan" /><Screen>
+    <FormGrid>
+      <FormGridItem fullWidth><TextInputField label="Nama lengkap" required error={errors.fullName} value={fullName} onChange={update("fullName", setFullName)} placeholder="Contoh: Budi Santoso" /></FormGridItem>
+      <FormGridItem><TextInputField label="Nomor telepon" error={errors.phone} value={phone} onChange={update("phone", setPhone)} keyboardType="phone-pad" /></FormGridItem>
+      <FormGridItem><SelectField label="Status" required error={errors.status} value={status} onChange={update("status", setStatus)} options={[{ label: "Aktif", value: "ACTIVE" }, { label: "Nonaktif", value: "INACTIVE" }]} /></FormGridItem>
+      <FormGridItem fullWidth><TextInputField label="Jabatan" error={errors.position} value={position} onChange={update("position", setPosition)} placeholder="Contoh: Pengawas lapangan" /></FormGridItem>
+      <FormGridItem fullWidth><TextInputField label="Catatan" error={errors.notes} value={notes} onChange={update("notes", setNotes)} multiline /></FormGridItem>
+    </FormGrid>
+    <SubmitButton label="Simpan Pekerja" loading={saving} onPress={() => void save()} />
+  </Screen></>;
+}

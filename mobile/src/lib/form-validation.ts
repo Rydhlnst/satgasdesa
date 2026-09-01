@@ -1,4 +1,5 @@
 import type { ZodError } from "zod";
+import { describeError } from "./feedback";
 
 export type FormErrors = Record<string, string>;
 
@@ -19,4 +20,13 @@ export function clearFormError(errors: FormErrors, key: string): FormErrors {
   const next = { ...errors };
   delete next[key];
   return next;
+}
+
+export function apiFieldErrors(error: unknown): FormErrors {
+  return describeError(error, "Periksa data yang ditandai lalu coba lagi.").fieldErrors ?? {};
+}
+
+export function mergeFormErrors(current: FormErrors, error: unknown): FormErrors {
+  const next = apiFieldErrors(error);
+  return Object.keys(next).length ? { ...current, ...next } : current;
 }

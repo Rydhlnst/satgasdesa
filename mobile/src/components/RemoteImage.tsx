@@ -1,4 +1,4 @@
-import { Image, ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
+import { Image, ImageResizeMode, ImageStyle, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { ImageOff } from "lucide-react-native";
 import { useState } from "react";
 
@@ -8,9 +8,10 @@ type RemoteImageProps = {
   uri?: string | null;
   style: StyleProp<ImageStyle>;
   accessibilityLabel: string;
+  resizeMode?: ImageResizeMode;
 };
 
-export function RemoteImage({ uri, style, accessibilityLabel }: RemoteImageProps) {
+export function RemoteImage({ uri, style, accessibilityLabel, resizeMode = "cover" }: RemoteImageProps) {
   const [failedUri, setFailedUri] = useState<string | null>(null);
   const failed = !uri || failedUri === uri;
 
@@ -31,7 +32,7 @@ export function RemoteImage({ uri, style, accessibilityLabel }: RemoteImageProps
       alt={accessibilityLabel}
       accessibilityLabel={accessibilityLabel}
       onError={() => setFailedUri(uri)}
-      resizeMode="cover"
+      resizeMode={resizeMode}
       source={{ uri }}
       style={style}
     />
