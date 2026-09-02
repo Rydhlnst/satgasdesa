@@ -1,6 +1,7 @@
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
 import { migrate } from "drizzle-orm/mysql2/migrator";
+import { assertSafeMigrations } from "./assert-safe-migrations.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL must be configured before migration.");
@@ -36,6 +37,7 @@ function migrationErrorDetails(error) {
 
 const pool = mysql.createPool({ uri: databaseUrl, connectionLimit: 1 });
 try {
+  assertSafeMigrations("drizzle");
   await migrate(drizzle(pool), { migrationsFolder: "drizzle" });
   await pool.end();
   console.info("Database migrations applied.");

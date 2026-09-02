@@ -15,6 +15,7 @@
     "ui:responsive": "node scripts/validate-responsive-ui.mjs",
     "env:check": "node scripts/validate-env.mjs",
     "db:migrate:runtime": "node scripts/migrate-runtime.mjs",
+    "db:check-migrations": "node scripts/assert-safe-migrations.mjs",
     "db:explain": "node scripts/explain-queries.mjs",
     "qa:mysql": "node scripts/qa/mysql-smoke.mjs",
     "qa:production": "node scripts/verify-production.mjs",

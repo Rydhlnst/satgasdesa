@@ -19,6 +19,22 @@ The app container automatically:
 3. optionally seeds roles and permissions when `SEED_RBAC=true`;
 4. starts the Next.js standalone server.
 
+## Safe rebuild and migration contract
+
+Normal VPS rebuilds are safe when the persistent MySQL volume and the Compose project name remain unchanged:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+```
+
+The app runs `scripts/container-start.mjs` on every new container start. It validates the environment, checks the migration files for destructive table/row operations, applies only pending Drizzle migrations, seeds reference RBAC data when enabled, and starts the server. Applied migrations are tracked by Drizzle, so a rebuild does not replay them.
+
+Production uses `pnpm db:migrate`/the runtime migrator only. Do not use `pnpm db:push` against the VPS database. The migration safety check blocks `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, and `DELETE FROM` statements before the app starts. A blocked migration leaves the existing database untouched and the app container stopped for diagnosis.
+
+Before a production rebuild, make a logical MySQL backup and verify that `MYSQL_DATA_VOLUME_NAME` is unchanged. A Docker volume is persistence, not a backup.
+
+Never run `docker compose down -v`, remove `satgas_mysql_data_v2`, or change `MYSQL_DATA_VOLUME_NAME` during a normal deployment. Those actions can intentionally detach or delete the database volume.
+
 For startup diagnosis, run `docker compose ps` and `docker compose logs --no-color app mysql`. Do not add a restart policy while investigating a failure.
 
 ## Required Coolify variables
