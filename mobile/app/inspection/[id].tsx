@@ -13,8 +13,8 @@ import { colors, spacing } from "../../src/theme";
 export default function InspectionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>(); const router = useRouter(); const { role } = useAuth(); const query = useQuery({ queryKey: ["inspection", id], queryFn: () => getInspection(id), enabled: Boolean(role && id) });
   if (!role) return null;
-  if (query.isLoading) return <><Header role={role} title="Detail Pemeriksaan" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Pemeriksaan" /><Screen><ErrorState message="Detail pemeriksaan tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isLoading) return <><Header role={role} title="Detail Pemeriksaan" /><Screen withBottomNav={false}><LoadingState /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Pemeriksaan" /><Screen withBottomNav={false}><ErrorState message="Detail pemeriksaan tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item;
   const isDraft = text(item, "status") === "DRAFT";
   async function openPhoto(photo: Record<string, unknown>) { try { const result = await getInspectionPhotoDownloadUrl({ inspectionId: id, storageKey: text(photo, "storageKey") }) as { downloadUrl: string }; await Linking.openURL(result.downloadUrl); } catch (error) { showActionError(error, "Foto pemeriksaan tidak dapat dibuka. Coba lagi."); } }

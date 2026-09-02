@@ -37,6 +37,8 @@ export const colors = {
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 32 };
 
+export const layout = { bottomNavContentInset: 84, minTouchTarget: 44 } as const;
+
 export const typography = {
   display: 28,
   title: 22,

@@ -11,6 +11,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "mobile:ui:check": "node scripts/validate-mobile-ui.mjs",
     "ui:responsive": "node scripts/validate-responsive-ui.mjs",
     "env:check": "node scripts/validate-env.mjs",
     "db:migrate:runtime": "node scripts/migrate-runtime.mjs",

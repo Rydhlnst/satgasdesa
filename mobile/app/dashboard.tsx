@@ -23,8 +23,8 @@ export default function Dashboard() {
   const { refetch } = query;
   useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
   if (!role) return null;
-  if (query.isLoading && !query.data) return <><Header role={role} title="Beranda" /><Screen showDateRange><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Beranda" /><Screen showDateRange><ErrorState message="Beranda tidak dapat dimuat. Periksa koneksi lalu coba lagi." error={query.error} onRetry={() => { void query.refetch(); }} /></Screen></>;
+  if (query.isLoading && !query.data) return <><Header role={role} title="Beranda" /><Screen withBottomNav={false} showDateRange><LoadingState /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Beranda" /><Screen withBottomNav={false} showDateRange><ErrorState message="Beranda tidak dapat dimuat. Periksa koneksi lalu coba lagi." error={query.error} onRetry={() => { void query.refetch(); }} /></Screen></>;
   const props = { summary: query.data.summary, attention: query.data.attention, periodKey, refreshing: query.isRefetching, onRefresh: () => { void query.refetch(); }, open: (href: string) => router.push(href as never), sessionName: session?.user.name, canCreateBlock: session?.permissions.includes("BLOCK_CREATE") ?? false };
   if (role === "BENDAHARA") return <BendaharaDashboard {...props} />;
   if (role === "PETUGAS_LAPANGAN") return <FieldOfficerDashboard {...props} />;

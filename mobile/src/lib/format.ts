@@ -1,4 +1,5 @@
 const rupiahFormatter = new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const rupiahInputFormatter = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
 
 export function money(value: number | string | null | undefined) {
   const amount = Number(value ?? 0);
@@ -7,7 +8,7 @@ export function money(value: number | string | null | undefined) {
 
 export function formatMoneyInput(value: string | number | null | undefined) {
   const raw = String(value ?? "").replace(/\D/g, "");
-  return raw ? money(Number(raw)) : "";
+  return raw ? `Rp. ${rupiahInputFormatter.format(Number(raw))}` : "";
 }
 
 export function parseMoneyInput(value: string) {

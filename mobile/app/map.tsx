@@ -11,7 +11,7 @@ import type { CameraRef, LngLat } from "@maplibre/maplibre-react-native";
 import { useAuth } from "../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
 import { SearchField } from "../src/components/MobilePrimitives";
-import { Modal as GModal, ModalBackdrop, ModalContent } from "../src/components/ui/modal";
+import { Modal as GModal, ModalBackdrop, ModalContent } from "../src/components/AppPrimitives";
 import { getBlocks } from "../src/lib/api";
 import { colors, spacing } from "../src/theme";
 import type { Block } from "../src/types";
@@ -136,14 +136,14 @@ export default function MapScreen() {
           <Text style={styles.title}>Peta Blok</Text>
           <Text style={styles.subtitle}>{blocks.length} blok terdaftar</Text>
         </View>
-        <Pressable onPress={() => router.push("/monitoring")} style={styles.smallButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Lihat daftar blok" onPress={() => router.push("/monitoring")} style={[styles.smallButton, styles.touchTarget]}>
           <List color={colors.text} size={15} />
           <Text style={styles.smallButtonText}>List</Text>
         </Pressable>
       </View>
       <View style={styles.searchRow}>
         <SearchField value={search} onChangeText={setSearch} onClear={() => setSearch("")} placeholder="Cari blok..." />
-        <Pressable onPress={() => setFilterOpen(true)} style={styles.filterButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Buka filter peta" onPress={() => setFilterOpen(true)} style={[styles.filterButton, styles.touchTarget]}>
           <Filter color={colors.primary} size={17} />
           <Text style={styles.filterText}>Filter</Text>
         </Pressable>
@@ -184,7 +184,7 @@ export default function MapScreen() {
           {mapError ? <View style={styles.mapError}>
             <Text style={styles.mapErrorTitle}>Peta tidak dapat dimuat</Text>
             <Text style={styles.mapErrorText}>Periksa MapTiler API key dan koneksi internet.</Text>
-            <Pressable onPress={() => { setMapError(false); setMapReady(false); setMapInstance((value) => value + 1); }} style={styles.mapRetry}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Coba muat peta lagi" onPress={() => { setMapError(false); setMapReady(false); setMapInstance((value) => value + 1); }} style={[styles.mapRetry, styles.touchTarget]}>
               <Text style={styles.mapRetryText}>Coba lagi</Text>
             </Pressable>
           </View> : null}
@@ -193,7 +193,7 @@ export default function MapScreen() {
             <Text style={styles.emptyMapTitle}>Belum ada koordinat blok</Text>
             <Text style={styles.emptyMapText}>Tambahkan lokasi blok untuk menampilkannya di peta.</Text>
           </View> : null}
-          {selectedBlock ? <Pressable onPress={() => router.push(`/blocks/${selectedBlock.id}`)} style={styles.selectedBlock}>
+          {selectedBlock ? <Pressable accessibilityRole="button" accessibilityLabel={`Buka detail blok ${selectedBlock.code}`} onPress={() => router.push(`/blocks/${selectedBlock.id}`)} style={styles.selectedBlock}>
             <View style={styles.selectedBlockCopy}>
               <Text style={styles.selectedBlockEyebrow}>{selectedBlock.code}</Text>
               <Text numberOfLines={1} style={styles.selectedBlockTitle}>{selectedBlock.name}</Text>
@@ -222,14 +222,14 @@ export default function MapScreen() {
             </Pressable>
           </View>
           <Text style={styles.sheetLabel}>Status Blok</Text>
-          {(["ALL", "ACTIVE", "STOPPED", "NOT_OPERATING"] as MapStatus[]).map((value) => <Pressable key={value} onPress={() => setStatus(value)} style={[styles.option, status === value && styles.optionActive]}>
+          {(["ALL", "ACTIVE", "STOPPED", "NOT_OPERATING"] as MapStatus[]).map((value) => <Pressable accessibilityRole="radio" accessibilityLabel={`Status ${value === "ALL" ? "semua" : value === "ACTIVE" ? "aktif" : value === "STOPPED" ? "berhenti" : "belum operasi"}`} accessibilityState={{ selected: status === value }} key={value} onPress={() => setStatus(value)} style={[styles.option, styles.touchTarget, status === value && styles.optionActive]}>
             <Text style={[styles.optionText, status === value && styles.optionTextActive]}>{value === "ALL" ? "Semua Status" : value === "ACTIVE" ? "Aktif" : value === "STOPPED" ? "Berhenti" : "Belum Operasi"}</Text>
           </Pressable>)}
           <Text style={styles.sheetLabel}>Prioritas</Text>
-          {["ALL", "LOW", "NORMAL", "HIGH", "CRITICAL"].map((value) => <Pressable key={value} onPress={() => setPriority(value)} style={[styles.option, priority === value && styles.optionActive]}>
+          {["ALL", "LOW", "NORMAL", "HIGH", "CRITICAL"].map((value) => <Pressable accessibilityRole="radio" accessibilityLabel={`Prioritas ${value === "ALL" ? "semua" : value}`} accessibilityState={{ selected: priority === value }} key={value} onPress={() => setPriority(value)} style={[styles.option, styles.touchTarget, priority === value && styles.optionActive]}>
             <Text style={[styles.optionText, priority === value && styles.optionTextActive]}>{value === "ALL" ? "Semua Prioritas" : value}</Text>
           </Pressable>)}
-          <Pressable onPress={() => setFilterOpen(false)} style={styles.apply}><Text style={styles.applyText}>Terapkan Filter</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Terapkan filter peta" onPress={() => setFilterOpen(false)} style={[styles.apply, styles.touchTarget]}><Text style={styles.applyText}>Terapkan Filter</Text></Pressable>
       </ModalContent>
     </GModal>
   </>;
@@ -263,6 +263,7 @@ function Legend({ color, label, value }: { color: string; label: string; value: 
 }
 
 const styles = StyleSheet.create({
+  touchTarget: { minHeight: 44 },
   titleRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   title: { color: colors.text, fontSize: 17, fontWeight: "900" },
   subtitle: { color: colors.textMuted, fontSize: 11, marginTop: 3 },

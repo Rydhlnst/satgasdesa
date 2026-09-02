@@ -10,7 +10,10 @@ describe("mobile Rupiah formatting", () => {
   });
 
   it("keeps currency input numeric for API payloads", () => {
-    expect(formatMoneyInput("10000000")).toBe("Rp. 10.000.000,00");
+    expect(formatMoneyInput("10000000")).toBe("Rp. 10.000.000");
+    expect(formatMoneyInput("2500000")).toBe("Rp. 2.500.000");
+    expect(formatMoneyInput(0)).toBe("Rp. 0");
+    expect(formatMoneyInput("")).toBe("");
     expect(parseMoneyInput("Rp. 10.000.000,00")).toBe("10000000");
   });
 });

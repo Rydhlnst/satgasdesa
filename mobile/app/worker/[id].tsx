@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../../src/auth";
 import { DatePicker, FormGrid, FormGridItem, SelectField, SubmitButton, TextInputField } from "../../src/components/NativeForm";
 import { ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
-import { Button, ButtonText } from "../../src/components/ui/button";
+import { Button, ButtonText } from "../../src/components/AppPrimitives";
 import { endAssignmentFormSchema, workerAssignmentFormSchema, workerFormSchema } from "../../src/form-schemas";
 import { AppAlert as Alert, showActionError } from "../../src/lib/feedback";
 import { assignWorkerToBlock, endWorkerBlockAssignment, getBlocks, getFieldWorker, updateFieldWorker } from "../../src/lib/api";

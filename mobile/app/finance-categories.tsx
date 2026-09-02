@@ -7,7 +7,7 @@ import { AppAlert as Alert } from "../src/lib/feedback";
 import { useAuth } from "../src/auth";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
 import { SelectField, SubmitButton, TextInputField } from "../src/components/NativeForm";
-import { Button, ButtonText } from "../src/components/ui/button";
+import { Button, ButtonText } from "../src/components/AppPrimitives";
 import { createFinanceCategory, getFinanceCategories, updateFinanceCategory } from "../src/lib/api";
 import { displayStatus, text } from "../src/lib/read";
 import { colors, spacing } from "../src/theme";

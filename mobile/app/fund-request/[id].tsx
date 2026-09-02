@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { AppAlert as Alert } from "../../src/lib/feedback";
-import { TextInput } from "../../src/components/ui/TextInput";
+import { TextInput } from "../../src/components/AppPrimitives";
 
 import { useAuth } from "../../src/auth";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
@@ -30,8 +30,8 @@ export default function FundRequestDetail() {
   const categories = useQuery({ queryKey: ["budget-categories", "fund-request-edit"], queryFn: () => getBudgetCategories(), enabled: Boolean(role && editing) });
   const blocks = useQuery({ queryKey: ["blocks", "fund-request-edit"], queryFn: () => getBlocks(), enabled: Boolean(role && editing) });
   if (!role) return null;
-  if (query.isLoading) return <><Header role={role} title="Pengajuan Dana" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Pengajuan Dana" /><Screen><ErrorState message="Detail pengajuan dana tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isLoading) return <><Header role={role} title="Pengajuan Dana" /><Screen withBottomNav={false}><LoadingState /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Pengajuan Dana" /><Screen withBottomNav={false}><ErrorState message="Detail pengajuan dana tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const data = query.data as { request?: Item; period?: Item; category?: Item; subcategory?: Item | null; block?: Item | null; attachments?: Item[]; events?: Item[]; corrections?: Item[] }; const request = data.request ?? {}; const status = text(request, "status"); const isCreator = text(request, "createdBy") === session?.user.id; const canCreate = session?.permissions.includes("FUND_REQUEST_CREATE") ?? false; const canVerify = session?.permissions.includes("FUND_REQUEST_VERIFY") ?? false; const canApprove = session?.permissions.includes("FUND_REQUEST_APPROVE") ?? false; const editable = isCreator && canCreate && (status === "DRAFT" || status === "REVISION_REQUIRED");
   const activeCategories = categories.data?.categories ?? []; const selectedCategory = activeCategories.find((item) => text(item, "id") === categoryId); const subcategories = Array.isArray(selectedCategory?.subcategories) ? selectedCategory.subcategories as Item[] : [];
   async function refresh() { await client.invalidateQueries({ queryKey: ["fund-request", id] }); await client.invalidateQueries({ queryKey: ["fund-requests"] }); }

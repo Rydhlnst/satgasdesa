@@ -43,7 +43,7 @@ export function MetricCard({ label, value, hint, tone = "blue" }: { label: strin
 
 export function FilterChip({ label, active = false, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
   if (!onPress) return <View style={styles.filterChip}><SlidersHorizontal color={active ? colors.primary : colors.textMuted} size={14} /><Text style={[styles.filterText, active && styles.filterTextActive]}>{label}</Text></View>;
-  return <Button accessibilityRole="button" onPress={onPress} variant={active ? "secondary" : "outline"} size="sm" className={active ? "min-h-9 rounded-full border-[#1454C4] bg-[#E7F0FF] px-3" : "min-h-9 rounded-full border-[#DFE4EC] bg-white px-3"}><SlidersHorizontal color={active ? colors.primary : colors.textMuted} size={14} /><ButtonText className={active ? "text-xs font-extrabold text-[#1454C4]" : "text-xs font-extrabold text-[#6E7785]"}>{label}</ButtonText></Button>;
+  return <Button accessibilityRole="button" accessibilityLabel={label} onPress={onPress} variant={active ? "secondary" : "outline"} size="sm" className={active ? "min-h-11 rounded-full border-[#1454C4] bg-[#E7F0FF] px-3" : "min-h-11 rounded-full border-[#DFE4EC] bg-white px-3"}><SlidersHorizontal color={active ? colors.primary : colors.textMuted} size={14} /><ButtonText className={active ? "text-xs font-extrabold text-[#1454C4]" : "text-xs font-extrabold text-[#6E7785]"}>{label}</ButtonText></Button>;
 }
 
 export function ActionButton({ children, onPress }: { children: ReactNode; onPress: () => void | Promise<void> }) {
@@ -58,7 +58,7 @@ export function ActionButton({ children, onPress }: { children: ReactNode; onPre
   return <Button accessibilityRole="button" accessibilityState={{ busy: pending, disabled: pending }} disabled={pending} onPress={() => void handlePress()} className="min-h-12 rounded-xl bg-[#1454C4] shadow-sm" style={styles.actionButton}><Plus color="#FFFFFF" size={18} strokeWidth={2.5} /><ButtonText className="text-sm font-extrabold">{children}</ButtonText></Button>;
 }
 
-export function RowCard({ title, subtitle, meta, status, tone = "green", icon, thumbnail, onPress }: { title: string; subtitle?: string; meta?: string; status?: string; tone?: "green" | "red" | "orange" | "blue" | "gray"; icon?: ReactNode; thumbnail?: ReactNode; onPress?: () => void | Promise<void> }) {
+export function RowCard({ title, subtitle, meta, status, tone = "green", icon, thumbnail, onPress, accessibilityLabel }: { title: string; subtitle?: string; meta?: string; status?: string; tone?: "green" | "red" | "orange" | "blue" | "gray"; icon?: ReactNode; thumbnail?: ReactNode; onPress?: () => void | Promise<void>; accessibilityLabel?: string }) {
   const inFlight = useRef(false);
   const surfaceStyle = cardSurfaceStyles[tone];
   const content = <><View style={[styles.rowIcon, cardIconStyles[tone]]}>{thumbnail ?? icon}</View><View style={styles.rowCopy}><Text numberOfLines={2} style={styles.rowTitle}>{title}</Text>{subtitle ? <Text numberOfLines={2} style={styles.rowSubtitle}>{subtitle}</Text> : null}{meta ? <Text numberOfLines={1} style={styles.rowMeta}>{meta}</Text> : null}</View>{status ? <StatusPill tone={tone}>{status}</StatusPill> : null}{onPress ? <View style={styles.rowArrow}><ChevronRight color={colors.primary} size={17} strokeWidth={2.4} /></View> : null}</>;
@@ -69,7 +69,7 @@ export function RowCard({ title, subtitle, meta, status, tone = "green", icon, t
     inFlight.current = true;
     try { await press(); } catch (error) { showActionError(error); } finally { inFlight.current = false; }
   }
-  return <Pressable accessibilityRole="button" onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-[64px] flex-row items-center gap-2 rounded-xl p-2.5 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} onPress={() => void handlePress()} style={({ pressed }) => [styles.rowPressable, pressed && styles.pressed]}><UICard className="min-h-[64px] flex-row items-center gap-2 rounded-xl p-2.5 shadow-sm" style={[styles.card, styles.rowCard, surfaceStyle]}>{content}</UICard></Pressable>;
 }
 
 export function SectionTitle({ children, action, icon }: { children: ReactNode; action?: string; icon?: ReactNode }) {
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   metricLabel: { color: colors.textMuted, fontSize: typography.micro, fontWeight: "800", textTransform: "uppercase" },
   metricValue: { color: colors.textStrong, fontSize: 17, fontWeight: "900", marginTop: 2 },
   metricHint: { color: colors.textSubtle, fontSize: typography.micro, marginTop: 2 },
-  filterChip: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.pill, borderWidth: 1, flexDirection: "row", gap: 5, minHeight: 36, paddingHorizontal: 12 },
+  filterChip: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.pill, borderWidth: 1, flexDirection: "row", gap: 5, minHeight: 44, paddingHorizontal: 12 },
   filterText: { color: colors.textMuted, fontSize: typography.caption, fontWeight: "800" },
   filterTextActive: { color: colors.primary },
   actionButton: { elevation: 3, shadowColor: colors.primaryDark, shadowOpacity: 0.2, shadowRadius: 9, shadowOffset: { width: 0, height: 4 } },

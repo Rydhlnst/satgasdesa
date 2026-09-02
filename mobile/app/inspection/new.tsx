@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { useAuth } from "../../src/auth";
 import { Header, Screen } from "../../src/components/Screen";
+import { ImageSourceSheet } from "../../src/components/ImageSourceSheet";
 import { CapturedLocation, DateField, InputField, LocationField, SelectField, SubmitButton } from "../../src/components/NativeForm";
 import { inspectionFormSchema as schema } from "../../src/form-schemas";
 import { clearInspectionDraftLocally, loadInspectionDraft, saveInspectionDraftLocally } from "../../src/lib/drafts";
@@ -28,7 +29,7 @@ const steps = ["Data", "Dokumentasi", "Tinjau"];
 
 export default function NewInspection() {
   const { role } = useAuth(); const router = useRouter(); const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const [step, setStep] = useState(0); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]); const [storedPhotos, setStoredPhotos] = useState<StoredPhoto[]>([]);
+  const [step, setStep] = useState(0); const [saving, setSaving] = useState(false); const [locationLoading, setLocationLoading] = useState(false); const [capturedLocation, setCapturedLocation] = useState<CapturedLocation | null>(null); const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]); const [storedPhotos, setStoredPhotos] = useState<StoredPhoto[]>([]); const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const blocks = useQuery({ queryKey: ["blocks", "inspection-form"], queryFn: () => getBlocks(), enabled: Boolean(role) });
   const draft = useQuery({ queryKey: ["inspection", draftId], queryFn: () => getInspection(draftId!), enabled: Boolean(role && draftId) });
   const form = useForm<Values>({ resolver: zodResolver(schema), mode: "onBlur", reValidateMode: "onChange", defaultValues: { excavatorCount: 0, workerCount: 0, condition: "Aktif", conditionRoad: "Baik", conditionEnvironment: "Aman", conditionActivity: "Normal" } });
@@ -50,7 +51,7 @@ export default function NewInspection() {
   }
 
   async function choosePhotos(source: "camera" | "library") { const permission = source === "camera" ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!permission.granted) return Alert.alert("Izin diperlukan", source === "camera" ? "Izinkan kamera untuk mendokumentasikan pemeriksaan." : "Izinkan akses galeri untuk menambahkan foto."); const remaining = 3 - photos.length - storedPhotos.length; if (!remaining) return Alert.alert("Batas foto", "Maksimal tiga foto dapat dilampirkan."); const result = source === "camera" ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8 }) : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: true, selectionLimit: remaining, quality: 0.8 }); if (!result.canceled) setPhotos((current) => [...current, ...(result.assets ?? [])].slice(0, 3 - storedPhotos.length)); }
-  function addPhoto() { Alert.alert("Tambah foto", "Pilih sumber dokumentasi.", [{ text: "Kamera", onPress: () => void choosePhotos("camera") }, { text: "Galeri", onPress: () => void choosePhotos("library") }, { text: "Batal", style: "cancel" }]); }
+  function addPhoto() { setPhotoSourceOpen(true); }
   async function uploadPhotos(inspectionId: string) { return Promise.all(photos.map(async (photo) => { const image = await optimizeImage(photo, `pemeriksaan-${Date.now()}`); const upload = await createInspectionUploadUrl({ inspectionId, contentType: image.contentType, size: image.sizeBytes, originalName: image.name }) as { key: string; uploadUrl: string }; await uploadOptimizedImage(upload.uploadUrl, image); return { storageKey: upload.key, contentType: image.contentType, size: image.sizeBytes, originalName: image.name, capturedAt: new Date().toISOString() }; })); }
   async function continueToDocumentation() { const valid = await form.trigger(["blockId", "excavatorCount", "workerCount", "condition", "conditionRoad", "conditionEnvironment", "conditionActivity"]); if (valid) setStep(1); else Alert.alert("Periksa data", "Pilih blok dan lengkapi jumlah serta kondisi pemeriksaan."); }
   async function save(values: Values, mode: "draft" | "submit") {
@@ -152,6 +153,7 @@ export default function NewInspection() {
           </>
         ) : null}
       </Screen>
+      <ImageSourceSheet title="Pilih sumber dokumentasi" visible={photoSourceOpen} onClose={() => setPhotoSourceOpen(false)} onSelect={(source) => { setPhotoSourceOpen(false); void choosePhotos(source); }} />
     </>
   );
 }

@@ -1,9 +1,10 @@
-import { ChevronDown, ChevronRight, Info, ShieldAlert } from "lucide-react-native";
+import { Check, ChevronDown, ChevronRight, Info, ShieldAlert, X } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useState, type ReactNode } from "react";
 
 import { describeError } from "../lib/feedback";
 import { colors, radii, spacing, typography } from "../theme";
+import { Button, ButtonText } from "./ui/button";
 
 export type StatusTone = "success" | "danger" | "warning" | "info" | "muted";
 export type ModuleItem = { label: string; description: string; onPress: () => void; icon?: ReactNode };
@@ -24,7 +25,7 @@ export function StatusChip({ label, tone = "muted" }: { label: string; tone?: St
 export function CompactRow({ title, meta, status, statusTone = "muted", icon, onPress, action }: { title: string; meta?: string; status?: string; statusTone?: StatusTone; icon?: ReactNode; onPress?: () => void; action?: ReactNode }) {
   const content = <><View style={styles.rowIcon}>{icon ?? <Info color={colors.primary} size={18} />}</View><View style={styles.rowCopy}><Text numberOfLines={1} style={styles.rowTitle}>{title}</Text>{meta ? <Text numberOfLines={1} style={styles.rowMeta}>{meta}</Text> : null}</View>{status ? <StatusChip label={status} tone={statusTone} /> : null}{action ?? (onPress ? <ChevronRight color={colors.textMuted} size={18} /> : null)}</>;
   if (!onPress) return <View style={styles.row}>{content}</View>;
-  return <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>{content}</Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>{content}</Pressable>;
 }
 
 export function MetricStrip({ items }: { items: Array<{ label: string; value: string; hint?: string; tone?: StatusTone; onPress?: () => void }> }) {
@@ -51,9 +52,7 @@ export function PermissionExplanation({ title = "Akses terbatas", message = "Fit
   return <View style={styles.permission}><ShieldAlert color={colors.warning} size={18} /><View style={styles.permissionCopy}><Text style={styles.permissionTitle}>{title}</Text><Text style={styles.permissionMessage}>{message}</Text></View></View>;
 }
 
-export function ApprovalBar({ label, onApprove, onReject, disabled = false }: { label?: string; onApprove?: () => void; onReject?: () => void; disabled?: boolean }) {
-  return <View style={styles.approvalBar}>{label ? <Text style={styles.approvalLabel}>{label}</Text> : null}<View style={styles.approvalActions}>{onReject ? <Pressable accessibilityRole="button" disabled={disabled} onPress={onReject} style={[styles.rejectButton, disabled && styles.disabled]}><Text style={styles.rejectText}>Tolak</Text></Pressable> : null}{onApprove ? <Pressable accessibilityRole="button" disabled={disabled} onPress={onApprove} style={[styles.approveButton, disabled && styles.disabled]}><Text style={styles.approveText}>Setujui</Text></Pressable> : null}</View></View>;
-}
+export function ApprovalBar({ label, onApprove, onReject, disabled = false }: { label?: string; onApprove?: () => void; onReject?: () => void; disabled?: boolean }) { return <View style={styles.approvalBar}>{label ? <Text style={styles.approvalLabel}>{label}</Text> : null}<View style={styles.approvalActions}>{onReject ? <Button accessibilityRole="button" accessibilityLabel="Tolak" disabled={disabled} onPress={onReject} variant="outline" className="min-h-11 flex-1 rounded-xl border-[#C5312C] bg-white"><X color={colors.danger} size={16} /><ButtonText className="text-xs font-extrabold text-[#C5312C]">Tolak</ButtonText></Button> : null}{onApprove ? <Button accessibilityRole="button" accessibilityLabel="Setujui" disabled={disabled} onPress={onApprove} className="min-h-11 flex-1 rounded-xl bg-[#1454C4]"><Check color="#FFFFFF" size={16} /><ButtonText className="text-xs font-extrabold text-white">Setujui</ButtonText></Button> : null}</View></View>; }
 
 export function EvidenceGallery({ title = "Bukti", children }: { title?: string; children: ReactNode }) {
   return <View style={styles.evidence}><Text style={styles.formTitle}>{title}</Text><View style={styles.evidenceBody}>{children}</View></View>;
@@ -106,8 +105,8 @@ const styles = StyleSheet.create({
   approvalBar: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, gap: spacing.sm, padding: spacing.sm },
   approvalLabel: { color: colors.textStrong, fontSize: typography.caption, fontWeight: "800" },
   approvalActions: { flexDirection: "row", gap: spacing.sm },
-  rejectButton: { alignItems: "center", borderColor: colors.danger, borderRadius: radii.sm, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 44 },
-  approveButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radii.sm, flex: 1, justifyContent: "center", minHeight: 44 },
+  rejectButton: { alignItems: "center", borderColor: colors.danger, borderRadius: radii.sm, borderWidth: 1, flex: 1, flexDirection: "row", gap: 6, justifyContent: "center", minHeight: 44 },
+  approveButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radii.sm, flex: 1, flexDirection: "row", gap: 6, justifyContent: "center", minHeight: 44 },
   rejectText: { color: colors.danger, fontSize: typography.caption, fontWeight: "900" },
   approveText: { color: "#FFFFFF", fontSize: typography.caption, fontWeight: "900" },
   disabled: { opacity: 0.5 },

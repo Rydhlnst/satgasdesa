@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Eye, EyeOff } from "lucide-react-native";
 import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { TextInput } from "../src/components/ui/TextInput";
+import { TextInput } from "../src/components/AppPrimitives";
 import { z } from "zod";
 
 import { useAuth } from "../src/auth";

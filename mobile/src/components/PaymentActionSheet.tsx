@@ -1,11 +1,13 @@
 import { Check, ChevronRight, Eye, MapPinCheck, RotateCcw, X } from "lucide-react-native";
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, radii, spacing, typography } from "../theme";
+import { IconButton, SheetHeader } from "./MobilePrimitives";
 import { StatusPill } from "./PimpinanPrimitives";
 import { RemoteImage } from "./RemoteImage";
+import { Modal, ModalBackdrop, ModalBody, ModalContent, ModalHeader } from "./ui/modal";
 
 type ActionTone = "primary" | "success" | "danger" | "neutral";
 
@@ -33,11 +35,11 @@ export function PaymentActionSheet({
   statusTone: "green" | "red" | "orange" | "blue" | "gray";
   actions: PaymentAction[];
 }) {
-  return <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-    <SafeAreaView edges={["bottom"]} style={styles.modalRoot}>
-      <Pressable accessibilityLabel="Tutup tindakan pembayaran" style={styles.backdrop} onPress={onClose} />
-      <View accessibilityViewIsModal style={styles.sheet}>
-        <View style={styles.handle} />
+  return <Modal isOpen={visible} onClose={onClose} size="full">
+    <ModalBackdrop />
+    <ModalContent className="mt-auto w-full rounded-t-3xl rounded-b-none bg-white p-5 pb-safe">
+      <ModalHeader><SheetHeader title="Detail pembayaran" onClose={onClose} closeLabel="Tutup tindakan pembayaran" /></ModalHeader>
+      <ModalBody>
         <View style={styles.heading}>
           <View style={styles.headingCopy}>
             <Text style={styles.amount}>{amount}</Text>
@@ -47,18 +49,20 @@ export function PaymentActionSheet({
         </View>
         <Text style={styles.label}>TINDAKAN PEMBAYARAN</Text>
         <View style={styles.actionList}>{actions.map((action) => <PaymentActionRow key={action.label} action={action} />)}</View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Tutup" onPress={onClose} style={styles.closeButton}><Text style={styles.closeLabel}>Tutup</Text></Pressable>
-      </View>
-    </SafeAreaView>
+      </ModalBody>
+    </ModalContent>
   </Modal>;
 }
 
 export function PaymentEvidenceViewer({ visible, uri, onClose }: { visible: boolean; uri: string | null; onClose: () => void }) {
-  return <Modal animationType="fade" transparent visible={visible} onRequestClose={onClose}>
+  return <Modal isOpen={visible} onClose={onClose} size="full">
+    <ModalBackdrop />
+    <ModalContent className="h-full w-full rounded-none border-0 bg-[#0B1F3A] p-0">
     <SafeAreaView edges={["top", "bottom"]} style={styles.viewerRoot}>
-      <View style={styles.viewerHeader}><Text style={styles.viewerTitle}>Bukti pembayaran</Text><Pressable accessibilityRole="button" accessibilityLabel="Tutup bukti pembayaran" onPress={onClose} style={styles.viewerClose}><X color="#FFFFFF" size={20} /><Text style={styles.viewerCloseText}>Tutup</Text></Pressable></View>
+      <View style={styles.viewerHeader}><Text style={styles.viewerTitle}>Bukti pembayaran</Text><IconButton icon={X} accessibilityLabel="Tutup bukti pembayaran" onPress={onClose} variant="inverse" /></View>
       <View style={styles.viewerImageWrap}>{uri ? <RemoteImage accessibilityLabel="Bukti pembayaran" resizeMode="contain" uri={uri} style={styles.viewerImage} /> : null}</View>
     </SafeAreaView>
+    </ModalContent>
   </Modal>;
 }
 

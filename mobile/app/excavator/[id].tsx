@@ -6,7 +6,7 @@ import { ArrowLeft, CalendarDays, HardHat, MapPin, UserRound } from "lucide-reac
 import { useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppAlert as Alert } from "../../src/lib/feedback";
-import { TextInput } from "../../src/components/ui/TextInput";
+import { TextInput } from "../../src/components/AppPrimitives";
 
 import { useAuth } from "../../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
@@ -24,8 +24,8 @@ export default function ExcavatorDetail() {
   const query = useQuery({ queryKey: ["excavator", id], queryFn: () => getExcavator(id), enabled: Boolean(role && id) });
   const blocks = useQuery({ queryKey: ["blocks", "excavator-movement"], queryFn: () => getBlocks(), enabled: Boolean(role) });
   if (!role) return null;
-  if (query.isLoading) return <><Header role={role} title="Detail Alat Berat" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Alat Berat" /><Screen><ErrorState message="Detail alat berat tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isLoading) return <><Header role={role} title="Detail Alat Berat" /><Screen withBottomNav={false}><LoadingState /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Alat Berat" /><Screen withBottomNav={false}><ErrorState message="Detail alat berat tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item;
   const canManage = session?.permissions.includes("EXCAVATOR_MANAGE"); const currentBlock = (blocks.data?.blocks ?? []).find((block) => block.id === text(item, "currentBlockId"));
   const beginEdit = () => { setUnitCode(text(item, "unitCode", "")); setBrand(text(item, "brand", "")); setModel(text(item, "model", "")); setOperatorName(text(item, "operatorName", "")); setEditing(true); };

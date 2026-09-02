@@ -7,7 +7,7 @@ import { AppAlert as Alert } from "../src/lib/feedback";
 import { useAuth } from "../src/auth";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
 import { SelectField, SubmitButton, TextInputField } from "../src/components/NativeForm";
-import { Button, ButtonText } from "../src/components/ui/button";
+import { Button, ButtonText } from "../src/components/AppPrimitives";
 import { createBudgetCategory, createBudgetSubcategory, getBudgetCategories, updateBudgetCategory, updateBudgetSubcategory } from "../src/lib/api";
 import { text } from "../src/lib/read";
 import { colors, spacing } from "../src/theme";
@@ -92,11 +92,11 @@ export default function BudgetCategories() {
     </View></> : null}
     {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Kategori anggaran tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /> : categories.length ? categories.map((item) => <View key={text(item, "id")} style={styles.category}>
       <View style={styles.categoryRow}>
-        <Pressable disabled={!canManage} onPress={() => editCategory(item)} style={styles.categoryMain}><View><Text style={styles.name}>{text(item, "name")}</Text><Text style={styles.meta}>Urutan {text(item, "sortOrder", "0")} · {Number(item.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
+        <Pressable disabled={!canManage} onPress={() => editCategory(item)} style={styles.categoryMain}><View><Text style={styles.name}>{text(item, "name")}</Text><Text style={styles.meta}>ID: {text(item, "id")} · Urutan {text(item, "sortOrder", "0")} · {Number(item.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
         {canManage ? <Button accessibilityLabel={Number(item.isActive) === 1 ? "Nonaktifkan kategori" : "Aktifkan kategori"} onPress={() => void toggleCategory(item)} variant="outline" className="min-h-11 self-start rounded-xl border-[#D9E1EE] bg-white px-3"><ButtonText className="text-xs font-extrabold text-[#1454C4]">{Number(item.isActive) === 1 ? "Nonaktifkan" : "Aktifkan"}</ButtonText></Button> : null}
       </View>
       {(item.subcategories ?? []).map((subcategory) => <View key={text(subcategory, "id")} style={styles.subcategory}>
-        <Pressable disabled={!canManage} onPress={() => editSubcategory(subcategory)} style={styles.subcategoryMain}><View><Text style={styles.subcategoryName}>{text(subcategory, "name")}</Text><Text style={styles.meta}>{Number(subcategory.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
+        <Pressable disabled={!canManage} onPress={() => editSubcategory(subcategory)} style={styles.subcategoryMain}><View><Text style={styles.subcategoryName}>{text(subcategory, "name")}</Text><Text style={styles.meta}>ID: {text(subcategory, "id")} · {Number(subcategory.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
         {canManage ? <Button accessibilityLabel={Number(subcategory.isActive) === 1 ? "Nonaktifkan subkategori" : "Aktifkan subkategori"} onPress={() => void toggleSubcategory(subcategory)} variant="outline" className="min-h-11 self-start rounded-xl border-[#D9E1EE] bg-white px-3"><ButtonText className="text-xs font-extrabold text-[#1454C4]">{Number(subcategory.isActive) === 1 ? "Nonaktifkan" : "Aktifkan"}</ButtonText></Button> : null}
       </View>)}
     </View>) : <EmptyState message="Belum ada kategori anggaran." />}

@@ -6,7 +6,7 @@ import { AppAlert as Alert } from "../src/lib/feedback";
 
 import { useAuth } from "../src/auth";
 import { ErrorState, Header, LoadingState, Screen } from "../src/components/Screen";
-import { Button, ButtonText } from "../src/components/ui/button";
+import { Button, ButtonText } from "../src/components/AppPrimitives";
 import { DatePicker, ErrorText, SelectField, SubmitButton } from "../src/components/NativeForm";
 import { createBlockFieldAssignment, endBlockFieldAssignment, getAssignedBlocks, getBlocks, getFieldOfficers } from "../src/lib/api";
 import { text } from "../src/lib/read";

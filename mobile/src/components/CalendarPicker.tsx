@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react-native";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { isValidCalendarDate } from "../date-validation";
 import { colors, radii, spacing } from "../theme";
+import { SheetHeader } from "./MobilePrimitives";
 import { Button, ButtonText } from "./ui/button";
 import { Modal, ModalBackdrop, ModalBody, ModalContent, ModalFooter, ModalHeader } from "./ui/modal";
 
@@ -74,7 +75,7 @@ export function CalendarSheet({ open, onClose, value, onChange, title, mode = "d
   return <Modal isOpen={open} onClose={onClose} size="full">
     <ModalBackdrop />
     <ModalContent className="mt-auto w-full rounded-t-3xl rounded-b-none p-5 pb-safe">
-      <ModalHeader><View style={styles.headerRow}><View style={styles.titleRow}><View style={styles.titleIcon}><CalendarDays color={colors.primary} size={18} /></View><Text style={styles.title}>{title}</Text></View><Pressable accessibilityLabel="Tutup kalender" accessibilityRole="button" hitSlop={8} onPress={onClose} style={styles.closeButton}><X color={colors.textStrong} size={20} /></Pressable></View></ModalHeader>
+      <ModalHeader><SheetHeader title={title} icon={CalendarDays} onClose={onClose} closeLabel="Tutup kalender" /></ModalHeader>
       <ModalBody>
         <View style={styles.calendarHeader}><Pressable accessibilityLabel="Bulan sebelumnya" accessibilityRole="button" hitSlop={8} onPress={() => mode === "date" ? moveMonth(-1) : moveYear(-1)} style={styles.navButton}><ChevronLeft color={colors.textStrong} size={18} /></Pressable><Text style={styles.monthTitle}>{mode === "date" ? `${monthNames[visible.getMonth()]} ${visible.getFullYear()}` : String(visible.getFullYear())}</Text><Pressable accessibilityLabel="Bulan berikutnya" accessibilityRole="button" hitSlop={8} onPress={() => mode === "date" ? moveMonth(1) : moveYear(1)} style={styles.navButton}><ChevronRight color={colors.textStrong} size={18} /></Pressable></View>
         {mode === "date" ? <><View style={styles.weekdays}>{weekdays.map((day) => <Text key={day} style={styles.weekday}>{day}</Text>)}</View><View style={styles.grid}>{days.map((day, index) => day ? <Pressable accessibilityLabel={`${day} ${monthNames[visible.getMonth()]} ${visible.getFullYear()}`} accessibilityRole="button" key={`${day}-${index}`} onPress={() => chooseDay(day)} style={styles.dayCell}><View style={[styles.dayCircle, selectedDate && selectedDate.getFullYear() === visible.getFullYear() && selectedDate.getMonth() === visible.getMonth() && selectedDate.getDate() === day && styles.selectedCircle]}><Text style={[styles.dayText, selectedDate && selectedDate.getFullYear() === visible.getFullYear() && selectedDate.getMonth() === visible.getMonth() && selectedDate.getDate() === day && styles.selectedText]}>{day}</Text></View></Pressable> : <View key={`empty-${index}`} style={styles.dayCell} />)}</View></> : <View style={styles.monthGrid}>{monthNames.map((month, index) => <Pressable accessibilityLabel={`${month} ${visible.getFullYear()}`} accessibilityRole="button" key={month} onPress={() => chooseMonth(index)} style={[styles.monthCell, selectedMonth && selectedMonth.getFullYear() === visible.getFullYear() && selectedMonth.getMonth() === index && styles.selectedMonth]}><Text style={[styles.monthText, selectedMonth && selectedMonth.getFullYear() === visible.getFullYear() && selectedMonth.getMonth() === index && styles.selectedText]}>{month.slice(0, 3)}</Text></Pressable>)}</View>}

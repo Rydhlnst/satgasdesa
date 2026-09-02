@@ -4,12 +4,12 @@ import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { AppAlert as Alert } from "../../src/lib/feedback";
-import { TextInput } from "../../src/components/ui/TextInput";
+import { TextInput } from "../../src/components/AppPrimitives";
 
 import { useAuth } from "../../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
 import { StatusPill } from "../../src/components/PimpinanPrimitives";
-import { Button, ButtonText } from "../../src/components/ui/button";
+import { Button, ButtonText } from "../../src/components/AppPrimitives";
 import { approveFinancialTransaction, getFinancialTransactionEvidenceDownloadUrl, getTransaction, reverseFinancialTransaction } from "../../src/lib/api";
 import { money } from "../../src/lib/format";
 import { displayStatus, numberValue, text } from "../../src/lib/read";
@@ -20,8 +20,8 @@ export default function TransactionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>(); const { role, session } = useAuth(); const client = useQueryClient(); const [reason, setReason] = useState(""); const [saving, setSaving] = useState(false);
   const query = useQuery({ queryKey: ["transaction", id], queryFn: () => getTransaction(id), enabled: Boolean(role && id) });
   if (!role) return null;
-  if (query.isLoading) return <><Header role={role} title="Detail Transaksi" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data?.item) return <><Header role={role} title="Detail Transaksi" /><Screen><ErrorState message="Transaksi tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isLoading) return <><Header role={role} title="Detail Transaksi" /><Screen withBottomNav={false}><LoadingState /></Screen></>;
+  if (query.isError || !query.data?.item) return <><Header role={role} title="Detail Transaksi" /><Screen withBottomNav={false}><ErrorState message="Transaksi tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item; const status = text(item, "status"); const canApprove = session?.permissions.includes("FINANCE_APPROVE");
   const refresh = async () => { await client.invalidateQueries({ queryKey: ["transaction", id] }); await client.invalidateQueries({ queryKey: ["transactions"] }); };
   async function approve() { if (saving) return; const parsed = transactionApprovalFormSchema.safeParse({ id }); if (!parsed.success) return Alert.alert("Transaksi tidak valid", parsed.error.issues[0]?.message ?? "Muat ulang transaksi lalu coba lagi."); setSaving(true); try { await approveFinancialTransaction(parsed.data); await refresh(); } catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); } }

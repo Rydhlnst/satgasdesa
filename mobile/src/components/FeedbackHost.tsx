@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text } from "react-native";
 
 import { type FeedbackEvent, subscribeFeedback } from "../lib/feedback";
 import { Toast, ToastDescription, ToastTitle, useToast } from "./ui/toast";
 import { Button, ButtonText } from "./ui/button";
 import { Modal, ModalBackdrop, ModalBody, ModalContent, ModalFooter, ModalHeader } from "./ui/modal";
+import { SheetHeader } from "./MobilePrimitives";
 
 export function FeedbackHost() {
   const toast = useToast();
@@ -32,5 +33,5 @@ export function FeedbackHost() {
     button.onPress?.();
   }
 
-  return <Modal isOpen={Boolean(confirmation)} onClose={closeConfirmation} size="md"><ModalBackdrop /><ModalContent className="rounded-3xl border border-[#DFE4EC] bg-white p-5"><ModalHeader><Text className="text-lg font-black text-[#0F234D]">{confirmation?.title}</Text></ModalHeader><ModalBody><Text className="text-sm leading-5 text-[#6E7785]">{confirmation?.message}</Text></ModalBody><ModalFooter className="gap-2"><View className="flex-1" />{confirmation?.buttons.map((button) => <Button key={button.text} variant={button.style === "destructive" ? "destructive" : "outline"} onPress={() => press(button)} className={button.style === "destructive" ? "min-h-11 rounded-xl bg-[#C5312C]" : "min-h-11 rounded-xl border-[#DFE4EC] bg-white"}><ButtonText className={button.style === "destructive" ? "text-white" : "text-[#0F234D]"}>{button.text}</ButtonText></Button>)}</ModalFooter></ModalContent></Modal>;
+  return <Modal isOpen={Boolean(confirmation)} onClose={closeConfirmation} size="md"><ModalBackdrop /><ModalContent className="rounded-3xl border border-[#DFE4EC] bg-white p-5"><ModalHeader><SheetHeader title={confirmation?.title ?? "Konfirmasi"} onClose={closeConfirmation} closeLabel="Tutup konfirmasi" /></ModalHeader><ModalBody><Text className="text-sm leading-5 text-[#6E7785]">{confirmation?.message}</Text></ModalBody><ModalFooter className="gap-2">{confirmation?.buttons.map((button) => <Button key={button.text} variant={button.style === "destructive" ? "destructive" : "outline"} onPress={() => press(button)} className={button.style === "destructive" ? "min-h-11 rounded-xl bg-[#C5312C]" : "min-h-11 rounded-xl border-[#DFE4EC] bg-white"}><ButtonText className={button.style === "destructive" ? "text-white" : "text-[#0F234D]"}>{button.text}</ButtonText></Button>)}</ModalFooter></ModalContent></Modal>;
 }

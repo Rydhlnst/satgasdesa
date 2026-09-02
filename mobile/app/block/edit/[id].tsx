@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppAlert as Alert } from "../../../src/lib/feedback";
-import { TextInput } from "../../../src/components/ui/TextInput";
+import { TextInput } from "../../../src/components/AppPrimitives";
 
 import { useAuth } from "../../../src/auth";
 import { ErrorState, Header, LoadingState, Screen } from "../../../src/components/Screen";

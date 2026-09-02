@@ -13,12 +13,18 @@
     "production-apk": {
       "distribution": "internal",
       "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_MAPTILER_API_KEY": "aMLN9nEBYyt9McR3wUvk"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_MAPTILER_API_KEY": "aMLN9nEBYyt9McR3wUvk"
+      },
       "android": {
         "buildType": "app-bundle"
       }

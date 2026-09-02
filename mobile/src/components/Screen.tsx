@@ -1,42 +1,55 @@
-import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useEffect, useState, type ReactNode } from "react";
+import { Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState, type ComponentType, type ReactNode } from "react";
 import { usePathname, useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
-import { Activity, Bell, CircleUserRound, ClipboardCheck, CloudOff, FileBarChart, FileText, Home, Inbox, MapPinned, MoreHorizontal, Search, Settings2, ShieldCheck, Truck, TrendingUp, WalletCards, Wifi, WifiOff } from "lucide-react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Activity, BarChart3, Bell, CircleUserRound, ClipboardCheck, CloudOff, FileBarChart, FileText, Home, Inbox, Info, MapPinned, MoreHorizontal, Plus, Search, Settings2, ShieldCheck, Truck, TrendingUp, WalletCards, Wifi, WifiOff } from "lucide-react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "../auth";
 import { getNotifications } from "../lib/api";
 import { useOfflineSync } from "../offline/provider";
 import { DateRangePicker } from "./DateRangePicker";
-import { colors, radii, roleTheme, shadows, spacing, typography, type Role } from "../theme";
+import { colors, layout, radii, roleTheme, shadows, spacing, typography, type Role } from "../theme";
 import { describeError, showActionError } from "../lib/feedback";
 import { Button, ButtonText } from "./ui/button";
 import { Spinner } from "./ui/spinner";
 import appIcon from "../../assets/icon.png";
 
-export function Screen({ children, refreshing, onRefresh, scroll = true, showDateRange = false, reserveBottomNavSpace = false }: { children: ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; showDateRange?: boolean; reserveBottomNavSpace?: boolean }) {
+export type EmptyStateAction = { label: string; onPress: () => void; icon?: ComponentType<{ color?: string; size?: number; strokeWidth?: number }> };
+export type ScreenProps = { children: ReactNode; refreshing?: boolean; onRefresh?: () => void | Promise<unknown>; scroll?: boolean; showDateRange?: boolean; withBottomNav?: boolean };
+
+export function Screen({ children, refreshing, onRefresh, scroll = true, showDateRange = false, withBottomNav }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const sync = useOfflineSync();
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", (event) => setKeyboardHeight(event.endCoordinates.height));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardHeight(0));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
   const notice = sync.isSyncing ? `${sync.summary.SYNCING + sync.summary.PENDING} data sedang disinkronkan.` : !sync.isOnline ? "Offline — perubahan baru akan dikirim saat koneksi kembali." : sync.summary.BLOCKED ? `${sync.summary.BLOCKED} data perlu diperbaiki. Ketuk untuk melihat detail.` : sync.summary.FAILED ? `${sync.summary.FAILED} data gagal dikirim. Ketuk untuk mencoba lagi.` : sync.summary.PENDING ? `${sync.summary.PENDING} data menunggu sinkronisasi.` : null;
   async function retrySync() { try { await sync.syncNow(true); } catch (error) { showActionError(error, "Sinkronisasi gagal. Periksa koneksi lalu coba lagi."); } }
+  async function refreshActiveQueries() {
+    if (manualRefreshing) return;
+    setManualRefreshing(true);
+    try { if (onRefresh) await onRefresh(); else await queryClient.refetchQueries({ type: "active" }); } finally { setManualRefreshing(false); }
+  }
   const banner = notice ? <Pressable disabled={sync.isSyncing} onPress={() => void (sync.summary.BLOCKED ? router.push("/offline-queue") : retrySync())} style={[styles.syncBanner, sync.summary.FAILED || sync.summary.BLOCKED ? styles.syncBannerFailed : null]}><Text style={styles.syncBannerText}>{sync.isSyncing ? "Menyinkronkan data…" : notice}</Text></Pressable> : null;
   const dateRangeEnabled = showDateRange || DATE_RANGE_ROUTES.includes(pathname);
   const dateRange = dateRangeEnabled ? <DateRangePicker /> : null;
-  const bottomContentPadding = 128 + insets.bottom + keyboardHeight;
-  const content = scroll ? <ScrollView style={{ flex: 1, minHeight: 0 }} automaticallyAdjustKeyboardInsets={Platform.OS === "ios"} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { flexGrow: 1, paddingBottom: bottomContentPadding }]} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false} refreshControl={onRefresh ? <RefreshControl onRefresh={onRefresh} refreshing={Boolean(refreshing)} tintColor={colors.primary} /> : undefined}>{dateRange}{banner}{children}</ScrollView> : <View style={[styles.nonScrollContent, reserveBottomNavSpace ? { paddingBottom: bottomContentPadding } : null]}>{dateRange}{banner}{children}</View>;
+  const hasBottomNav = withBottomNav ?? defaultBottomNavForPath(pathname);
+  const bottomContentPadding = hasBottomNav ? layout.bottomNavContentInset + insets.bottom : spacing.xl + insets.bottom;
+  const content = scroll ? <ScrollView style={{ flex: 1, minHeight: 0 }} automaticallyAdjustKeyboardInsets={Platform.OS === "ios"} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.content, { paddingBottom: bottomContentPadding }]} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false} refreshControl={<RefreshControl onRefresh={() => void refreshActiveQueries()} refreshing={Boolean(refreshing ?? manualRefreshing)} tintColor={colors.primary} />}>{dateRange}{banner}{children}</ScrollView> : <View style={[styles.nonScrollContent, { paddingBottom: bottomContentPadding }]}>{dateRange}{banner}{children}</View>;
   return <SafeAreaView edges={["bottom"]} style={styles.safe}><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0} style={{ flex: 1 }}>{content}</KeyboardAvoidingView></SafeAreaView>;
 }
 
 const DATE_RANGE_ROUTES = ["/dashboard", "/finance", "/budgets", "/proposals", "/realizations", "/reports", "/tasks", "/inspections", "/information"];
+
+const DEFAULT_BOTTOM_NAV_ROUTES = new Set(["/admin", "/blocks", "/budget-categories", "/budgets", "/business-actors", "/dashboard", "/excavators", "/finance", "/finance-categories", "/information", "/inspections", "/map", "/monitoring", "/more", "/profile", "/proposals", "/realizations", "/reports", "/tasks", "/workers"]);
+const DETAIL_BOTTOM_NAV_PREFIXES = ["/blocks/", "/budget/", "/due/", "/excavator/", "/fund-request/", "/information/", "/inspection/", "/realization/", "/transaction/"];
+
+function defaultBottomNavForPath(pathname: string) {
+  if (DEFAULT_BOTTOM_NAV_ROUTES.has(pathname)) return true;
+  return DETAIL_BOTTOM_NAV_PREFIXES.some((prefix) => pathname.startsWith(prefix) && !pathname.endsWith("/new"));
+}
 
 export function Header({ role, title, subtitle }: { role: Role; title: string; subtitle?: string }) {
   const { session } = useAuth();
@@ -48,7 +61,7 @@ export function Header({ role, title, subtitle }: { role: Role; title: string; s
   const statusPending = Boolean(sync.summary.PENDING || sync.summary.SYNCING);
   const statusLabel = !sync.isOnline ? "Offline" : statusBlocked ? "Perlu cek" : statusPending ? "Menunggu" : "Online";
   const statusColor = !sync.isOnline || statusBlocked ? colors.danger : statusPending ? colors.warning : colors.success;
-  return <><SafeAreaView edges={["top"]} style={[styles.headerSafe, { backgroundColor: theme.header }]}><View style={styles.header}><View style={styles.headerSide}><View style={styles.brandMark}><Image source={appIcon} style={styles.brandImage} accessibilityLabel="Ikon aplikasi SATGAS DESA SEJOLI" alt="Ikon aplikasi SATGAS DESA SEJOLI" /></View><View style={styles.headerCopy}><Text numberOfLines={1} style={styles.headerEyebrow}>SATGAS DESA SEJOLI</Text><Text numberOfLines={1} style={styles.headerTitle}>{theme.label}</Text></View></View><View style={styles.headerActions}><View accessibilityLabel={sync.isOnline ? "Online" : "Offline"} style={[styles.connectionChip, { backgroundColor: sync.isOnline ? "#FFFFFF1A" : "#7F1D1D" }]}>{sync.isOnline ? <Wifi color="#CFF7DC" size={14} /> : <WifiOff color="#FECACA" size={14} />}</View><Pressable accessibilityLabel="Buka notifikasi" accessibilityRole="button" onPress={() => router.push("/notifications")} hitSlop={8} style={styles.bell}><Bell color="#FFFFFF" size={18} />{notifications.data?.total ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notifications.data.total > 9 ? "9+" : notifications.data.total}</Text></View> : null}</Pressable><Pressable accessibilityLabel="Buka profil" accessibilityRole="button" onPress={() => router.push("/profile")} hitSlop={8} style={styles.profileButton}><View style={[styles.avatar, { backgroundColor: theme.soft }]}><Text style={[styles.avatarText, { color: theme.header }]}>{getInitials(session?.user.name)}</Text></View></Pressable></View></View></SafeAreaView><View style={styles.pageBar}><View style={[styles.pageIcon, { backgroundColor: theme.soft }]}>{renderPageIcon(title, theme.accent)}</View><View style={styles.pageCopy}><Text numberOfLines={1} style={styles.pageTitle}>{title}</Text><Text numberOfLines={1} style={styles.pageContext}>{subtitle ?? "Akses operasional berbasis peran"}</Text></View><View accessibilityLabel={`Status data: ${statusLabel}`} style={[styles.pageStatus, { backgroundColor: statusColor === colors.success ? colors.successSoft : statusColor === colors.warning ? colors.warningSoft : colors.dangerSoft }]}>{statusColor === colors.success ? <ShieldCheck color={statusColor} size={13} /> : <CloudOff color={statusColor} size={13} />}<Text style={[styles.pageStatusText, { color: statusColor }]}>{statusLabel}</Text></View></View></>;
+  return <><SafeAreaView edges={["top"]} style={[styles.headerSafe, { backgroundColor: theme.header }]}><View style={styles.header}><View style={styles.headerSide}><View style={styles.brandMark}><Image source={appIcon} style={styles.brandImage} accessibilityLabel="Ikon aplikasi SATGAS DESA SEJOLI" alt="Ikon aplikasi SATGAS DESA SEJOLI" /></View><View style={styles.headerCopy}><Text numberOfLines={1} style={styles.headerEyebrow}>SATGAS DESA SEJOLI</Text><Text numberOfLines={1} style={styles.headerTitle}>{theme.label}</Text></View></View><View style={styles.headerActions}><View accessibilityRole="text" accessibilityLabel={sync.isOnline ? "Online" : "Offline"} style={[styles.connectionChip, { backgroundColor: sync.isOnline ? "#FFFFFF1A" : "#7F1D1D" }]}>{sync.isOnline ? <Wifi color="#CFF7DC" size={14} /> : <WifiOff color="#FECACA" size={14} />}</View><Pressable accessibilityLabel="Buka notifikasi" accessibilityRole="button" onPress={() => router.push("/notifications")} hitSlop={8} style={styles.bell}><Bell color="#FFFFFF" size={18} />{notifications.data?.total ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notifications.data.total > 9 ? "9+" : notifications.data.total}</Text></View> : null}</Pressable><Pressable accessibilityLabel="Buka profil" accessibilityRole="button" onPress={() => router.push("/profile")} hitSlop={8} style={styles.profileButton}><View style={[styles.avatar, { backgroundColor: theme.soft }]}><Text style={[styles.avatarText, { color: theme.header }]}>{getInitials(session?.user.name)}</Text></View></Pressable></View></View></SafeAreaView><View style={styles.pageBar}><View style={[styles.pageIcon, { backgroundColor: theme.soft }]}>{renderPageIcon(title, theme.accent)}</View><View style={styles.pageCopy}><Text numberOfLines={1} style={styles.pageTitle}>{title}</Text><Text numberOfLines={1} style={styles.pageContext}>{subtitle ?? "Akses operasional berbasis peran"}</Text></View><View accessibilityRole="text" accessibilityLabel={`Status data: ${statusLabel}`} style={[styles.pageStatus, { backgroundColor: statusColor === colors.success ? colors.successSoft : statusColor === colors.warning ? colors.warningSoft : colors.dangerSoft }]}>{statusColor === colors.success ? <ShieldCheck color={statusColor} size={13} /> : <CloudOff color={statusColor} size={13} />}<Text style={[styles.pageStatusText, { color: statusColor }]}>{statusLabel}</Text></View></View></>;
 }
 
 export const AppHeader = Header;
@@ -81,19 +94,19 @@ export function InlineError({ message, error }: { message: string; error?: unkno
   const details = describeError(error, message);
   return <View style={styles.inlineError}><Text style={styles.inlineErrorTitle}>{details.title}</Text><Text style={styles.inlineErrorReason}>{details.reason}</Text><Text style={styles.inlineErrorNext}>{details.nextStep}</Text>{details.requestId ? <Text style={styles.errorDiagnostic}>ID dukungan: {details.requestId}</Text> : null}</View>;
 }
-export function EmptyState({ message, title, description, action }: { message?: string; title?: string; description?: string; action?: { label: string; onPress: () => void } }) { return <View style={[styles.state, styles.emptyState]}><View style={styles.stateIcon}><Inbox color={colors.textSubtle} size={22} /></View><Text style={styles.emptyTitle}>{title ?? message ?? "Belum ada data"}</Text>{description ? <Text style={styles.muted}>{description}</Text> : null}{action ? <Button accessibilityLabel={action.label} onPress={action.onPress} variant="outline" className="min-h-11 rounded-xl border-[#D9E1EE] bg-[#EAF2FF] px-4"><ButtonText className="text-xs font-extrabold text-[#1454C4]">{action.label}</ButtonText></Button> : null}</View>; }
+export function EmptyState({ message, title, description, action }: { message?: string; title?: string; description?: string; action?: EmptyStateAction }) { const ActionIcon = action && /^(buat|tambah|catat)/i.test(action.label) ? Plus : action?.icon; return <View style={[styles.state, styles.emptyState]}><View style={styles.stateIcon}><Inbox color={colors.textSubtle} size={22} /></View><Text style={styles.emptyTitle}>{title ?? message ?? "Belum ada data"}</Text>{description ? <Text style={styles.muted}>{description}</Text> : null}{action ? <Button accessibilityLabel={action.label} onPress={action.onPress} variant="outline" className="min-h-11 rounded-xl border-[#D9E1EE] bg-[#EAF2FF] px-4">{ActionIcon ? <ActionIcon color={colors.primary} size={16} /> : null}<ButtonText className="text-xs font-extrabold text-[#1454C4]">{action.label}</ButtonText></Button> : null}</View>; }
 export function BottomNav({ role, current }: { role: Role; current: string }) {
   const insets = useSafeAreaInsets();
   const navStyle = [styles.nav, { paddingBottom: Math.max(insets.bottom, 8), minHeight: 62 + insets.bottom }];
-  if (role === "PIMPINAN") return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Monitoring" active={current === "monitoring"} href="/monitoring" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={Search} label="Anggaran" active={current === "budgets"} href="/budgets" /><NavItem icon={MoreHorizontal} label="Semua fitur" active={current === "more" || current === "profile"} href="/more" /></View>;
+  if (role === "PIMPINAN") return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Monitoring" active={current === "monitoring"} href="/monitoring" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={BarChart3} label="Anggaran" active={current === "budgets"} href="/budgets" /><NavItem icon={MoreHorizontal} label="Semua fitur" active={current === "more" || current === "profile"} href="/more" /></View>;
   if (role === "BENDAHARA") return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={WalletCards} label="Keuangan" active={current === "finance"} href="/finance" /><NavItem icon={ClipboardCheck} label="Pengajuan" active={current === "proposals"} href="/proposals" /><NavItem icon={TrendingUp} label="Realisasi" active={current === "realizations" || current === "budgets"} href="/realizations" /><NavItem icon={FileText} label="Laporan" active={current === "reports"} href="/reports" /></View>;
-  if (role === "PETUGAS_LAPANGAN") return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={FileText} label="Pemeriksaan" active={current === "inspections" || current === "monitoring" || current === "map"} href="/monitoring" /><NavItem icon={MapPinned} label="Alat Berat" active={current === "excavators"} href="/excavators" /><NavItem icon={WalletCards} label="Informasi" active={current === "information"} href="/information" /><NavItem icon={CircleUserRound} label="Profil" active={current === "profile"} href="/profile" /></View>;
+  if (role === "PETUGAS_LAPANGAN") return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={FileText} label="Pemeriksaan" active={current === "inspections" || current === "monitoring" || current === "map"} href="/monitoring" /><NavItem icon={MapPinned} label="Alat Berat" active={current === "excavators"} href="/excavators" /><NavItem icon={Info} label="Informasi" active={current === "information"} href="/information" /><NavItem icon={CircleUserRound} label="Profil" active={current === "profile"} href="/profile" /></View>;
   return <View style={navStyle}><NavItem icon={Home} label="Beranda" active={current === "dashboard"} href="/dashboard" /><NavItem icon={MapPinned} label="Keuangan" active={current === "monitoring"} href="/finance" /><NavItem icon={WalletCards} label="Informasi" active={false} href="/information" /><NavItem icon={Search} label="Laporan" active={false} href="/reports" /><NavItem icon={CircleUserRound} label="Akun" active={false} href="/dashboard" /></View>;
 }
 
 function NavItem({ label, active, href, icon: Icon }: { label: string; active: boolean; href: "/dashboard" | "/monitoring" | "/finance" | "/information" | "/reports" | "/budgets" | "/proposals" | "/realizations" | "/inspections" | "/excavators" | "/profile" | "/notifications" | "/more"; icon: typeof Home }) {
   const router = useRouter();
-  return <Pressable accessibilityRole="tab" accessibilityState={{ selected: active }} onPress={() => router.push(href)} style={({ pressed }) => [styles.navItem, pressed && styles.navPressed]}><View style={[styles.navIcon, active && styles.navIconActive]}><Icon color={active ? colors.primary : colors.textMuted} size={18} /></View><Text style={[styles.navLabel, active && styles.navActive]}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} onPress={() => router.push(href)} style={({ pressed }) => [styles.navItem, pressed && styles.navPressed]}><View style={[styles.navIcon, active && styles.navIconActive]}><Icon color={active ? colors.primary : colors.textMuted} size={18} /></View><Text style={[styles.navLabel, active && styles.navActive]}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -141,7 +154,7 @@ const styles = StyleSheet.create({
   inlineErrorReason: { color: colors.textStrong, fontSize: typography.caption, fontWeight: "700" },
   inlineErrorNext: { color: colors.textMuted, fontSize: typography.caption },
   nav: { backgroundColor: colors.surface, borderColor: colors.border, borderTopWidth: 1, bottom: 0, flexDirection: "row", left: 0, paddingBottom: 8, paddingTop: 6, position: "absolute", right: 0, ...shadows.card },
-  navItem: { alignItems: "center", flex: 1, gap: 2, minHeight: 48, paddingHorizontal: 2 },
+  navItem: { alignItems: "center", flex: 1, gap: 2, minHeight: 52, paddingHorizontal: 2 },
   navPressed: { opacity: 0.72 },
   navIcon: { alignItems: "center", borderRadius: radii.pill, height: 28, justifyContent: "center", width: 40 },
   navIconActive: { backgroundColor: colors.primarySoft },

@@ -16,6 +16,7 @@ import { createSystemNotificationOnce, notifyPermissionHolders } from "@/src/fea
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
 
 import { assertRealizationAmountAvailable as assertRemainingAllocation } from "./allocation-rules";
+import { allocationControlStatus, allocationPercent, type AllocationControlStatus } from "./allocation-controls";
 import { BUDGET_PERIOD_STATUSES, INITIAL_BUDGET_GROUPS, REALIZATION_TRANSITIONS } from "./constants";
 import { addBudgetCategoryToPeriodSchema, addBudgetItemAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodFiltersSchema, correctRealizationSchema, createBudgetCategorySchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemProgressSchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
 
@@ -329,6 +330,47 @@ async function getBudgetPeriodItems(periodId: string) {
   }
 }
 
+function itemControl(item: { allocatedAmount: number; progressPercentage: number }, approvedRealization: number) {
+  const absorptionPercentage = allocationPercent(approvedRealization, item.allocatedAmount);
+  return {
+    absorptionPercentage,
+    controlStatus: allocationControlStatus({ allocatedAmount: item.allocatedAmount, approvedRealization, progressPercentage: item.progressPercentage }) satisfies AllocationControlStatus,
+  };
+}
+
+function groupControl(items: Array<{ allocatedAmount: number; progressPercentage: number; approvedRealization: number; pendingRealization: number }>) {
+  const totalAllocation = items.reduce((total, item) => total + item.allocatedAmount, 0);
+  const approvedRealization = items.reduce((total, item) => total + item.approvedRealization, 0);
+  const pendingRealization = items.reduce((total, item) => total + item.pendingRealization, 0);
+  const weightedProgress = totalAllocation ? items.reduce((total, item) => total + item.allocatedAmount * item.progressPercentage, 0) / totalAllocation : 0;
+  const controlStatuses = items.map((item) => allocationControlStatus({ allocatedAmount: item.allocatedAmount, approvedRealization: item.approvedRealization, progressPercentage: item.progressPercentage }));
+  return {
+    totalAllocation,
+    approvedRealization,
+    pendingRealization,
+    remainingAllocation: totalAllocation - approvedRealization - pendingRealization,
+    absorptionPercentage: allocationPercent(approvedRealization, totalAllocation),
+    progressPercentage: Math.round(weightedProgress * 100) / 100,
+    controlStatus: controlStatuses.includes("OVER_ALLOCATED") ? "OVER_ALLOCATED" : controlStatuses.includes("POTENTIAL_OVER_BUDGET") ? "POTENTIAL_OVER_BUDGET" : controlStatuses.includes("DELAYED_ABSORPTION") ? "DELAYED_ABSORPTION" : "ON_TRACK",
+    controlStatusCounts: {
+      overAllocated: controlStatuses.filter((status) => status === "OVER_ALLOCATED").length,
+      potentialOverBudget: controlStatuses.filter((status) => status === "POTENTIAL_OVER_BUDGET").length,
+      delayedAbsorption: controlStatuses.filter((status) => status === "DELAYED_ABSORPTION").length,
+    },
+  };
+}
+
+function withItemControl(item: typeof budgetItem.$inferSelect, approvedRealization: number, pendingRealization: number, subcategoryName: string | null, attachments: unknown[] = []) {
+  return {
+    ...item,
+    subcategoryName,
+    attachments,
+    approvedRealization,
+    pendingRealization,
+    ...itemControl(item, approvedRealization),
+  };
+}
+
 async function getLegacyBudgetPeriodItems(periodId: string) {
   const rows = await getDb()
     .select({ item: legacyBudgetItemColumns, groupId: budgetGroup.id, groupName: budgetGroup.name, subcategoryName: budgetSubcategory.name })
@@ -353,9 +395,18 @@ export async function getBudgetPeriodDetail(periodId: string) {
     getDb().select().from(budgetPeriodHistory).where(eq(budgetPeriodHistory.periodId, validId)).orderBy(desc(budgetPeriodHistory.createdAt)),
   ]);
   const snapshot = await getBudgetAllocationSnapshot(validId);
+  const groupsWithItems = groups.map((group) => {
+    const groupItems = items.filter((entry) => entry.groupId === group.id).map((entry) => {
+      const approvedRealization = realizations.filter((realization) => realization.budgetItemId === entry.item.id && realization.status === "SAH").reduce((total, realization) => total + realization.requestedAmount, 0);
+      const pendingRealization = realizations.filter((realization) => realization.budgetItemId === entry.item.id && ["SUBMITTED", "VERIFIED"].includes(realization.status)).reduce((total, realization) => total + realization.requestedAmount, 0);
+      return withItemControl(entry.item, approvedRealization, pendingRealization, entry.subcategoryName, attachments.filter((attachment) => (attachment.attachment as { budgetItemId: string }).budgetItemId === entry.item.id).map((attachment) => attachment.attachment));
+    });
+    return { ...group, ...groupControl(groupItems), items: groupItems };
+  });
+  const groupStatuses = groupsWithItems.map((group) => group.controlStatus);
   return {
     period,
-    groups: groups.map((group) => ({ ...group, items: items.filter((entry) => entry.groupId === group.id).map((entry) => ({ ...entry.item, subcategoryName: entry.subcategoryName, attachments: attachments.filter((attachment) => attachment.attachment.budgetItemId === entry.item.id).map((attachment) => attachment.attachment), approvedRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && realization.status === "SAH").reduce((total, realization) => total + realization.requestedAmount, 0), pendingRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && ["SUBMITTED", "VERIFIED"].includes(realization.status)).reduce((total, realization) => total + realization.requestedAmount, 0) })) })),
+    groups: groupsWithItems,
     revisions,
     history,
     summary: {
@@ -367,6 +418,12 @@ export async function getBudgetPeriodDetail(periodId: string) {
       remainingAllocation: snapshot.remainingAllocation,
       absorptionPercentage: snapshot.absorptionPercentage,
       overAllocatedRealizations: snapshot.overAllocatedRealizations,
+      controlStatus: groupStatuses.includes("OVER_ALLOCATED") ? "OVER_ALLOCATED" : groupStatuses.includes("POTENTIAL_OVER_BUDGET") ? "POTENTIAL_OVER_BUDGET" : groupStatuses.includes("DELAYED_ABSORPTION") ? "DELAYED_ABSORPTION" : "ON_TRACK",
+      controlStatusCounts: {
+        overAllocated: groupsWithItems.reduce((total, group) => total + group.controlStatusCounts.overAllocated, 0),
+        potentialOverBudget: groupsWithItems.reduce((total, group) => total + group.controlStatusCounts.potentialOverBudget, 0),
+        delayedAbsorption: groupsWithItems.reduce((total, group) => total + group.controlStatusCounts.delayedAbsorption, 0),
+      },
     },
   };
 }
@@ -377,21 +434,22 @@ export async function getBudgetPeriodCategorySummary(periodId: string) {
   const [period, groups, items, realizations] = await Promise.all([
     getBudgetPeriodOrThrow(validId),
     getDb().select().from(budgetGroup).where(eq(budgetGroup.periodId, validId)).orderBy(budgetGroup.sortOrder),
-    getLegacyBudgetPeriodItems(validId),
+    getBudgetPeriodItems(validId),
     getDb().select({ budgetItemId: realizationRequest.budgetItemId, requestedAmount: realizationRequest.requestedAmount, status: realizationRequest.status }).from(realizationRequest).innerJoin(budgetItem, eq(budgetItem.id, realizationRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)),
   ]);
   const snapshot = await getBudgetAllocationSnapshot(validId);
+  const groupsWithItems = groups.map((group) => {
+    const groupItems = items.filter((entry) => entry.groupId === group.id).map((entry) => {
+      const approvedRealization = realizations.filter((realization) => realization.budgetItemId === entry.item.id && realization.status === "SAH").reduce((total, realization) => total + realization.requestedAmount, 0);
+      const pendingRealization = realizations.filter((realization) => realization.budgetItemId === entry.item.id && ["SUBMITTED", "VERIFIED"].includes(realization.status)).reduce((total, realization) => total + realization.requestedAmount, 0);
+      return withItemControl(entry.item, approvedRealization, pendingRealization, entry.subcategoryName);
+    });
+    return { ...group, ...groupControl(groupItems), items: groupItems };
+  });
+  const groupStatuses = groupsWithItems.map((group) => group.controlStatus);
   return {
     period,
-    groups: groups.map((group) => ({
-      ...group,
-      items: items.filter((entry) => entry.groupId === group.id).map((entry) => ({
-        ...entry.item,
-        subcategoryName: entry.subcategoryName,
-        approvedRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && realization.status === "SAH").reduce((total, realization) => total + realization.requestedAmount, 0),
-        pendingRealization: realizations.filter((realization) => realization.budgetItemId === entry.item.id && ["SUBMITTED", "VERIFIED"].includes(realization.status)).reduce((total, realization) => total + realization.requestedAmount, 0),
-      })),
-    })),
+    groups: groupsWithItems,
     summary: {
       totalAllocation: snapshot.totalAllocation,
       availableFunds: snapshot.availableFunds,
@@ -401,6 +459,12 @@ export async function getBudgetPeriodCategorySummary(periodId: string) {
       remainingAllocation: snapshot.remainingAllocation,
       absorptionPercentage: snapshot.absorptionPercentage,
       overAllocatedRealizations: snapshot.overAllocatedRealizations,
+      controlStatus: groupStatuses.includes("OVER_ALLOCATED") ? "OVER_ALLOCATED" : groupStatuses.includes("POTENTIAL_OVER_BUDGET") ? "POTENTIAL_OVER_BUDGET" : groupStatuses.includes("DELAYED_ABSORPTION") ? "DELAYED_ABSORPTION" : "ON_TRACK",
+      controlStatusCounts: {
+        overAllocated: groupsWithItems.reduce((total, group) => total + group.controlStatusCounts.overAllocated, 0),
+        potentialOverBudget: groupsWithItems.reduce((total, group) => total + group.controlStatusCounts.potentialOverBudget, 0),
+        delayedAbsorption: groupsWithItems.reduce((total, group) => total + group.controlStatusCounts.delayedAbsorption, 0),
+      },
     },
   };
 }

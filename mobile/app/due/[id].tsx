@@ -7,7 +7,7 @@ import { useAuth } from "../../src/auth";
 import { PaymentActionSheet, PaymentEvidenceViewer } from "../../src/components/PaymentActionSheet";
 import { RowCard, StatusPill } from "../../src/components/PimpinanPrimitives";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
-import { TextInput } from "../../src/components/ui/TextInput";
+import { TextInput } from "../../src/components/AppPrimitives";
 import { AppAlert as Alert, showActionError } from "../../src/lib/feedback";
 import { confirmDuePayment, getDue, getDuePaymentEvidenceDownloadUrl, rejectDuePayment, reverseDuePayment } from "../../src/lib/api";
 import { money } from "../../src/lib/format";
@@ -30,8 +30,8 @@ export default function DueDetail() {
   const query = useQuery({ queryKey: ["due", id], queryFn: () => getDue(id), enabled: Boolean(role && id) });
 
   if (!role) return null;
-  if (query.isLoading) return <><Header role={role} title="Detail Iuran" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data?.due) return <><Header role={role} title="Detail Iuran" /><Screen><ErrorState message="Detail iuran tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isLoading) return <><Header role={role} title="Detail Iuran" /><Screen withBottomNav={false}><LoadingState /></Screen></>;
+  if (query.isError || !query.data?.due) return <><Header role={role} title="Detail Iuran" /><Screen withBottomNav={false}><ErrorState message="Detail iuran tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
 
   const record = query.data.due as { item?: Record<string, unknown>; payments?: Payment[]; verifications?: Array<Record<string, unknown>> };
   const due = record.item ?? {};

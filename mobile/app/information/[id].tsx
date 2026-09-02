@@ -3,7 +3,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { AppAlert as Alert } from "../../src/lib/feedback";
-import { TextInput } from "../../src/components/ui/TextInput";
+import { TextInput } from "../../src/components/AppPrimitives";
 
 import { useAuth } from "../../src/auth";
 import { BottomNav, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
@@ -23,8 +23,8 @@ export default function InformationDetail() {
   const query = useQuery({ queryKey: ["information", id], queryFn: () => getInformationItem(id), enabled: Boolean(role && id) });
   useEffect(() => { if (!query.data) return; void Promise.all(query.data.attachments.map(async (entry) => { const storageKey = text(entry, "storageKey"); const result = await getDailyInformationAttachmentDownloadUrl({ id, storageKey }) as { downloadUrl: string }; return [storageKey, result.downloadUrl] as const; })).then((entries) => setAttachmentUrls(Object.fromEntries(entries))).catch(() => setAttachmentUrls({})); }, [id, query.data]);
   if (!role) return null;
-  if (query.isLoading) return <><Header role={role} title="Detail Informasi" /><Screen><LoadingState /></Screen></>;
-  if (query.isError || !query.data) return <><Header role={role} title="Detail Informasi" /><Screen><ErrorState message="Detail informasi tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
+  if (query.isLoading) return <><Header role={role} title="Detail Informasi" /><Screen withBottomNav={false}><LoadingState /></Screen></>;
+  if (query.isError || !query.data) return <><Header role={role} title="Detail Informasi" /><Screen withBottomNav={false}><ErrorState message="Detail informasi tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /></Screen></>;
   const item = query.data.item; const canUpdate = session?.permissions.includes("DAILY_INFO_UPDATE"); const status = text(item, "status");
   const refresh = async () => { await client.invalidateQueries({ queryKey: ["information", id] }); await client.invalidateQueries({ queryKey: ["information"] }); };
   async function followUp() { if (uploading) return; const parsed = informationFollowUpFormSchema.safeParse({ note }); if (!parsed.success) return Alert.alert("Catatan wajib diisi", parsed.error.issues[0]?.message ?? "Masukkan tindak lanjut sebelum menyimpan."); setUploading(true); try { await addDailyInformationFollowUp({ id, ...parsed.data }); setNote(""); await refresh(); } catch (error) { showActionError(error, "Coba lagi."); } finally { setUploading(false); } }

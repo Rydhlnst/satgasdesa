@@ -19,7 +19,7 @@ import { text } from "../../src/lib/read";
 import { colors, spacing } from "../../src/theme";
 import { optimizeImage, pickImagesFromCameraOrLibrary, uploadOptimizedImage } from "../../src/lib/media";
 import { createClientId } from "../../src/lib/id";
-import { Button, ButtonText } from "../../src/components/ui/button";
+import { Button, ButtonText } from "../../src/components/AppPrimitives";
 
 type Values = z.infer<typeof schema>;
 
