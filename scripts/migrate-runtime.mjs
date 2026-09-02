@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import mysql from "mysql2/promise";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { assertSafeMigrations } from "./assert-safe-migrations.mjs";
@@ -41,6 +42,57 @@ function isSafeDuplicateObjectError(error, statement) {
   return objectStatement && (code === 1050 || code === 1061 || code === 1826 || message.includes("already exists") || message.includes("duplicate key name"));
 }
 
+function isIdentifierLengthError(error) {
+  const code = error?.errno ?? error?.cause?.errno;
+  const message = String(error?.sqlMessage ?? error?.message ?? "").toLowerCase();
+  return code === 1059 || message.includes("identifier name") && message.includes("too long");
+}
+
+function shortenMySqlNamedObjects(statement) {
+  let changed = false;
+  const shortened = statement.replace(/\b(CONSTRAINT\s+|CREATE\s+(?:UNIQUE\s+)?INDEX\s+)(`)([^`]+)(`)/gi, (match, prefix, opening, name, closing) => {
+    if (name.length <= 64) return match;
+
+    const digest = createHash("sha256").update(name).digest("hex").slice(0, 16);
+    const safeName = `${name.replace(/[^a-zA-Z0-9_$]/g, "_").slice(0, 46)}_${digest}`;
+    changed = true;
+    return `${prefix}${opening}${safeName}${closing}`;
+  });
+
+  return changed ? shortened : null;
+}
+
+async function executeMigrationStatement(pool, statement, migrationHash) {
+  try {
+    await pool.query(statement);
+    return;
+  } catch (error) {
+    if (isIdentifierLengthError(error)) {
+      const shortenedStatement = shortenMySqlNamedObjects(statement);
+      if (shortenedStatement) {
+        try {
+          await pool.query(shortenedStatement);
+          console.warn(`Migration ${migrationHash.slice(0, 12)} shortened an oversized MySQL constraint/index name without changing data.`);
+          return;
+        } catch (retryError) {
+          if (isSafeDuplicateObjectError(retryError, shortenedStatement)) {
+            console.warn(`Migration ${migrationHash.slice(0, 12)} skipped an existing database object: ${migrationErrorDetails(retryError).message}`);
+            return;
+          }
+          throw retryError;
+        }
+      }
+    }
+
+    if (isSafeDuplicateObjectError(error, statement)) {
+      console.warn(`Migration ${migrationHash.slice(0, 12)} skipped an existing database object: ${migrationErrorDetails(error).message}`);
+      return;
+    }
+
+    throw error;
+  }
+}
+
 async function migrateSafely(pool, migrationsFolder) {
   const migrations = readMigrationFiles({ migrationsFolder });
   await pool.query(`create table if not exists \`__drizzle_migrations\` (\`id\` serial primary key, \`hash\` text not null, \`created_at\` bigint)`);
@@ -52,12 +104,7 @@ async function migrateSafely(pool, migrationsFolder) {
     for (const statement of migration.sql) {
       const sql = statement.trim();
       if (!sql) continue;
-      try {
-        await pool.query(sql);
-      } catch (error) {
-        if (!isSafeDuplicateObjectError(error, sql)) throw error;
-        console.warn(`Migration ${migration.hash.slice(0, 12)} skipped an existing database object: ${migrationErrorDetails(error).message}`);
-      }
+      await executeMigrationStatement(pool, sql, migration.hash);
     }
     await pool.query("insert into `__drizzle_migrations` (`hash`, `created_at`) values (?, ?)", [migration.hash, migration.folderMillis]);
     applied.add(migration.hash);
