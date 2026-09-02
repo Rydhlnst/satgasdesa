@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
-import { budgetCategory, budgetGroup, budgetItem, budgetItemAttachment, budgetItemProgressHistory, budgetPeriod, budgetPeriodHistory, budgetRevision, budgetSubcategory, realizationRequest } from "@/src/db/schema/budgets";
+import { budgetCategory, budgetChangeRequest, budgetChangeRequestAttachment, budgetGroup, budgetItem, budgetItemAttachment, budgetItemProgressHistory, budgetPeriod, budgetPeriodAttachment, budgetPeriodHistory, budgetRevision, budgetSubcategory, realizationRequest } from "@/src/db/schema/budgets";
 import { financialTransaction } from "@/src/db/schema/finance";
 import { fundRequest } from "@/src/db/schema/fund-requests";
 import { realizationApproval, realizationEvidence } from "@/src/db/schema/history-evidence";
@@ -18,7 +18,7 @@ import { reverseFinancialTransactionRecord } from "@/src/features/finance/servic
 import { assertRealizationAmountAvailable as assertRemainingAllocation } from "./allocation-rules";
 import { allocationControlStatus, allocationPercent, type AllocationControlStatus } from "./allocation-controls";
 import { BUDGET_PERIOD_STATUSES, INITIAL_BUDGET_GROUPS, REALIZATION_TRANSITIONS } from "./constants";
-import { addBudgetCategoryToPeriodSchema, addBudgetItemAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodFiltersSchema, correctRealizationSchema, createBudgetCategorySchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemProgressSchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
+import { addBudgetCategoryToPeriodSchema, addBudgetChangeRequestAttachmentSchema, addBudgetItemAttachmentSchema, addBudgetPeriodAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetChangeRequestAttachmentDownloadSchema, budgetChangeRequestAttachmentUploadSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodAttachmentDownloadSchema, budgetPeriodAttachmentUploadSchema, budgetPeriodFiltersSchema, budgetChangeRequestTransitionSchema, createBudgetCategorySchema, createBudgetChangeRequestSchema, correctRealizationSchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemProgressSchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
   return parseValidatedInput(result, "Please check the budget details and try again.");
@@ -30,6 +30,16 @@ function budgetItemAttachmentScope(budgetItemId: string): string { return `budge
 function assertBudgetItemAttachmentKey(budgetItemId: string, storageKey: string): void {
   const scope = `${budgetItemAttachmentScope(budgetItemId)}/`;
   if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("Budget attachment is outside the permitted storage scope.");
+}
+function budgetPeriodAttachmentScope(periodId: string): string { return `budget-periods/${periodId}/rab`; }
+function assertBudgetPeriodAttachmentKey(periodId: string, storageKey: string): void {
+  const scope = `${budgetPeriodAttachmentScope(periodId)}/`;
+  if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("RAB attachment is outside the permitted storage scope.");
+}
+function budgetChangeRequestAttachmentScope(changeRequestId: string): string { return `budget-change-requests/${changeRequestId}`; }
+function assertBudgetChangeRequestAttachmentKey(changeRequestId: string, storageKey: string): void {
+  const scope = `${budgetChangeRequestAttachmentScope(changeRequestId)}/`;
+  if (!storageKey.startsWith(scope) || storageKey.slice(scope.length).includes("/") || storageKey.includes("..") || storageKey.includes("\\")) throw new Error("Change order attachment is outside the permitted storage scope.");
 }
 function realizationEvidenceScope(realizationId: string): string { return `realizations/${realizationId}`; }
 function assertRealizationEvidenceKey(realizationId: string, storageKey: string): void {
@@ -386,13 +396,16 @@ export async function getBudgetPeriodDetail(periodId: string) {
   await requirePermission(PERMISSIONS.BUDGET_READ);
   const validId = z.string().uuid("Invalid budget period ID.").parse(periodId);
   const period = await getBudgetPeriodOrThrow(validId);
-  const [groups, items, revisions, realizations, attachments, history] = await Promise.all([
+  const [groups, items, revisions, realizations, attachments, history, periodAttachments, changeRequests, changeRequestAttachments] = await Promise.all([
     getDb().select().from(budgetGroup).where(eq(budgetGroup.periodId, validId)).orderBy(budgetGroup.sortOrder),
     getBudgetPeriodItems(validId),
     getDb().select({ revision: budgetRevision, itemName: budgetItem.name }).from(budgetRevision).innerJoin(budgetItem, eq(budgetItem.id, budgetRevision.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)).orderBy(desc(budgetRevision.createdAt)),
     getDb().select({ budgetItemId: realizationRequest.budgetItemId, requestedAmount: realizationRequest.requestedAmount, status: realizationRequest.status }).from(realizationRequest).innerJoin(budgetItem, eq(budgetItem.id, realizationRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)),
     getDb().select({ attachment: budgetItemAttachment }).from(budgetItemAttachment).innerJoin(budgetItem, eq(budgetItem.id, budgetItemAttachment.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)).orderBy(desc(budgetItemAttachment.createdAt)),
     getDb().select().from(budgetPeriodHistory).where(eq(budgetPeriodHistory.periodId, validId)).orderBy(desc(budgetPeriodHistory.createdAt)),
+    getDb().select().from(budgetPeriodAttachment).where(eq(budgetPeriodAttachment.periodId, validId)).orderBy(desc(budgetPeriodAttachment.createdAt)),
+    getDb().select({ request: budgetChangeRequest, itemName: budgetItem.name }).from(budgetChangeRequest).innerJoin(budgetItem, eq(budgetItem.id, budgetChangeRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)).orderBy(desc(budgetChangeRequest.createdAt)),
+    getDb().select({ attachment: budgetChangeRequestAttachment }).from(budgetChangeRequestAttachment).innerJoin(budgetChangeRequest, eq(budgetChangeRequest.id, budgetChangeRequestAttachment.changeRequestId)).innerJoin(budgetItem, eq(budgetItem.id, budgetChangeRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).where(eq(budgetGroup.periodId, validId)).orderBy(desc(budgetChangeRequestAttachment.createdAt)),
   ]);
   const snapshot = await getBudgetAllocationSnapshot(validId);
   const groupsWithItems = groups.map((group) => {
@@ -408,6 +421,8 @@ export async function getBudgetPeriodDetail(periodId: string) {
     period,
     groups: groupsWithItems,
     revisions,
+    periodAttachments,
+    changeRequests: changeRequests.map((entry) => ({ ...entry.request, itemName: entry.itemName, attachments: changeRequestAttachments.filter((row) => row.attachment.changeRequestId === entry.request.id).map((row) => row.attachment) })),
     history,
     summary: {
       totalAllocation: snapshot.totalAllocation,
@@ -611,6 +626,126 @@ export async function getBudgetItemAttachmentDownloadUrl(input: unknown) {
   assertBudgetItemAttachmentKey(values.budgetItemId, attachment.storageKey);
   return { downloadUrl: await getObjectStorage().createDownloadUrl(attachment.storageKey) };
 }
+
+export async function createBudgetPeriodAttachmentUploadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(budgetPeriodAttachmentUploadSchema.safeParse(input));
+  const period = await getBudgetPeriodOrThrow(values.periodId);
+  if (period.status !== "DRAFT") throw new Error("RAB hanya dapat diunggah saat periode anggaran masih berupa draf.");
+  validateUpload(values);
+  const upload = await getObjectStorage().createUploadUrl({ ...values, scope: budgetPeriodAttachmentScope(values.periodId) });
+  assertBudgetPeriodAttachmentKey(values.periodId, upload.key);
+  return { key: upload.key, uploadUrl: upload.uploadUrl };
+}
+
+export async function addBudgetPeriodAttachment(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(addBudgetPeriodAttachmentSchema.safeParse(input));
+  const period = await getBudgetPeriodOrThrow(values.periodId);
+  if (period.status !== "DRAFT") throw new Error("RAB hanya dapat ditambahkan saat periode anggaran masih berupa draf.");
+  assertBudgetPeriodAttachmentKey(values.periodId, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "rab.pdf" });
+  const id = crypto.randomUUID(); const now = new Date();
+  await getDb().transaction(async (tx) => {
+    await tx.insert(budgetPeriodAttachment).values({ id, periodId: values.periodId, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });
+    await tx.insert(budgetPeriodHistory).values({ id: crypto.randomUUID(), periodId: values.periodId, budgetItemId: null, action: "RAB_ATTACHED", notes: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "BUDGET_PERIOD_ATTACHMENT", entityId: id, newValues: { periodId: values.periodId, contentType: values.contentType, sizeBytes: values.sizeBytes } }));
+  });
+  return { id };
+}
+
+export async function getBudgetPeriodAttachmentDownloadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.BUDGET_READ);
+  const values = parseInput(budgetPeriodAttachmentDownloadSchema.safeParse(input));
+  const [attachment] = await getDb().select({ storageKey: budgetPeriodAttachment.storageKey }).from(budgetPeriodAttachment).where(and(eq(budgetPeriodAttachment.id, values.attachmentId), eq(budgetPeriodAttachment.periodId, values.periodId))).limit(1);
+  if (!attachment) throw new Error("Dokumen RAB tidak ditemukan.");
+  assertBudgetPeriodAttachmentKey(values.periodId, attachment.storageKey);
+  return { downloadUrl: await getObjectStorage().createDownloadUrl(attachment.storageKey) };
+}
+
+async function getBudgetChangeRequestContext(id: string) {
+  const [context] = await getDb().select({ request: budgetChangeRequest, item: budgetItem, group: budgetGroup, period: budgetPeriod }).from(budgetChangeRequest).innerJoin(budgetItem, eq(budgetItem.id, budgetChangeRequest.budgetItemId)).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).innerJoin(budgetPeriod, eq(budgetPeriod.id, budgetGroup.periodId)).where(eq(budgetChangeRequest.id, id)).limit(1);
+  if (!context) throw new Error("Pengajuan perubahan anggaran tidak ditemukan.");
+  return context;
+}
+
+export async function createBudgetChangeRequest(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(createBudgetChangeRequestSchema.safeParse(input));
+  const [context] = await getDb().select({ item: budgetItem, period: budgetPeriod }).from(budgetItem).innerJoin(budgetGroup, eq(budgetGroup.id, budgetItem.groupId)).innerJoin(budgetPeriod, eq(budgetPeriod.id, budgetGroup.periodId)).where(eq(budgetItem.id, values.budgetItemId)).limit(1);
+  if (!context) throw new Error("Item alokasi anggaran tidak ditemukan.");
+  if (context.period.status !== "APPROVED") throw new Error("Perubahan volume hanya dapat diajukan setelah anggaran disahkan.");
+  if (context.item.allocatedAmount === values.proposedAmount) throw new Error("Jumlah perubahan harus berbeda dari alokasi saat ini.");
+  const [openRequest] = await getDb().select({ id: budgetChangeRequest.id }).from(budgetChangeRequest).where(and(eq(budgetChangeRequest.budgetItemId, values.budgetItemId), inArray(budgetChangeRequest.status, ["DRAFT", "SUBMITTED", "VERIFIED"]))).limit(1);
+  if (openRequest) throw new Error("Masih ada pengajuan perubahan anggaran yang menunggu proses.");
+  const id = crypto.randomUUID(); const now = new Date();
+  await getDb().insert(budgetChangeRequest).values({ id, budgetItemId: values.budgetItemId, previousAmount: context.item.allocatedAmount, proposedAmount: values.proposedAmount, reason: values.reason, status: "DRAFT", rejectionReason: null, submittedAt: null, verifiedAt: null, approvedAt: null, createdBy: session.user.id, verifiedBy: null, approvedBy: null, createdAt: now, updatedAt: now });
+  await getDb().insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "BUDGET_CHANGE_REQUEST", entityId: id, newValues: { budgetItemId: values.budgetItemId, previousAmount: context.item.allocatedAmount, proposedAmount: values.proposedAmount, reason: values.reason } }));
+  return { id };
+}
+
+export async function createBudgetChangeRequestAttachmentUploadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(budgetChangeRequestAttachmentUploadSchema.safeParse(input));
+  const context = await getBudgetChangeRequestContext(values.changeRequestId);
+  if (context.request.status !== "DRAFT") throw new Error("Dokumen perubahan hanya dapat ditambahkan pada draf pengajuan.");
+  validateUpload(values);
+  const upload = await getObjectStorage().createUploadUrl({ ...values, scope: budgetChangeRequestAttachmentScope(values.changeRequestId) });
+  assertBudgetChangeRequestAttachmentKey(values.changeRequestId, upload.key);
+  return { key: upload.key, uploadUrl: upload.uploadUrl };
+}
+
+export async function addBudgetChangeRequestAttachment(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(addBudgetChangeRequestAttachmentSchema.safeParse(input));
+  const context = await getBudgetChangeRequestContext(values.changeRequestId);
+  if (context.request.status !== "DRAFT") throw new Error("Dokumen perubahan hanya dapat ditambahkan pada draf pengajuan.");
+  assertBudgetChangeRequestAttachmentKey(values.changeRequestId, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "perubahan.pdf" });
+  const id = crypto.randomUUID(); const now = new Date();
+  await getDb().insert(budgetChangeRequestAttachment).values({ id, changeRequestId: values.changeRequestId, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });
+  await getDb().insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "BUDGET_CHANGE_REQUEST_ATTACHMENT", entityId: id, newValues: { changeRequestId: values.changeRequestId, contentType: values.contentType, sizeBytes: values.sizeBytes } }));
+  return { id };
+}
+
+export async function getBudgetChangeRequestAttachmentDownloadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.BUDGET_READ);
+  const values = parseInput(budgetChangeRequestAttachmentDownloadSchema.safeParse(input));
+  const [attachment] = await getDb().select({ storageKey: budgetChangeRequestAttachment.storageKey }).from(budgetChangeRequestAttachment).where(and(eq(budgetChangeRequestAttachment.id, values.attachmentId), eq(budgetChangeRequestAttachment.changeRequestId, values.changeRequestId))).limit(1);
+  if (!attachment) throw new Error("Dokumen perubahan tidak ditemukan.");
+  assertBudgetChangeRequestAttachmentKey(values.changeRequestId, attachment.storageKey);
+  return { downloadUrl: await getObjectStorage().createDownloadUrl(attachment.storageKey) };
+}
+
+async function transitionBudgetChangeRequest(id: string, status: "SUBMITTED" | "VERIFIED" | "APPROVED" | "REJECTED" | "CANCELLED", actorUserId: string, notes?: string) {
+  const context = await getBudgetChangeRequestContext(id); const current = context.request.status; const now = new Date();
+  const allowed: Record<string, string[]> = { DRAFT: ["SUBMITTED", "CANCELLED"], SUBMITTED: ["VERIFIED", "REJECTED"], VERIFIED: ["APPROVED", "REJECTED"] };
+  if (!allowed[current]?.includes(status)) throw new Error(`Perubahan anggaran tidak dapat diubah dari ${current} menjadi ${status}.`);
+  if (status === "SUBMITTED") {
+    const [attachment] = await getDb().select({ id: budgetChangeRequestAttachment.id }).from(budgetChangeRequestAttachment).where(eq(budgetChangeRequestAttachment.changeRequestId, id)).limit(1);
+    if (!attachment) throw new Error("Dokumen Perubahan wajib dilampirkan sebelum pengajuan.");
+  }
+  if (status === "APPROVED") await assertAllocationWithinFunds(context.period.id, context.request.proposedAmount, context.item.id);
+  await getDb().transaction(async (tx) => {
+    if (status === "APPROVED") {
+      const [itemResult] = await tx.update(budgetItem).set({ allocatedAmount: context.request.proposedAmount, updatedAt: now }).where(and(eq(budgetItem.id, context.item.id), eq(budgetItem.allocatedAmount, context.request.previousAmount)));
+      if (itemResult.affectedRows !== 1) throw new Error("Alokasi berubah sebelum persetujuan. Muat ulang lalu coba lagi.");
+      await tx.insert(budgetRevision).values({ id: crypto.randomUUID(), budgetItemId: context.item.id, previousAmount: context.request.previousAmount, nextAmount: context.request.proposedAmount, reason: `Perubahan anggaran: ${context.request.reason}`, revisedBy: actorUserId, createdAt: now });
+    }
+    const update = status === "SUBMITTED" ? { status, submittedAt: now, updatedAt: now } : status === "VERIFIED" ? { status, verifiedAt: now, verifiedBy: actorUserId, updatedAt: now } : status === "APPROVED" ? { status, approvedAt: now, approvedBy: actorUserId, updatedAt: now } : { status, rejectionReason: optionalValue(notes), updatedAt: now };
+    const [requestResult] = await tx.update(budgetChangeRequest).set(update).where(and(eq(budgetChangeRequest.id, id), eq(budgetChangeRequest.status, current)));
+    if (requestResult.affectedRows !== 1) throw new Error("Pengajuan perubahan sudah berubah. Muat ulang lalu coba lagi.");
+    await tx.insert(budgetPeriodHistory).values({ id: crypto.randomUUID(), periodId: context.period.id, budgetItemId: context.item.id, action: `CHANGE_${status}`, notes: optionalValue(notes), createdBy: actorUserId, createdAt: now });
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId, action: status === "APPROVED" ? AUDIT_ACTIONS.APPROVE : status === "VERIFIED" ? AUDIT_ACTIONS.VERIFY : status === "REJECTED" ? AUDIT_ACTIONS.REJECT : status === "SUBMITTED" ? AUDIT_ACTIONS.SUBMIT : AUDIT_ACTIONS.UPDATE, entityType: "BUDGET_CHANGE_REQUEST", entityId: id, oldValues: { status: current }, newValues: { status, notes: optionalValue(notes), proposedAmount: context.request.proposedAmount } }));
+  });
+  return { id, status };
+}
+
+export async function submitBudgetChangeRequest(input: unknown) { const session = await requirePermission(PERMISSIONS.BUDGET_CREATE); const values = parseInput(budgetChangeRequestTransitionSchema.pick({ id: true, notes: true }).safeParse(input)); return transitionBudgetChangeRequest(values.id, "SUBMITTED", session.user.id, values.notes ?? `Diajukan oleh ${session.user.name}`); }
+export async function verifyBudgetChangeRequest(input: unknown) { const session = await requirePermission(PERMISSIONS.BUDGET_VERIFY); const values = parseInput(budgetChangeRequestTransitionSchema.pick({ id: true, notes: true }).safeParse(input)); return transitionBudgetChangeRequest(values.id, "VERIFIED", session.user.id, values.notes); }
+export async function approveBudgetChangeRequest(input: unknown) { const session = await requirePermission(PERMISSIONS.BUDGET_APPROVE); const values = parseInput(budgetChangeRequestTransitionSchema.pick({ id: true, notes: true }).safeParse(input)); return transitionBudgetChangeRequest(values.id, "APPROVED", session.user.id, values.notes); }
+export async function rejectBudgetChangeRequest(input: unknown) { const session = await requirePermission(PERMISSIONS.BUDGET_APPROVE); const values = parseInput(budgetChangeRequestTransitionSchema.pick({ id: true, notes: true }).safeParse(input)); return transitionBudgetChangeRequest(values.id, "REJECTED", session.user.id, values.notes); }
+export async function cancelBudgetChangeRequest(input: unknown) { const session = await requirePermission(PERMISSIONS.BUDGET_CREATE); const values = parseInput(budgetChangeRequestTransitionSchema.pick({ id: true, notes: true }).safeParse(input)); return transitionBudgetChangeRequest(values.id, "CANCELLED", session.user.id, values.notes); }
 
 export async function verifyBudgetPeriod(input: unknown) {
   const session = await requirePermission(PERMISSIONS.BUDGET_VERIFY);

@@ -19,6 +19,7 @@ import { getFinanceDefaults } from "../settings/service";
 import { generateMonthlyDuesForPeriod } from "./automation";
 import { reverseFinancialTransactionRecord } from "@/src/features/finance/service";
 import { parseValidatedInput } from "@/src/lib/validation";
+import { notifyBusinessActorUsers } from "@/src/features/notifications/service";
 
 function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
   return parseValidatedInput(result, "Periksa data iuran lalu coba lagi.");
@@ -336,7 +337,7 @@ export async function recordDuePayment(input: unknown) {
       if (!hasMatchingPaymentIdentity(existingPayment, values)) {
         throw new Error("Kunci idempotensi pembayaran ini sudah digunakan untuk data pembayaran yang berbeda.");
       }
-      return { id: paymentId, dueId: existingPayment.dueId, status: existingPayment.status, duplicate: true };
+      return { id: paymentId, dueId: existingPayment.dueId, businessActorId: null, amount: values.amount, status: existingPayment.status, duplicate: true };
     }
 
     const [current] = await tx.select().from(due).where(eq(due.id, values.dueId)).limit(1);
@@ -376,18 +377,19 @@ export async function recordDuePayment(input: unknown) {
       }),
     ]);
 
-    return { id: paymentId, dueId: current.id, status: "PENDING", duplicate: false };
+    return { id: paymentId, dueId: current.id, businessActorId: current.businessActorId, amount: values.amount, status: "PENDING", duplicate: false };
   });
+  if (!result.duplicate && result.businessActorId) await notifyBusinessActorUsers({ businessActorId: result.businessActorId, ruleKey: "DUE_PAYMENT_RECORDED", targetKey: result.id, type: "DUE_PAYMENT_RECORDED", title: "Bukti pembayaran diterima", body: `Bukti pembayaran sebesar Rp${result.amount.toLocaleString("id-ID")} sudah diterima dan menunggu verifikasi Bendahara.`, relatedEntityType: "DUE", relatedEntityId: result.dueId });
   return result;
 }
 
 export async function confirmDuePayment(input: unknown) {
   const session = await requirePermission(PERMISSIONS.PAYMENT_CONFIRM);
   const values = parseInput(confirmDuePaymentSchema.safeParse(input));
-  return getDb().transaction(async (tx) => {
+  const result = await getDb().transaction(async (tx) => {
     const [payment] = await tx.select().from(duePayment).where(eq(duePayment.id, values.duePaymentId)).limit(1);
     if (!payment) throw new Error("Pembayaran iuran tidak ditemukan.");
-    if (payment.status === "CONFIRMED") return { id: payment.id, status: payment.status, duplicate: true };
+    if (payment.status === "CONFIRMED") return { id: payment.id, dueId: payment.dueId, businessActorId: null, status: payment.status, duplicate: true };
     if (payment.status !== "PENDING") throw new Error("Hanya pembayaran yang masih menunggu yang dapat dikonfirmasi.");
     const [currentDue] = await tx.select().from(due).where(eq(due.id, payment.dueId)).limit(1);
     if (!currentDue) throw new Error("Iuran tidak ditemukan.");
@@ -398,8 +400,10 @@ export async function confirmDuePayment(input: unknown) {
     await tx.insert(financialTransaction).values({ id: transactionId, transactionCode: createPaymentTransactionCode(), transactionAt: new Date(`${payment.paymentDate}T00:00:00.000Z`), transactionType: "CASH_IN", amount: payment.amount, description: `Pembayaran iuran ${currentDue.id}`, relatedEntityType: "DUE_PAYMENT", relatedEntityId: payment.id, evidenceKey: payment.evidenceKey, status: "SAH", createdBy: payment.recordedBy, approvedBy: session.user.id, reversedTransactionId: null, createdAt: now, updatedAt: now });
     await tx.update(duePayment).set({ status: "CONFIRMED", confirmedBy: session.user.id, confirmedAt: now, financialTransactionId: transactionId }).where(and(eq(duePayment.id, payment.id), eq(duePayment.status, "PENDING")));
     await tx.insert(auditLog).values([createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.APPROVE, entityType: "DUE_PAYMENT", entityId: payment.id, oldValues: { status: "PENDING" }, newValues: { status: "CONFIRMED", transactionId } }), createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "DUE", entityId: currentDue.id, oldValues: { amountPaid: currentDue.amountPaid, status: currentDue.status }, newValues: { amountPaid, status } })]);
-    return { id: payment.id, dueId: currentDue.id, status: "CONFIRMED", amountPaid, dueStatus: status, duplicate: false };
+    return { id: payment.id, dueId: currentDue.id, businessActorId: currentDue.businessActorId, status: "CONFIRMED", amountPaid, dueStatus: status, duplicate: false };
   });
+  if (!result.duplicate && result.businessActorId) await notifyBusinessActorUsers({ businessActorId: result.businessActorId, ruleKey: "DUE_PAYMENT_CONFIRMED", targetKey: result.id, type: "DUE_PAYMENT_CONFIRMED", title: "Pembayaran iuran dikonfirmasi", body: `Pembayaran iuran sebesar Rp${result.amountPaid.toLocaleString("id-ID")} sudah dikonfirmasi Bendahara.`, relatedEntityType: "DUE", relatedEntityId: result.dueId });
+  return result;
 }
 
 export async function rejectDuePayment(input: unknown) {

@@ -30,7 +30,7 @@ export type UserCreateState = {
 const createUserSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters.").max(255),
   email: z.string().trim().email("Enter a valid email address.").max(255),
-  roleId: z.enum([ROLES.PIMPINAN, ROLES.BENDAHARA, ROLES.PETUGAS_LAPANGAN]),
+  roleId: z.enum([ROLES.PIMPINAN, ROLES.BENDAHARA, ROLES.PETUGAS_LAPANGAN, ROLES.PENGUSAHA]),
   password: z.string().min(8, "Password must be at least 8 characters.").max(128, "Password must be 128 characters or fewer."),
 });
 const userIdSchema = z.string().uuid("Invalid user ID.");

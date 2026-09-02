@@ -120,7 +120,7 @@ export default function DueDetail() {
 
   return <><Header role={role} title="Detail Iuran" subtitle={text(due, "referenceKey")} /><Screen>
     <View style={styles.summary}>
-      <Text style={styles.label}>SISA TAGIHAN</Text>
+      <Text style={styles.label}>SISA TAGIHAN IURAN INI</Text>
       <Text style={styles.amount}>{money(remaining)}</Text>
       <StatusPill tone={text(due, "paymentState") === "PAID" ? "green" : "orange"}>{displayStatus(text(due, "paymentState"))}</StatusPill>
       <Text style={styles.value}>{text(due, "payerName")} · {displayStatus(text(due, "dueType"))}</Text>

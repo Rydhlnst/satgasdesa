@@ -5,7 +5,10 @@ import { z } from "zod";
 import { getDb } from "@/src/db";
 import { notification, notificationDelivery, notificationDispatch, pushDevice } from "@/src/db/schema/notifications";
 import { user } from "@/src/db/schema/auth";
-import { permission, rolePermission, userRole } from "@/src/db/schema/rbac";
+import { dailyInformation } from "@/src/db/schema/daily-information";
+import { due } from "@/src/db/schema/dues";
+import { excavator } from "@/src/db/schema/excavators";
+import { businessActorUser, permission, role, rolePermission, userRole } from "@/src/db/schema/rbac";
 import { requireAuth } from "@/src/lib/permissions/authorize";
 import { type Permission } from "@/src/lib/permissions/constants";
 import { dateRangeFields, nextJakartaDay, startOfJakartaDay, validateDateRange } from "@/src/lib/date-range";
@@ -14,11 +17,30 @@ const createSchema = z.object({ recipientUserId: z.string().uuid(), type: z.stri
 const notificationFiltersSchema = z.object({ unreadOnly: z.boolean().default(false), query: z.string().trim().max(100).optional(), ...dateRangeFields, page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20) }).superRefine(validateDateRange);
 const pushDeviceSchema = z.object({ expoPushToken: z.string().regex(/^(?:Expo|Exponent)PushToken\[[^\]]+\]$/, "Invalid Expo push token.").max(255), platform: z.enum(["android", "ios"]) });
 
+async function businessPortalNotificationScope(userId: string) {
+  const [assignment] = await getDb().select({ businessActorId: businessActorUser.businessActorId }).from(userRole).innerJoin(role, eq(role.id, userRole.roleId)).innerJoin(businessActorUser, eq(businessActorUser.userId, userRole.userId)).where(and(eq(userRole.userId, userId), eq(role.name, "PENGUSAHA"))).limit(1);
+  if (!assignment?.businessActorId) return undefined;
+  const units = await getDb().select({ id: excavator.id, blockId: excavator.currentBlockId }).from(excavator).where(eq(excavator.businessActorId, assignment.businessActorId));
+  const unitIds = units.map((unit) => unit.id); const blockIds = units.map((unit) => unit.blockId).filter((value): value is string => Boolean(value));
+  const [dueRows, infoRows] = await Promise.all([
+    getDb().select({ id: due.id }).from(due).where(eq(due.businessActorId, assignment.businessActorId)),
+    blockIds.length ? getDb().select({ id: dailyInformation.id }).from(dailyInformation).where(inArray(dailyInformation.blockId, blockIds)) : Promise.resolve([]),
+  ]);
+  const related = [
+    dueRows.length ? and(eq(notification.relatedEntityType, "DUE"), inArray(notification.relatedEntityId, dueRows.map((row) => row.id))) : undefined,
+    unitIds.length ? and(eq(notification.relatedEntityType, "EXCAVATOR"), inArray(notification.relatedEntityId, unitIds)) : undefined,
+    infoRows.length ? and(eq(notification.relatedEntityType, "DAILY_INFORMATION"), inArray(notification.relatedEntityId, infoRows.map((row) => row.id))) : undefined,
+  ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+  return related.length ? or(...related) : eq(notification.id, "__no_business_portal_notification__");
+}
+
 export async function getMyNotifications(input?: boolean | unknown) {
   const session = await requireAuth();
   const values = notificationFiltersSchema.parse(typeof input === "boolean" ? { unreadOnly: input } : input ?? {});
+  const portalScope = await businessPortalNotificationScope(session.user.id);
   const conditions = [
     eq(notification.recipientUserId, session.user.id),
+    portalScope,
     values.unreadOnly ? isNull(notification.readAt) : undefined,
     values.query ? or(like(notification.title, `%${values.query}%`), like(notification.body, `%${values.query}%`)) : undefined,
     values.dateFrom ? gte(notification.createdAt, startOfJakartaDay(values.dateFrom)) : undefined,
@@ -35,7 +57,9 @@ export async function getMyNotifications(input?: boolean | unknown) {
 
 export async function getUnreadNotificationCount() {
   const session = await requireAuth();
-  const [result] = await getDb().select({ total: count() }).from(notification).where(and(eq(notification.recipientUserId, session.user.id), isNull(notification.readAt)));
+  const portalScope = await businessPortalNotificationScope(session.user.id);
+  const conditions = [eq(notification.recipientUserId, session.user.id), portalScope, isNull(notification.readAt)].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+  const [result] = await getDb().select({ total: count() }).from(notification).where(and(...conditions));
   return Number(result?.total ?? 0);
 }
 
@@ -102,6 +126,17 @@ async function dispatchPushNotification(input: z.infer<typeof createSchema> & { 
 /** For trusted server-side domain workflows only. Do not expose through an action or route. */
 export async function createSystemNotificationOnce(input: unknown) {
   return insertNotificationOnce(input);
+}
+
+export async function notifyBusinessActorUsers(input: { businessActorId: string; ruleKey: string; targetKey: string; type: string; title: string; body: string; relatedEntityType?: string; relatedEntityId?: string }) {
+  const recipients = await getDb().select({ userId: businessActorUser.userId }).from(businessActorUser).innerJoin(user, eq(user.id, businessActorUser.userId)).where(and(eq(businessActorUser.businessActorId, input.businessActorId), eq(user.status, "ACTIVE")));
+  return Promise.all(recipients.map((recipient) => createSystemNotificationOnce({ ...input, recipientUserId: recipient.userId })));
+}
+
+export async function notifyBusinessActorUsersForBlock(blockId: string, input: Omit<Parameters<typeof notifyBusinessActorUsers>[0], "businessActorId">) {
+  const actors = await getDb().select({ businessActorId: excavator.businessActorId }).from(excavator).where(eq(excavator.currentBlockId, blockId));
+  const uniqueActors = [...new Set(actors.map((row) => row.businessActorId).filter((value): value is string => Boolean(value)))];
+  return Promise.all(uniqueActors.map((businessActorId) => notifyBusinessActorUsers({ ...input, businessActorId })));
 }
 
 /** For trusted server-side domain workflows only. Do not expose through an action or route. */

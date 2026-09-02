@@ -1,9 +1,30 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import { AppAlert as Alert } from "./feedback";
 
 const MAX_IMAGE_EDGE = 1600;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+export type PdfDocument = { uri: string; name: string; contentType: "application/pdf"; sizeBytes: number };
+
+export async function pickPdfDocument(title = "Pilih dokumen PDF"): Promise<PdfDocument | null> {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({ type: "application/pdf", copyToCacheDirectory: true, multiple: false });
+    if (result.canceled || !result.assets[0]) return null;
+    const asset = result.assets[0];
+    const name = asset.name.toLowerCase().endsWith(".pdf") ? asset.name : `${asset.name}.pdf`;
+    const sizeBytes = asset.size ?? (await (await fetch(asset.uri)).blob()).size;
+    if (!sizeBytes || sizeBytes > MAX_UPLOAD_BYTES) {
+      Alert.alert("Dokumen terlalu besar", "PDF harus berukuran maksimal 10 MB.");
+      return null;
+    }
+    return { uri: asset.uri, name, contentType: "application/pdf", sizeBytes };
+  } catch {
+    Alert.alert("Dokumen tidak dapat dipilih", `Pilih ${title.toLowerCase()} lalu coba lagi.`);
+    return null;
+  }
+}
 
 export type ImageSource = "camera" | "library";
 
@@ -103,4 +124,22 @@ export async function uploadOptimizedImage(uploadUrl: string, image: OptimizedIm
     if (attempt < maxAttempts) await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
   }
   throw lastError ?? new Error("Unggah foto gagal.");
+}
+
+export async function uploadPdfDocument(uploadUrl: string, document: PdfDocument, options: { maxAttempts?: number } = {}): Promise<void> {
+  const blob = await (await fetch(document.uri)).blob();
+  if (!blob.size || blob.size > MAX_UPLOAD_BYTES) throw new Error("PDF harus berukuran maksimal 10 MB.");
+  const maxAttempts = Math.max(1, options.maxAttempts ?? 3);
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const upload = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": document.contentType }, body: blob });
+      if (upload.ok) return;
+      lastError = new Error(`Unggah PDF gagal (${upload.status}).`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unggah PDF gagal.");
+    }
+    if (attempt < maxAttempts) await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+  }
+  throw lastError ?? new Error("Unggah PDF gagal.");
 }

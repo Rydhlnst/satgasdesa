@@ -64,6 +64,7 @@ export const roleTheme = {
   PIMPINAN: { header: colors.primaryDark, accent: colors.primary, soft: colors.primarySoft, label: "PIMPINAN / ADMIN" },
   BENDAHARA: { header: colors.financeDark, accent: colors.finance, soft: colors.financeSoft, label: "BENDAHARA" },
   PETUGAS_LAPANGAN: { header: colors.primaryDark, accent: colors.primary, soft: colors.primarySoft, label: "PETUGAS LAPANGAN" },
+  PENGUSAHA: { header: colors.primaryDark, accent: colors.primary, soft: colors.primarySoft, label: "PENGUSAHA" },
 } as const;
 
 export type Role = keyof typeof roleTheme;

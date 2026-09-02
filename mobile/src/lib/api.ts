@@ -104,6 +104,7 @@ export function workflow<T>(action: string, input: unknown) {
 export function createBlock(input: unknown) { return workflow<Block>("createBlock", input); }
 export function createBusinessActor(input: unknown) { return workflow<{ id: string }>("createBusinessActor", input); }
 export function updateBusinessActor(input: unknown) { return workflow<{ id: string }>("updateBusinessActor", input); }
+export function linkBusinessActorUser(input: { userId: string; businessActorId: string }) { return workflow<Record<string, unknown>>("linkBusinessActorUser", input); }
 export function createBlockFieldAssignment(input: unknown) { return workflow<{ id: string }>("createBlockFieldAssignment", input); }
 export function endBlockFieldAssignment(input: unknown) { return workflow<{ id: string }>("endBlockFieldAssignment", input); }
 export function verifyDuePayment(input: unknown) { return workflow<{ id: string }>("verifyDuePayment", input); }
@@ -171,6 +172,18 @@ export function deleteBudgetItem(input: unknown) { return workflow<{ id: string 
 export function createBudgetItemAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createBudgetItemAttachmentUploadUrl", input); }
 export function addBudgetItemAttachment(input: unknown) { return workflow<{ id: string }>("addBudgetItemAttachment", input); }
 export function getBudgetItemAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getBudgetItemAttachmentDownloadUrl", input); }
+export function createBudgetPeriodAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createBudgetPeriodAttachmentUploadUrl", input); }
+export function addBudgetPeriodAttachment(input: unknown) { return workflow<{ id: string }>("addBudgetPeriodAttachment", input); }
+export function getBudgetPeriodAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getBudgetPeriodAttachmentDownloadUrl", input); }
+export function createBudgetChangeRequest(input: unknown) { return workflow<{ id: string }>("createBudgetChangeRequest", input); }
+export function createBudgetChangeRequestAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createBudgetChangeRequestAttachmentUploadUrl", input); }
+export function addBudgetChangeRequestAttachment(input: unknown) { return workflow<{ id: string }>("addBudgetChangeRequestAttachment", input); }
+export function getBudgetChangeRequestAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getBudgetChangeRequestAttachmentDownloadUrl", input); }
+export function submitBudgetChangeRequest(input: unknown) { return workflow<Record<string, unknown>>("submitBudgetChangeRequest", input); }
+export function verifyBudgetChangeRequest(input: unknown) { return workflow<Record<string, unknown>>("verifyBudgetChangeRequest", input); }
+export function approveBudgetChangeRequest(input: unknown) { return workflow<Record<string, unknown>>("approveBudgetChangeRequest", input); }
+export function rejectBudgetChangeRequest(input: unknown) { return workflow<Record<string, unknown>>("rejectBudgetChangeRequest", input); }
+export function cancelBudgetChangeRequest(input: unknown) { return workflow<Record<string, unknown>>("cancelBudgetChangeRequest", input); }
 export function verifyBudgetPeriod(input: unknown) { return workflow<Record<string, unknown>>("verifyBudgetPeriod", input); }
 export function approveBudgetPeriod(input: unknown) { return workflow<Record<string, unknown>>("approveBudgetPeriod", input); }
 export function updateBudgetItemProgress(input: unknown) { return workflow<Record<string, unknown>>("updateBudgetItemProgress", input); }
@@ -220,6 +233,7 @@ export function markNotificationRead(id: string) { return request<{ updated: boo
 export function markAllNotificationsRead() { return request<{ updated: number }>("/api/mobile/notifications", { method: "PATCH", body: JSON.stringify({ action: "markAllRead" }) }); }
 export function registerPushDevice(input: { expoPushToken: string; platform: "android" | "ios" }) { return request<{ registered: boolean }>("/api/mobile/push-devices", { method: "POST", body: JSON.stringify(input) }); }
 export function getDashboard(period?: string) { return request<DashboardResponse>(`/api/mobile/dashboard${period ? `?period=${encodeURIComponent(period)}` : ""}`); }
+export function getBusinessPortalSummary() { return request<Record<string, unknown>>("/api/mobile/business-portal"); }
 export function getBlocks(search?: string, status?: string, filters?: { priority?: string; includeArchived?: boolean }) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);

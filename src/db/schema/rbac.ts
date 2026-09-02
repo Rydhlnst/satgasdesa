@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/mysql-core";
 
 import { user } from "./auth";
+import { businessActor } from "./business-actors";
 
 export const role = mysqlTable(
   "role",
@@ -66,5 +67,20 @@ export const userRole = mysqlTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.roleId] }),
     index("user_role_role_id_idx").on(table.roleId),
+  ],
+);
+
+export const businessActorUser = mysqlTable(
+  "business_actor_user",
+  {
+    businessActorId: varchar("business_actor_id", { length: 36 }).notNull().references(() => businessActor.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at").notNull(),
+    assignedBy: varchar("assigned_by", { length: 36 }).references(() => user.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.businessActorId, table.userId] }),
+    uniqueIndex("business_actor_user_user_unique").on(table.userId),
+    index("business_actor_user_user_id_idx").on(table.userId),
   ],
 );

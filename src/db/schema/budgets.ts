@@ -130,6 +130,63 @@ export const budgetPeriodHistory = mysqlTable(
   (table) => [index("budget_period_history_period_created_idx").on(table.periodId, table.createdAt), index("budget_period_history_item_idx").on(table.budgetItemId)],
 );
 
+export const budgetPeriodAttachment = mysqlTable(
+  "budget_period_attachment",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    periodId: varchar("period_id", { length: 36 }).notNull().references(() => budgetPeriod.id, { onDelete: "cascade" }),
+    storageKey: varchar("storage_key", { length: 255 }).notNull(),
+    contentType: varchar("content_type", { length: 100 }).notNull(),
+    sizeBytes: int("size_bytes").notNull(),
+    caption: varchar("caption", { length: 255 }),
+    createdBy: varchar("created_by", { length: 36 }).notNull().references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [index("budget_period_attachment_period_created_idx").on(table.periodId, table.createdAt)],
+);
+
+export const budgetChangeRequest = mysqlTable(
+  "budget_change_request",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    budgetItemId: varchar("budget_item_id", { length: 36 }).notNull().references(() => budgetItem.id, { onDelete: "restrict" }),
+    previousAmount: bigint("previous_amount", { mode: "number" }).notNull(),
+    proposedAmount: bigint("proposed_amount", { mode: "number" }).notNull(),
+    reason: text("reason").notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("DRAFT"),
+    rejectionReason: text("rejection_reason"),
+    submittedAt: timestamp("submitted_at"),
+    verifiedAt: timestamp("verified_at"),
+    approvedAt: timestamp("approved_at"),
+    createdBy: varchar("created_by", { length: 36 }).notNull().references(() => user.id, { onDelete: "restrict" }),
+    verifiedBy: varchar("verified_by", { length: 36 }).references(() => user.id, { onDelete: "restrict" }),
+    approvedBy: varchar("approved_by", { length: 36 }).references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    index("budget_change_request_item_status_idx").on(table.budgetItemId, table.status),
+    index("budget_change_request_status_created_idx").on(table.status, table.createdAt),
+    check("budget_change_request_previous_amount_check", sql`${table.previousAmount} >= 0 AND ${table.previousAmount} <= 9007199254740991`),
+    check("budget_change_request_proposed_amount_check", sql`${table.proposedAmount} >= 0 AND ${table.proposedAmount} <= 9007199254740991`),
+  ],
+);
+
+export const budgetChangeRequestAttachment = mysqlTable(
+  "budget_change_request_attachment",
+  {
+    id: varchar("id", { length: 36 }).primaryKey(),
+    changeRequestId: varchar("change_request_id", { length: 36 }).notNull().references(() => budgetChangeRequest.id, { onDelete: "cascade" }),
+    storageKey: varchar("storage_key", { length: 255 }).notNull(),
+    contentType: varchar("content_type", { length: 100 }).notNull(),
+    sizeBytes: int("size_bytes").notNull(),
+    caption: varchar("caption", { length: 255 }),
+    createdBy: varchar("created_by", { length: 36 }).notNull().references(() => user.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [index("budget_change_request_attachment_request_created_idx").on(table.changeRequestId, table.createdAt)],
+);
+
 export const budgetRevision = mysqlTable(
   "budget_revision",
   {

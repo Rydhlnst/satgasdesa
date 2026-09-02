@@ -12,6 +12,7 @@ export const businessActorSchema = z.object({
   notes: z.string().trim().max(5000).optional(),
 });
 export const updateBusinessActorSchema = businessActorSchema.extend({ id: uuid });
+export const linkBusinessActorUserSchema = z.object({ userId: uuid, businessActorId: uuid });
 
 export const businessActorFiltersSchema = z.object({
   query: z.string().trim().max(100).optional(),

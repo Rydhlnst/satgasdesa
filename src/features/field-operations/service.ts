@@ -1,12 +1,14 @@
-import { and, asc, desc, eq, gte, isNull, like, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, like, lte, or } from "drizzle-orm";
 
 import { getDb } from "@/src/db";
 import { auditLog } from "@/src/db/schema/audit";
 import { block } from "@/src/db/schema/blocks";
 import { blockFieldAssignment, businessActor, duePaymentVerification } from "@/src/db/schema/business-actors";
-import { role, userRole } from "@/src/db/schema/rbac";
+import { businessActorUser, role, userRole } from "@/src/db/schema/rbac";
 import { user } from "@/src/db/schema/auth";
 import { due, duePayment } from "@/src/db/schema/dues";
+import { dailyInformation } from "@/src/db/schema/daily-information";
+import { excavator } from "@/src/db/schema/excavators";
 import { AUDIT_ACTIONS, createAuditLogValues } from "@/src/lib/audit";
 import { getRequestSession } from "@/src/lib/auth/request-context";
 import { hasPermission, requirePermission } from "@/src/lib/permissions/authorize";
@@ -14,7 +16,7 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateImageUpload } from "@/src/lib/storage";
 import { parseValidatedInput } from "@/src/lib/validation";
 
-import { businessActorFiltersSchema, businessActorSchema, endFieldAssignmentSchema, fieldAssignmentSchema, paymentVerificationSchema, paymentVerificationUploadSchema, updateBusinessActorSchema } from "./schema";
+import { businessActorFiltersSchema, businessActorSchema, endFieldAssignmentSchema, fieldAssignmentSchema, linkBusinessActorUserSchema, paymentVerificationSchema, paymentVerificationUploadSchema, updateBusinessActorSchema } from "./schema";
 
 function optionalValue(value?: string): string | null { return value?.trim() || null; }
 function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
@@ -36,6 +38,26 @@ export async function getBusinessActors(input?: unknown) {
   return getDb().select().from(businessActor).where(where).orderBy(asc(businessActor.name)).limit(filters.pageSize).offset((filters.page - 1) * filters.pageSize);
 }
 
+export async function getBusinessPortalSummary() {
+  const session = await requirePermission(PERMISSIONS.BUSINESS_ACTOR_READ);
+  const [link] = await getDb().select({ businessActorId: businessActorUser.businessActorId }).from(businessActorUser).where(eq(businessActorUser.userId, session.user.id)).limit(1);
+  if (!link) throw new Error("Akun Pengusaha belum ditautkan ke pelaku usaha. Hubungi Pimpinan untuk menautkannya.");
+  const [actor] = await getDb().select().from(businessActor).where(eq(businessActor.id, link.businessActorId)).limit(1);
+  if (!actor) throw new Error("Pelaku usaha yang tertaut tidak ditemukan.");
+  const [units, dues] = await Promise.all([
+    getDb().select({ unit: excavator, block: block }).from(excavator).leftJoin(block, eq(block.id, excavator.currentBlockId)).where(eq(excavator.businessActorId, actor.id)).orderBy(asc(excavator.unitCode)),
+    getDb().select({ amountDue: due.amountDue, amountPaid: due.amountPaid, status: due.status }).from(due).where(eq(due.businessActorId, actor.id)),
+  ]);
+  const blockIds = [...new Set(units.map((row) => row.unit.currentBlockId).filter((value): value is string => Boolean(value)))];
+  const [assignments, information] = blockIds.length ? await Promise.all([
+    getDb().select({ assignment: blockFieldAssignment, officer: { id: user.id, name: user.name }, block: { id: block.id, code: block.code, name: block.name } }).from(blockFieldAssignment).innerJoin(user, eq(user.id, blockFieldAssignment.fieldOfficerId)).innerJoin(block, eq(block.id, blockFieldAssignment.blockId)).where(and(inArray(blockFieldAssignment.blockId, blockIds), isNull(blockFieldAssignment.endedAt))).orderBy(asc(user.name)),
+    getDb().select({ id: dailyInformation.id, category: dailyInformation.category, priority: dailyInformation.priority, description: dailyInformation.description, status: dailyInformation.status, reportedAt: dailyInformation.reportedAt, blockId: dailyInformation.blockId }).from(dailyInformation).where(inArray(dailyInformation.blockId, blockIds)).orderBy(desc(dailyInformation.reportedAt)).limit(20),
+  ]) : [[], []];
+  const obligationTotal = dues.reduce((total, row) => total + row.amountDue, 0);
+  const receivedTotal = dues.reduce((total, row) => total + row.amountPaid, 0);
+  return { actor, blocks: units.map((row) => row.block).filter(Boolean), units: units.map((row) => row.unit), activeOfficers: assignments, information, dues: { obligationTotal, receivedTotal, remainingTotal: Math.max(0, obligationTotal - receivedTotal), unpaidCount: dues.filter((row) => row.status !== "PAID").length } };
+}
+
 export async function createBusinessActor(input: unknown) {
   const session = await requirePermission(PERMISSIONS.BUSINESS_ACTOR_MANAGE);
   const values = parseInput(businessActorSchema.safeParse(input));
@@ -45,6 +67,21 @@ export async function createBusinessActor(input: unknown) {
     await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "BUSINESS_ACTOR", entityId: id, newValues: { actorType: values.actorType, name: values.name } }));
   });
   return { id };
+}
+
+export async function linkBusinessActorUser(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.BUSINESS_ACTOR_MANAGE);
+  const values = parseInput(linkBusinessActorUserSchema.safeParse(input));
+  const [targetRole] = await getDb().select({ roleName: role.name }).from(userRole).innerJoin(role, eq(role.id, userRole.roleId)).where(and(eq(userRole.userId, values.userId), eq(role.name, "PENGUSAHA"))).limit(1);
+  if (!targetRole) throw new Error("Pengguna harus memiliki peran Pengusaha sebelum ditautkan.");
+  const [actor] = await getDb().select({ id: businessActor.id }).from(businessActor).where(eq(businessActor.id, values.businessActorId)).limit(1);
+  if (!actor) throw new Error("Pelaku usaha tidak ditemukan.");
+  await getDb().transaction(async (tx) => {
+    await tx.delete(businessActorUser).where(eq(businessActorUser.userId, values.userId));
+    await tx.insert(businessActorUser).values({ businessActorId: values.businessActorId, userId: values.userId, assignedAt: new Date(), assignedBy: session.user.id });
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.UPDATE, entityType: "BUSINESS_ACTOR_USER", entityId: values.userId, newValues: values }));
+  });
+  return { userId: values.userId, businessActorId: values.businessActorId };
 }
 
 export async function updateBusinessActor(input: unknown) {

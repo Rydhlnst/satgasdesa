@@ -5,7 +5,7 @@ import { budgetPeriod } from "@/src/db/schema/budgets";
 import { dailyInformation } from "@/src/db/schema/daily-information";
 import { due } from "@/src/db/schema/dues";
 import { generateCurrentMonthlyDues } from "@/src/features/dues/automation";
-import { notifyPermissionHolders } from "@/src/features/notifications/service";
+import { notifyBusinessActorUsers, notifyPermissionHolders } from "@/src/features/notifications/service";
 import { PERMISSIONS } from "@/src/lib/permissions/constants";
 
 function jakartaDate(now: Date): string {
@@ -23,8 +23,8 @@ function nextPeriodKey(now: Date): string {
 }
 
 async function notifyOverdueDues(today: string) {
-  const overdue = await getDb().select({ id: due.id, payerName: due.payerName, amountDue: due.amountDue, amountPaid: due.amountPaid }).from(due).where(and(inArray(due.status, ["UNPAID", "PARTIAL"]), lt(due.dueDate, today))).orderBy(due.dueDate).limit(500);
-  const results = await Promise.all(overdue.map((item) => notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "OVERDUE_DUE", targetKey: item.id, type: "OVERDUE_DUE", title: "Iuran melewati jatuh tempo", body: `${item.payerName} memiliki tunggakan Rp${(item.amountDue - item.amountPaid).toLocaleString("id-ID")}.`, relatedEntityType: "DUE", relatedEntityId: item.id })));
+  const overdue = await getDb().select({ id: due.id, payerName: due.payerName, amountDue: due.amountDue, amountPaid: due.amountPaid, businessActorId: due.businessActorId }).from(due).where(and(inArray(due.status, ["UNPAID", "PARTIAL"]), lt(due.dueDate, today))).orderBy(due.dueDate).limit(500);
+  const results = await Promise.all(overdue.map(async (item) => { const result = await notifyPermissionHolders({ permission: PERMISSIONS.DUES_MANAGE, ruleKey: "OVERDUE_DUE", targetKey: item.id, type: "OVERDUE_DUE", title: "Iuran melewati jatuh tempo", body: `${item.payerName} memiliki tunggakan Rp${(item.amountDue - item.amountPaid).toLocaleString("id-ID")}.`, relatedEntityType: "DUE", relatedEntityId: item.id }); if (item.businessActorId) await notifyBusinessActorUsers({ businessActorId: item.businessActorId, ruleKey: "OVERDUE_DUE_PORTAL", targetKey: item.id, type: "OVERDUE_DUE", title: "Iuran melewati jatuh tempo", body: `Masih ada tunggakan Rp${(item.amountDue - item.amountPaid).toLocaleString("id-ID")}.`, relatedEntityType: "DUE", relatedEntityId: item.id }); return result; }));
   return { overdue: overdue.length, notificationsCreated: results.reduce((total, item) => total + item.created, 0) };
 }
 

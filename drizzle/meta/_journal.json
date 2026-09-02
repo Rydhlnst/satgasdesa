@@ -211,6 +211,20 @@
       "when": 1787950800000,
       "tag": "0029_payment_confirmation_budget_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1788337835831,
+      "tag": "0030_glamorous_pet_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1788339831158,
+      "tag": "0031_right_romulus",
+      "breakpoints": true
     }
   ]
 }
