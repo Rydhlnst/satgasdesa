@@ -7,7 +7,7 @@ import { colors, radii, spacing, typography } from "../theme";
 import { pickImagesFromSource, type ImageSource } from "../lib/media";
 import { ImageSourceSheet } from "./ImageSourceSheet";
 
-export function ImagePickerField({ label = "Foto", helper = "JPG, PNG, atau WEBP · akan dikompres otomatis", assets, max = 1, onChange }: { label?: string; helper?: string; assets: ImagePicker.ImagePickerAsset[]; max?: number; onChange: (assets: ImagePicker.ImagePickerAsset[]) => void }) {
+export function ImagePickerField({ label = "Foto", helper = "Opsional · JPG, PNG, atau WEBP · dapat ditambahkan atau diubah nanti", assets, max = 1, onChange }: { label?: string; helper?: string; assets: ImagePicker.ImagePickerAsset[]; max?: number; onChange: (assets: ImagePicker.ImagePickerAsset[]) => void }) {
   const [selecting, setSelecting] = useState(false); const [sourceOpen, setSourceOpen] = useState(false);
   async function choose(source: ImageSource) {
     if (selecting) return;

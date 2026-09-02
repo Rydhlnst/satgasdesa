@@ -2,6 +2,7 @@ import { showActionError } from "../src/lib/feedback";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pencil } from "lucide-react-native";
 import { AppAlert as Alert } from "../src/lib/feedback";
 
 import { useAuth } from "../src/auth";
@@ -42,10 +43,17 @@ export default function BudgetCategories() {
   async function saveCategory() {
     const parsed = budgetCategoryFormSchema.safeParse({ name: categoryName, sortOrder: categorySort });
     if (!parsed.success) { const issue = parsed.error.issues[0]; setErrors((current) => ({ ...current, [issue?.path[0] === "name" ? "categoryName" : "categorySort"]: issue?.message ?? "Periksa data kategori." })); return Alert.alert("Periksa data kategori", issue?.message ?? "Lengkapi nama dan urutan."); }
+    if (categoryId) {
+      return Alert.alert("Konfirmasi perubahan", "Perubahan kategori akan disimpan.", [{ text: "Batal", style: "cancel" }, { text: "Simpan", onPress: () => void persistCategory(parsed.data) }]);
+    }
+    await persistCategory(parsed.data);
+  }
+
+  async function persistCategory(data: { name: string; sortOrder: number }) {
     setSaving(true);
     try {
-      if (categoryId) await updateBudgetCategory({ id: categoryId, ...parsed.data, isActive: true });
-      else await createBudgetCategory(parsed.data);
+      if (categoryId) await updateBudgetCategory({ id: categoryId, ...data, isActive: true });
+      else await createBudgetCategory(data);
       resetCategory(); await refresh();
     } catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); }
   }
@@ -53,10 +61,17 @@ export default function BudgetCategories() {
   async function saveSubcategory() {
     const parsed = budgetSubcategoryFormSchema.safeParse({ categoryId: subcategoryCategoryId, name: subcategoryName, sortOrder: subcategorySort });
     if (!parsed.success) { const issue = parsed.error.issues[0]; const field = issue?.path[0] === "categoryId" ? "subcategoryCategoryId" : issue?.path[0] === "name" ? "subcategoryName" : "subcategorySort"; setErrors((current) => ({ ...current, [field]: issue?.message ?? "Periksa data subkategori." })); return Alert.alert("Periksa data subkategori", issue?.message ?? "Lengkapi kategori, nama, dan urutan."); }
+    if (subcategoryId) {
+      return Alert.alert("Konfirmasi perubahan", "Perubahan subkategori akan disimpan.", [{ text: "Batal", style: "cancel" }, { text: "Simpan", onPress: () => void persistSubcategory(parsed.data) }]);
+    }
+    await persistSubcategory(parsed.data);
+  }
+
+  async function persistSubcategory(data: { categoryId: string; name: string; sortOrder: number }) {
     setSaving(true);
     try {
-      if (subcategoryId) await updateBudgetSubcategory({ id: subcategoryId, ...parsed.data, isActive: true });
-      else await createBudgetSubcategory(parsed.data);
+      if (subcategoryId) await updateBudgetSubcategory({ id: subcategoryId, ...data, isActive: true });
+      else await createBudgetSubcategory(data);
       resetSubcategory(); await refresh();
     } catch (error) { showActionError(error, "Coba lagi."); } finally { setSaving(false); }
   }
@@ -92,15 +107,15 @@ export default function BudgetCategories() {
     </View></> : null}
     {query.isLoading ? <LoadingState /> : query.isError ? <ErrorState message="Kategori anggaran tidak dapat dimuat." error={query.error} onRetry={() => query.refetch()} /> : categories.length ? categories.map((item) => <View key={text(item, "id")} style={styles.category}>
       <View style={styles.categoryRow}>
-        <Pressable disabled={!canManage} onPress={() => editCategory(item)} style={styles.categoryMain}><View><Text style={styles.name}>{text(item, "name")}</Text><Text style={styles.meta}>ID: {text(item, "id")} · Urutan {text(item, "sortOrder", "0")} · {Number(item.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Ubah kategori ${text(item, "name")}`} disabled={!canManage} onPress={() => editCategory(item)} style={styles.categoryMain}><View><Text style={styles.name}>{text(item, "name")}</Text><Text style={styles.meta}>ID: {text(item, "id")} · Urutan {text(item, "sortOrder", "0")} · {Number(item.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View>{canManage ? <Pencil color={colors.primary} size={18} /> : null}</Pressable>
         {canManage ? <Button accessibilityLabel={Number(item.isActive) === 1 ? "Nonaktifkan kategori" : "Aktifkan kategori"} onPress={() => void toggleCategory(item)} variant="outline" className="min-h-11 self-start rounded-xl border-[#D9E1EE] bg-white px-3"><ButtonText className="text-xs font-extrabold text-[#1454C4]">{Number(item.isActive) === 1 ? "Nonaktifkan" : "Aktifkan"}</ButtonText></Button> : null}
       </View>
       {(item.subcategories ?? []).map((subcategory) => <View key={text(subcategory, "id")} style={styles.subcategory}>
-        <Pressable disabled={!canManage} onPress={() => editSubcategory(subcategory)} style={styles.subcategoryMain}><View><Text style={styles.subcategoryName}>{text(subcategory, "name")}</Text><Text style={styles.meta}>ID: {text(subcategory, "id")} · {Number(subcategory.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Ubah subkategori ${text(subcategory, "name")}`} disabled={!canManage} onPress={() => editSubcategory(subcategory)} style={styles.subcategoryMain}><View><Text style={styles.subcategoryName}>{text(subcategory, "name")}</Text><Text style={styles.meta}>ID: {text(subcategory, "id")} · {Number(subcategory.isActive) === 1 ? "Aktif" : "Nonaktif"}</Text></View>{canManage ? <Pencil color={colors.primary} size={16} /> : null}</Pressable>
         {canManage ? <Button accessibilityLabel={Number(subcategory.isActive) === 1 ? "Nonaktifkan subkategori" : "Aktifkan subkategori"} onPress={() => void toggleSubcategory(subcategory)} variant="outline" className="min-h-11 self-start rounded-xl border-[#D9E1EE] bg-white px-3"><ButtonText className="text-xs font-extrabold text-[#1454C4]">{Number(subcategory.isActive) === 1 ? "Nonaktifkan" : "Aktifkan"}</ButtonText></Button> : null}
       </View>)}
     </View>) : <EmptyState message="Belum ada kategori anggaran." />}
   </Screen><BottomNav current="budgets" role={role} /></>;
 }
 
-const styles = StyleSheet.create({ form: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 13, borderWidth: 1, gap: spacing.sm, padding: spacing.md }, formTitle: { color: colors.text, fontSize: 13, fontWeight: "900" }, input: { borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: 12 }, cancel: { color: colors.textMuted, fontSize: 11, textAlign: "center" }, category: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, overflow: "hidden" }, categoryRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", padding: spacing.md }, categoryMain: { flex: 1, minWidth: 0 }, subcategory: { alignItems: "center", borderTopColor: colors.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingVertical: 10 }, subcategoryMain: { flex: 1, minWidth: 0 }, name: { color: colors.text, fontSize: 13, fontWeight: "900" }, subcategoryName: { color: colors.text, fontSize: 12, fontWeight: "800" }, meta: { color: colors.textMuted, fontSize: 10, marginTop: 3 }, deactivate: { color: colors.danger, fontSize: 10, fontWeight: "900" }, activate: { color: colors.success, fontSize: 10, fontWeight: "900" } });
+const styles = StyleSheet.create({ form: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 13, borderWidth: 1, gap: spacing.sm, padding: spacing.md }, formTitle: { color: colors.text, fontSize: 13, fontWeight: "900" }, input: { borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.text, minHeight: 44, paddingHorizontal: 12 }, cancel: { color: colors.textMuted, fontSize: 11, textAlign: "center" }, category: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, overflow: "hidden" }, categoryRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", padding: spacing.md }, categoryMain: { alignItems: "center", flex: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 44, minWidth: 0, paddingRight: spacing.sm }, subcategory: { alignItems: "center", borderTopColor: colors.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingVertical: 10 }, subcategoryMain: { alignItems: "center", flex: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 44, minWidth: 0, paddingRight: spacing.sm }, name: { color: colors.text, fontSize: 13, fontWeight: "900" }, subcategoryName: { color: colors.text, fontSize: 12, fontWeight: "800" }, meta: { color: colors.textMuted, fontSize: 10, marginTop: 3 }, deactivate: { color: colors.danger, fontSize: 10, fontWeight: "900" }, activate: { color: colors.success, fontSize: 10, fontWeight: "900" } });

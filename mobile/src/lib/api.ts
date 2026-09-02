@@ -124,6 +124,7 @@ export function recordDuePayment(input: unknown) { return workflow<Record<string
 export function confirmDuePayment(input: unknown) { return workflow<Record<string, unknown>>("confirmDuePayment", input); }
 export function rejectDuePayment(input: unknown) { return workflow<Record<string, unknown>>("rejectDuePayment", input); }
 export function reverseDuePayment(input: unknown) { return workflow<Record<string, unknown>>("reverseDuePayment", input); }
+export function sendDueReminder(input: unknown) { return workflow<Record<string, unknown>>("sendDueReminder", input); }
 export function createDue(input: unknown) { return workflow<Record<string, unknown>>("createDue", input); }
 export function createDuePaymentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createDuePaymentUploadUrl", input); }
 export function getDuePaymentEvidenceDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getDuePaymentEvidenceDownloadUrl", input); }
@@ -172,6 +173,8 @@ export function deleteBudgetItem(input: unknown) { return workflow<{ id: string 
 export function createBudgetItemAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createBudgetItemAttachmentUploadUrl", input); }
 export function addBudgetItemAttachment(input: unknown) { return workflow<{ id: string }>("addBudgetItemAttachment", input); }
 export function getBudgetItemAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getBudgetItemAttachmentDownloadUrl", input); }
+export function createBudgetItemRabAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createBudgetItemRabAttachmentUploadUrl", input); }
+export function addBudgetItemRabAttachment(input: unknown) { return workflow<{ id: string }>("addBudgetItemRabAttachment", input); }
 export function createBudgetPeriodAttachmentUploadUrl(input: unknown) { return workflow<{ key: string; uploadUrl: string }>("createBudgetPeriodAttachmentUploadUrl", input); }
 export function addBudgetPeriodAttachment(input: unknown) { return workflow<{ id: string }>("addBudgetPeriodAttachment", input); }
 export function getBudgetPeriodAttachmentDownloadUrl(input: unknown) { return workflow<{ downloadUrl: string }>("getBudgetPeriodAttachmentDownloadUrl", input); }

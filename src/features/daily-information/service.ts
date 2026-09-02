@@ -240,7 +240,8 @@ export async function createDailyInformation(input: unknown) {
     );
   });
 
-  await notifyPermissionHolders({ permission: PERMISSIONS.DAILY_INFO_READ, ruleKey: "DAILY_INFORMATION_CREATED", targetKey: id, type: "DAILY_INFORMATION", title: values.priority === "URGENT" || values.priority === "HIGH" ? "Informasi lapangan mendesak" : "Informasi lapangan baru", body: `${values.category} telah dikirim untuk ditinjau.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: id });
+  const notificationTitle = values.category === "COMPLAINT" ? "Keluhan baru" : values.category === "INCIDENT" ? "Insiden lapangan baru" : values.category === "MEETING" ? "Pemberitahuan rapat" : values.category === "MISSING_DOCUMENT" ? "Data atau dokumen masih kurang" : values.priority === "URGENT" || values.priority === "HIGH" ? "Informasi lapangan mendesak" : "Informasi lapangan baru";
+  await notifyPermissionHolders({ permission: PERMISSIONS.DAILY_INFO_READ, ruleKey: "DAILY_INFORMATION_CREATED", targetKey: id, type: "DAILY_INFORMATION", title: notificationTitle, body: `${values.category} telah dikirim untuk ditinjau.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: id });
   if (values.blockId) await notifyBusinessActorUsersForBlock(values.blockId, { ruleKey: "DAILY_INFORMATION_CREATED_PORTAL", targetKey: id, type: "DAILY_INFORMATION", title: values.priority === "URGENT" || values.priority === "HIGH" ? "Informasi lapangan mendesak" : "Informasi lapangan baru", body: `${values.category} terkait dengan blok usaha Anda.`, relatedEntityType: "DAILY_INFORMATION", relatedEntityId: id });
 
   return { id };

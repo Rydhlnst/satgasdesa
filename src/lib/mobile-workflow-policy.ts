@@ -13,3 +13,7 @@ export const workflowPermissions: Record<string, Permission> = {
   createRealization: PERMISSIONS.REALIZATION_CREATE, transitionRealization: PERMISSIONS.REALIZATION_CREATE, correctRealization: PERMISSIONS.REALIZATION_CREATE, reverseRealization: PERMISSIONS.REALIZATION_APPROVE, updateRealization: PERMISSIONS.REALIZATION_CREATE, createRealizationEvidenceUploadUrl: PERMISSIONS.REALIZATION_CREATE, addRealizationEvidence: PERMISSIONS.REALIZATION_CREATE, getRealizationEvidenceDownloadUrl: PERMISSIONS.REALIZATION_READ,
   createFundRequest: PERMISSIONS.FUND_REQUEST_CREATE, updateFundRequest: PERMISSIONS.FUND_REQUEST_CREATE, transitionFundRequest: PERMISSIONS.FUND_REQUEST_CREATE, correctFundRequest: PERMISSIONS.FUND_REQUEST_CREATE, createFundRequestAttachmentUploadUrl: PERMISSIONS.FUND_REQUEST_CREATE, addFundRequestAttachment: PERMISSIONS.FUND_REQUEST_CREATE, getFundRequestAttachmentDownloadUrl: PERMISSIONS.FUND_REQUEST_READ,
 };
+
+workflowPermissions.createBudgetItemRabAttachmentUploadUrl = PERMISSIONS.BUDGET_CREATE;
+workflowPermissions.addBudgetItemRabAttachment = PERMISSIONS.BUDGET_CREATE;
+workflowPermissions.sendDueReminder = PERMISSIONS.DUES_MANAGE;

@@ -13,7 +13,7 @@ import { PERMISSIONS } from "@/src/lib/permissions/constants";
 import { getObjectStorage, validateUpload } from "@/src/lib/storage";
 import { getAssignedBlockIdsForCurrentUser, requireAssignedBlockAccess } from "@/src/features/field-operations/service";
 import { applyDuePayment, hasMatchingPaymentIdentity, reverseDuePayment as reverseDuePaymentState } from "./payment-rules";
-import { confirmDuePaymentSchema, createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, rejectDuePaymentSchema, reverseDuePaymentSchema } from "./schema";
+import { confirmDuePaymentSchema, createDueSchema, dueIdSchema, duePaymentEvidenceDownloadSchema, duePaymentFiltersSchema, duePaymentUploadSchema, duesFiltersSchema, recordDuePaymentSchema, rejectDuePaymentSchema, reverseDuePaymentSchema, sendDueReminderSchema } from "./schema";
 import { assertMonthlyPaymentDate } from "./config";
 import { getFinanceDefaults } from "../settings/service";
 import { generateMonthlyDuesForPeriod } from "./automation";
@@ -223,6 +223,19 @@ function duePaymentState(item: { amountDue: number; amountPaid: number; dueDate:
   const jakarta = `${year}-${month}-${day}`;
   if (item.dueDate < jakarta) return "OVERDUE";
   return item.amountPaid > 0 ? "PARTIAL" : "UNPAID";
+}
+
+export async function sendDueReminder(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.DUES_MANAGE);
+  const values = parseInput(sendDueReminderSchema.safeParse(input));
+  const [item] = await getDb().select({ id: due.id, businessActorId: due.businessActorId, payerName: due.payerName, amountDue: due.amountDue, amountPaid: due.amountPaid, status: due.status, dueDate: due.dueDate }).from(due).where(eq(due.id, values.dueId)).limit(1);
+  if (!item) throw new Error("Iuran tidak ditemukan.");
+  if (!item.businessActorId) throw new Error("Iuran ini belum memiliki pengusaha terkait.");
+  if (!(item.status === "UNPAID" || item.status === "PARTIAL") || item.dueDate >= jakartaDate()) throw new Error("Pengingat tunggakan hanya dapat dikirim untuk iuran yang sudah melewati jatuh tempo.");
+  const remaining = item.amountDue - item.amountPaid;
+  const result = await notifyBusinessActorUsers({ businessActorId: item.businessActorId, ruleKey: "MANUAL_OVERDUE_REMINDER", targetKey: `${item.id}:${jakartaDate()}`, type: "OVERDUE_DUE", title: "Pengingat tunggakan iuran", body: `${item.payerName} masih memiliki tunggakan Rp${remaining.toLocaleString("id-ID")}. Segera lakukan pembayaran dan unggah buktinya.`, relatedEntityType: "DUE", relatedEntityId: item.id });
+  await getDb().insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "DUE_OVERDUE_REMINDER", entityId: item.id, newValues: { remaining, recipientCount: result.length, sentAt: new Date().toISOString() } }));
+  return { dueId: item.id, notified: result.length };
 }
 
 export async function createDue(input: unknown) {

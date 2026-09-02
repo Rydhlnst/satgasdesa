@@ -18,7 +18,7 @@ import { reverseFinancialTransactionRecord } from "@/src/features/finance/servic
 import { assertRealizationAmountAvailable as assertRemainingAllocation } from "./allocation-rules";
 import { allocationControlStatus, allocationPercent, type AllocationControlStatus } from "./allocation-controls";
 import { BUDGET_PERIOD_STATUSES, INITIAL_BUDGET_GROUPS, REALIZATION_TRANSITIONS } from "./constants";
-import { addBudgetCategoryToPeriodSchema, addBudgetChangeRequestAttachmentSchema, addBudgetItemAttachmentSchema, addBudgetPeriodAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetChangeRequestAttachmentDownloadSchema, budgetChangeRequestAttachmentUploadSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetPeriodAttachmentDownloadSchema, budgetPeriodAttachmentUploadSchema, budgetPeriodFiltersSchema, budgetChangeRequestTransitionSchema, createBudgetCategorySchema, createBudgetChangeRequestSchema, correctRealizationSchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemProgressSchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
+import { addBudgetCategoryToPeriodSchema, addBudgetChangeRequestAttachmentSchema, addBudgetItemAttachmentSchema, addBudgetItemRabAttachmentSchema, addBudgetPeriodAttachmentSchema, addRealizationEvidenceSchema, approveBudgetPeriodSchema, budgetCategoryFiltersSchema, budgetChangeRequestAttachmentDownloadSchema, budgetChangeRequestAttachmentUploadSchema, budgetItemAttachmentDownloadSchema, budgetItemAttachmentUploadSchema, budgetItemRabAttachmentUploadSchema, budgetPeriodAttachmentDownloadSchema, budgetPeriodAttachmentUploadSchema, budgetPeriodFiltersSchema, budgetChangeRequestTransitionSchema, createBudgetCategorySchema, createBudgetChangeRequestSchema, correctRealizationSchema, createBudgetItemSchema, createBudgetPeriodSchema, createBudgetSubcategorySchema, createRealizationSchema, deleteBudgetItemSchema, realizationEvidenceDownloadSchema, realizationEvidenceUploadSchema, realizationFiltersSchema, reverseRealizationSchema, reviseBudgetItemSchema, transitionRealizationSchema, updateBudgetCategorySchema, updateBudgetItemProgressSchema, updateBudgetItemSchema, updateBudgetSubcategorySchema, updateRealizationSchema, verifyBudgetPeriodSchema } from "./schema";
 
 function parseInput<T>(result: { success: boolean; data?: T; error?: unknown }): T {
   return parseValidatedInput(result, "Please check the budget details and try again.");
@@ -614,6 +614,31 @@ export async function addBudgetItemAttachment(input: unknown) {
     await tx.insert(budgetItemAttachment).values({ id, budgetItemId: item.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });
     await tx.insert(budgetPeriodHistory).values({ id: crypto.randomUUID(), periodId: group.periodId, budgetItemId: item.id, action: "ATTACHMENT_ADDED", notes: optionalValue(values.caption), createdBy: session.user.id, createdAt: now });
     await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "BUDGET_ITEM_ATTACHMENT", entityId: id, newValues: { budgetItemId: item.id, storageKey: values.storageKey } }));
+  });
+  return { id };
+}
+
+export async function createBudgetItemRabAttachmentUploadUrl(input: unknown) {
+  await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(budgetItemRabAttachmentUploadSchema.safeParse(input));
+  await getDraftBudgetItem(values.budgetItemId);
+  validateUpload(values);
+  const upload = await getObjectStorage().createUploadUrl({ ...values, scope: budgetItemAttachmentScope(values.budgetItemId) });
+  assertBudgetItemAttachmentKey(values.budgetItemId, upload.key);
+  return { key: upload.key, uploadUrl: upload.uploadUrl };
+}
+
+export async function addBudgetItemRabAttachment(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.BUDGET_CREATE);
+  const values = parseInput(addBudgetItemRabAttachmentSchema.safeParse(input));
+  const { item, group } = await getDraftBudgetItem(values.budgetItemId);
+  assertBudgetItemAttachmentKey(item.id, values.storageKey);
+  await getObjectStorage().verifyObject(values.storageKey, { contentType: values.contentType, size: values.sizeBytes, originalName: values.storageKey.split("/").at(-1) ?? "rab.pdf" });
+  const id = crypto.randomUUID(); const now = new Date();
+  await getDb().transaction(async (tx) => {
+    await tx.insert(budgetItemAttachment).values({ id, budgetItemId: item.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes, caption: optionalValue(values.caption) ?? "RAB item", createdBy: session.user.id, createdAt: now });
+    await tx.insert(budgetPeriodHistory).values({ id: crypto.randomUUID(), periodId: group.periodId, budgetItemId: item.id, action: "RAB_ITEM_ATTACHED", notes: optionalValue(values.caption) ?? "RAB item", createdBy: session.user.id, createdAt: now });
+    await tx.insert(auditLog).values(createAuditLogValues({ actorUserId: session.user.id, action: AUDIT_ACTIONS.CREATE, entityType: "BUDGET_ITEM_RAB_ATTACHMENT", entityId: id, newValues: { budgetItemId: item.id, storageKey: values.storageKey, contentType: values.contentType, sizeBytes: values.sizeBytes } }));
   });
   return { id };
 }

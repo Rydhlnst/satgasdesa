@@ -51,6 +51,18 @@ export default function EditBlock() {
     }
   }
 
+  async function persist(valuesToSave: ReturnType<typeof blockFormSchema.parse>) {
+    setSaving(true);
+    try {
+      await updateBlock({ id, ...valuesToSave, startDate: valuesToSave.startDate || undefined, areaHectares: valuesToSave.areaHectares ?? undefined });
+      await client.invalidateQueries({ queryKey: ["block", id] });
+      await client.invalidateQueries({ queryKey: ["blocks"] });
+      router.back();
+    } catch (error) {
+      showActionError(error, "Periksa data blok.");
+    } finally { setSaving(false); }
+  }
+
   async function save() {
     const parsed = blockFormSchema.safeParse(values);
     if (!parsed.success) {
@@ -61,15 +73,10 @@ export default function EditBlock() {
       return;
     }
     setErrors({});
-    setSaving(true);
-    try {
-      await updateBlock({ id, ...parsed.data, startDate: parsed.data.startDate || undefined, areaHectares: parsed.data.areaHectares ?? undefined });
-      await client.invalidateQueries({ queryKey: ["block", id] });
-      await client.invalidateQueries({ queryKey: ["blocks"] });
-      router.back();
-    } catch (error) {
-      showActionError(error, "Periksa data blok.");
-    } finally { setSaving(false); }
+    Alert.alert("Konfirmasi perubahan", "Data blok akan diperbarui. Pastikan nama, lokasi, penanggung jawab, dan status sudah benar.", [
+      { text: "Batal", style: "cancel" },
+      { text: "Simpan perubahan", onPress: () => void persist(parsed.data) },
+    ]);
   }
 
   return <><Header role={role} title="Ubah Blok" subtitle="Perbarui data atau status operasional" /><Screen><Text style={styles.heading}>Informasi Blok</Text>{field("code", "Kode blok *")}{field("name", "Nama blok *")}<Text style={styles.label}>Status</Text><SelectField label="" value={values.status} onChange={(value) => updateField("status", value)} options={[{ label: "Aktif", value: "ACTIVE" }, { label: "Berhenti", value: "STOPPED" }, { label: "Belum Operasi", value: "NOT_OPERATING" }]} /><ErrorText value={errors.status} /><Text style={styles.label}>Prioritas</Text><SelectField label="" value={values.priority} onChange={(value) => updateField("priority", value)} options={[{ label: "Rendah", value: "LOW" }, { label: "Normal", value: "NORMAL" }, { label: "Tinggi", value: "HIGH" }, { label: "Kritis", value: "CRITICAL" }]} /><ErrorText value={errors.priority} />{field("latitude", "Latitude *", false, "numeric")}{field("longitude", "Longitude *", false, "numeric")}<Pressable accessibilityRole="button" onPress={() => void captureLocation()} style={styles.location}><Text style={styles.locationText}>Gunakan Lokasi Saat Ini</Text></Pressable>{field("areaHectares", "Luas area (hektar)", false, "numeric")}{field("managerName", "Pengelola")}{field("locationPicName", "PJ lokasi")}{field("fieldPicName", "PJ lapangan")}{field("contact", "Kontak")}{field("workerCount", "Jumlah pekerja", false, "numeric")}{field("operationalCondition", "Kondisi operasional *", true)}{field("notes", "Catatan", true)}<ErrorText value={errors.form} /><SubmitButton label="Simpan Perubahan" loading={saving} onPress={() => void save()} /></Screen></>;

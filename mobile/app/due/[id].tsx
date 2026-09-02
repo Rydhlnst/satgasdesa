@@ -9,7 +9,7 @@ import { RowCard, StatusPill } from "../../src/components/PimpinanPrimitives";
 import { BottomNav, EmptyState, ErrorState, Header, LoadingState, Screen } from "../../src/components/Screen";
 import { TextInput } from "../../src/components/AppPrimitives";
 import { AppAlert as Alert, showActionError } from "../../src/lib/feedback";
-import { confirmDuePayment, getDue, getDuePaymentEvidenceDownloadUrl, rejectDuePayment, reverseDuePayment } from "../../src/lib/api";
+import { confirmDuePayment, getDue, getDuePaymentEvidenceDownloadUrl, rejectDuePayment, reverseDuePayment, sendDueReminder } from "../../src/lib/api";
 import { money } from "../../src/lib/format";
 import { createClientId, routeParam } from "../../src/lib/id";
 import { displayStatus, numberValue, text } from "../../src/lib/read";
@@ -43,6 +43,7 @@ export default function DueDetail() {
   const canVerify = session?.permissions.includes("PAYMENT_FIELD_VERIFY") ?? false;
   const canCancelPending = (payment: Payment) => canPay && (canReverse || text(payment, "recordedBy") === session?.user.id);
   const remaining = numberValue(due, "remaining");
+  const canSendReminder = canReverse && remaining > 0;
   const verificationTarget = payments.find((payment) => text(payment, "status") === "PENDING") ?? payments[0];
   const selectedStatus = text(selectedPayment ?? undefined, "status", "PENDING");
   const selectedPending = selectedStatus === "PENDING";
@@ -54,6 +55,26 @@ export default function DueDetail() {
       client.invalidateQueries({ queryKey: ["dues"] }),
       client.invalidateQueries({ queryKey: ["transactions"] }),
     ]);
+  }
+
+  function requestReminder() {
+    Alert.alert("Kirim pengingat tunggakan?", "Pengusaha akan menerima notifikasi tunggakan. Pengingat hanya berhasil jika iuran sudah melewati jatuh tempo.", [
+      { text: "Batal", style: "cancel" },
+      { text: "Kirim pengingat", onPress: () => void sendReminder() },
+    ]);
+  }
+
+  async function sendReminder() {
+    if (!canSendReminder || saving) return;
+    setSaving(true);
+    try {
+      const result = await sendDueReminder({ dueId: id });
+      Alert.alert("Pengingat terkirim", `${text(result as Record<string, unknown>, "notified", "0")} pengusaha menerima notifikasi.`);
+    } catch (error) {
+      showActionError(error, "Pengingat belum dapat dikirim. Pastikan iuran sudah melewati jatuh tempo.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function reverse(paymentId: string) {
@@ -127,6 +148,7 @@ export default function DueDetail() {
       <Text style={styles.value}>Kewajiban: {money(numberValue(due, "amountDue"))} · Diterima: {money(numberValue(due, "amountPaid"))}</Text>
     </View>
     {canPay && remaining > 0 ? <Pressable accessibilityRole="button" onPress={() => router.push(`/payment/${id}`)} style={styles.primary}><Text style={styles.primaryText}>Catat Pembayaran</Text></Pressable> : null}
+    {canSendReminder ? <Pressable accessibilityRole="button" disabled={saving} onPress={requestReminder} style={styles.reminder}><Text style={styles.reminderText}>Kirim Pengingat Tunggakan</Text></Pressable> : null}
     {payments.some((payment) => canCancelPending(payment) || (canReverse && text(payment, "status") === "CONFIRMED")) ? <View style={styles.reversal}><Text style={styles.reversalLabel}>Alasan pembatalan</Text><TextInput value={reason} onChangeText={setReason} placeholder="Contoh: data pembayaran perlu diperbaiki" multiline style={styles.input} /></View> : null}
     <View style={styles.section}>
       <Text style={styles.title}>Riwayat Pembayaran</Text>
@@ -154,6 +176,8 @@ const styles = StyleSheet.create({
   value: { color: "#DCE7FF", fontSize: typography.caption },
   primary: { alignItems: "center", backgroundColor: colors.primary, borderRadius: radii.md, minHeight: 48, justifyContent: "center", paddingHorizontal: spacing.lg },
   primaryText: { color: "#FFFFFF", fontSize: typography.body, fontWeight: "900" },
+  reminder: { alignItems: "center", borderColor: colors.primary, borderRadius: radii.md, borderWidth: 1, justifyContent: "center", minHeight: 44, paddingHorizontal: spacing.lg },
+  reminderText: { color: colors.primary, fontSize: typography.caption, fontWeight: "900" },
   reversal: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radii.lg, borderWidth: 1, padding: spacing.md },
   reversalLabel: { color: colors.textStrong, fontSize: typography.caption, fontWeight: "800", marginBottom: 6 },
   input: { borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, color: colors.text, minHeight: 54, padding: 10, textAlignVertical: "top" },

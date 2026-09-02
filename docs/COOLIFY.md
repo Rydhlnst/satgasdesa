@@ -27,7 +27,7 @@ Normal VPS rebuilds are safe when the persistent MySQL volume and the Compose pr
 docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
 ```
 
-The app runs `scripts/container-start.mjs` on every new container start. It validates the environment, checks the migration files for destructive table/row operations, applies only pending Drizzle migrations, seeds reference RBAC data when enabled, and starts the server. Applied migrations are tracked by Drizzle, so a rebuild does not replay them.
+The app runs `scripts/container-start.mjs` on every new container start. It validates the environment, checks the migration files for destructive table/row operations, applies only pending Drizzle migrations, skips only duplicate table/index/constraint objects left by an interrupted migration, seeds reference RBAC data when enabled, and starts the server. Applied migrations are tracked by Drizzle, so a rebuild does not replay them. Any other schema error still stops startup for review.
 
 Production uses `pnpm db:migrate`/the runtime migrator only. Do not use `pnpm db:push` against the VPS database. The migration safety check blocks `DROP TABLE`, `DROP COLUMN`, `TRUNCATE`, and `DELETE FROM` statements before the app starts. A blocked migration leaves the existing database untouched and the app container stopped for diagnosis.
 

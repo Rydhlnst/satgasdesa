@@ -53,6 +53,7 @@ export const reverseDuePaymentSchema = z.object({
 
 export const confirmDuePaymentSchema = z.object({ duePaymentId: uuid });
 export const rejectDuePaymentSchema = z.object({ duePaymentId: uuid, reason: z.string().trim().min(1, "Alasan penolakan wajib diisi.").max(5000) });
+export const sendDueReminderSchema = z.object({ dueId: dueIdSchema });
 
 export const duesFiltersSchema = z.object({
   status: z.enum(["UNPAID", "PARTIAL", "PAID"]).optional(),
