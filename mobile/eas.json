@@ -13,6 +13,7 @@
     "production-apk": {
       "distribution": "internal",
       "environment": "production",
+      "channel": "default",
       "env": {
         "EXPO_PUBLIC_MAPTILER_API_KEY": "aMLN9nEBYyt9McR3wUvk"
       },
@@ -22,6 +23,7 @@
     },
     "production": {
       "environment": "production",
+      "channel": "default",
       "env": {
         "EXPO_PUBLIC_MAPTILER_API_KEY": "aMLN9nEBYyt9McR3wUvk"
       },

@@ -47,6 +47,7 @@
     },
     "extra": {
       "router": {},
+      "mapTilerApiKey": "aMLN9nEBYyt9McR3wUvk",
       "eas": {
         "projectId": "e67634b8-e958-4d6e-911b-699ab1bb864f"
       }

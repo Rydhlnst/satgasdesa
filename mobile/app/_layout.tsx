@@ -10,6 +10,7 @@ import { openInitialPushResponse, subscribeToPushEvents } from "../src/notificat
 import { OfflineSyncProvider } from "../src/offline/provider";
 import { GluestackUIProvider } from "../src/components/ui/gluestack-ui-provider";
 import { AppErrorBoundary } from "../src/components/AppErrorBoundary";
+import { AutoUpdate } from "../src/components/AutoUpdate";
 import "../global.css";
 
 function PushNotificationRouter() {
@@ -25,5 +26,5 @@ function PushNotificationRouter() {
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: false } } }));
-  return <SafeAreaProvider><QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><GluestackUIProvider mode="light"><AppErrorBoundary><PushNotificationRouter /><StatusBar style="dark" /><Stack screenOptions={{ headerShown: false }} /></AppErrorBoundary></GluestackUIProvider></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider></SafeAreaProvider>;
+  return <SafeAreaProvider><QueryClientProvider client={queryClient}><DateRangeProvider><AuthProvider><OfflineSyncProvider><GluestackUIProvider mode="light"><AppErrorBoundary><AutoUpdate /><PushNotificationRouter /><StatusBar style="dark" /><Stack screenOptions={{ headerShown: false }} /></AppErrorBoundary></GluestackUIProvider></OfflineSyncProvider></AuthProvider></DateRangeProvider></QueryClientProvider></SafeAreaProvider>;
 }

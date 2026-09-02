@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "update:production": "npm exec --yes eas-cli@latest -- update --channel default --environment production --platform android"
   },
   "dependencies": {
     "@babel/runtime": "7.26.10",

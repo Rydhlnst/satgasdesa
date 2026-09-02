@@ -6,7 +6,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const isProductionEasBuild = Boolean(process.env.EAS_BUILD && ["production-apk", "production"].includes(process.env.EAS_BUILD_PROFILE ?? ""));
   const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, "");
   const apiUrl = isProductionEasBuild ? PRODUCTION_API_URL : (configuredApiUrl || PRODUCTION_API_URL);
-  const mapTilerApiKey = process.env.EXPO_PUBLIC_MAPTILER_API_KEY?.trim();
+  const configuredMapTilerApiKey = process.env.EXPO_PUBLIC_MAPTILER_API_KEY?.trim();
+  const fallbackMapTilerApiKey = typeof config.extra?.mapTilerApiKey === "string" ? config.extra.mapTilerApiKey.trim() : undefined;
+  const mapTilerApiKey = configuredMapTilerApiKey || fallbackMapTilerApiKey;
 
   if (process.env.EAS_BUILD) {
     try {
@@ -23,6 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     extra: { ...(config.extra ?? {}), apiUrl, mapTilerApiKey },
     android: { ...config.android, softwareKeyboardLayoutMode: "resize" },
+    updates: { ...(config.updates ?? {}), checkAutomatically: "ON_LOAD", fallbackToCacheTimeout: 0 },
     plugins: [
       ...(config.plugins ?? []),
       "expo-asset",
